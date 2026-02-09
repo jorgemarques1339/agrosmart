@@ -1,58 +1,67 @@
 import React from 'react';
-import { Camera, X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 
-const PestDetection = ({ selectedImage, isAnalyzing, result, onUpload, onClose }) => {
-  if (!selectedImage) {
-    return (
-      <div className="bg-white rounded-[20px] p-4 border border-[#E0E4D6] shadow-sm">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="font-medium text-[#1A1C18]">Detetar Pragas (IA)</h3>
-          <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">BETA</span>
-        </div>
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-[#74796D] border-dashed rounded-xl cursor-pointer bg-[#FDFDF5] hover:bg-[#EFF2E6] transition-colors">
-          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <Camera className="w-8 h-8 mb-2 text-[#43483E]" />
-            <p className="text-sm text-[#43483E] font-medium">Tirar foto ou carregar</p>
-          </div>
-          <input type="file" className="hidden" accept="image/*" capture="environment" onChange={onUpload} />
-        </label>
-      </div>
-    );
-  }
+const PestDetection = ({ selectedImage, isAnalyzing, result, onClose }) => {
+  // Se não houver imagem, o componente não renderiza nada (layout limpo)
+  if (!selectedImage) return null;
 
   return (
-    <div className="bg-white rounded-[20px] overflow-hidden border border-[#E0E4D6] shadow-md animate-slide-up">
-      <div className="relative h-48 bg-black">
-        <img src={selectedImage} alt="Preview" className="w-full h-full object-cover opacity-90" />
-        <button onClick={onClose} className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70">
-          <X size={20} />
-        </button>
-        {isAnalyzing && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm">
-            <Loader2 className="w-10 h-10 text-[#CBE6A2] animate-spin mb-2" />
-            <p className="text-white font-medium tracking-wide">A analisar planta...</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-[28px] overflow-hidden border border-[#E0E4D6] shadow-2xl w-full max-w-sm animate-slide-up">
+        
+        {/* Preview da Imagem */}
+        <div className="relative h-64 bg-black flex items-center justify-center">
+          <img 
+            src={selectedImage} 
+            alt="Preview" 
+            className={`w-full h-full object-cover ${isAnalyzing ? 'opacity-50' : 'opacity-100'}`} 
+          />
+          
+          <button 
+            onClick={onClose} 
+            className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
+          >
+            <X size={20} />
+          </button>
+
+          {isAnalyzing && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <Loader2 className="w-12 h-12 text-[#CBE6A2] animate-spin mb-3" />
+              <p className="text-white font-bold tracking-widest text-sm uppercase">Analisando Praga...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Resultados da Análise */}
+        {result && (
+          <div className="p-6 bg-[#FDFDF5]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] text-[#43483E] font-bold uppercase tracking-widest mb-1">Resultado da IA</p>
+                <h3 className="text-xl font-bold text-[#1A1C18]">{result.disease}</h3>
+              </div>
+              <div className={`p-2 rounded-full ${result.status === 'Saudável' ? 'bg-[#CBE6A2] text-[#2D4F00]' : 'bg-[#FFDAD6] text-[#BA1A1A]'}`}>
+                {result.status === 'Saudável' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+              </div>
+            </div>
+
+            <div className={`p-4 rounded-2xl mb-4 ${result.status === 'Saudável' ? 'bg-[#CBE6A2]/20' : 'bg-[#BA1A1A]/10'}`}>
+              <p className="text-xs font-bold text-[#43483E] mb-1 uppercase tracking-wider">Ação Sugerida:</p>
+              <p className="text-sm text-[#1A1C18] leading-relaxed font-medium">{result.treatment}</p>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <p className="text-[10px] text-[#74796D] font-medium italic">Confiança do Diagnóstico: {result.confidence}</p>
+              <button 
+                onClick={onClose}
+                className="text-sm font-bold text-[#3E6837] hover:underline"
+              >
+                Concluir
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      {result && (
-        <div className="p-4 bg-[#FDFDF5]">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-xs text-[#43483E] uppercase tracking-wider">Diagnóstico IA</p>
-              <h3 className="text-lg font-bold text-[#1A1C18]">{result.disease}</h3>
-            </div>
-            <div className={`px-3 py-1 rounded-lg text-xs font-bold ${result.status === 'Saudável' ? 'bg-[#CBE6A2] text-[#2D4F00]' : 'bg-[#FFDAD6] text-[#410002]'}`}>
-              {result.status}
-            </div>
-          </div>
-          <div className="bg-[#EFF2E6] p-3 rounded-xl mb-3">
-            <p className="text-xs font-bold text-[#43483E] mb-1">TRATAMENTO:</p>
-            <p className="text-sm text-[#1A1C18]">{result.treatment}</p>
-          </div>
-          <p className="text-xs text-right text-[#74796D]">Confiança: {result.confidence}</p>
-        </div>
-      )}
     </div>
   );
 };

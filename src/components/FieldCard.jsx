@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Droplets, Thermometer, BarChart3, Calendar, Trash2, FileText, Plus } from 'lucide-react';
+import { Check, Droplets, Thermometer, BarChart3, Calendar, Trash2, FileText, Plus, MapPin, Loader2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const HUMIDITY_HISTORY_DATA = [
@@ -10,11 +10,37 @@ const HUMIDITY_HISTORY_DATA = [
 const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isOnline, onDelete, logs = [], onAddLog }) => {
   const [viewMode, setViewMode] = useState('chart'); // 'chart' ou 'history'
   const [newLogText, setNewLogText] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
 
   const handleAddLog = () => {
-    if (newLogText.trim()) {
-        onAddLog(field.id, newLogText);
-        setNewLogText('');
+    if (!newLogText.trim()) return;
+
+    setIsLocating(true);
+
+    // Tentar obter localização GPS
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const location = { 
+            lat: position.coords.latitude, 
+            lng: position.coords.longitude 
+          };
+          onAddLog(field.id, newLogText, location); // Envia com localização
+          setNewLogText('');
+          setIsLocating(false);
+        },
+        (error) => {
+          console.warn("Erro ao obter GPS ou permissão negada:", error);
+          onAddLog(field.id, newLogText, null); // Envia sem localização se falhar
+          setNewLogText('');
+          setIsLocating(false);
+        },
+        { timeout: 5000 } // Espera no máximo 5 segundos
+      );
+    } else {
+      onAddLog(field.id, newLogText, null);
+      setNewLogText('');
+      setIsLocating(false);
     }
   };
 
@@ -98,7 +124,20 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
                         <div key={log.id} className="bg-white p-2 rounded-lg border border-[#EFF2E6] text-xs">
                            <div className="flex justify-between items-start mb-1">
                               <span className="font-bold text-[#1A1C18]">{log.date}</span>
-                              <span className="bg-[#E1E4D5] text-[#3E6837] px-1.5 py-0.5 rounded text-[10px] uppercase">{log.type}</span>
+                              <div className="flex items-center gap-1">
+                                {log.location && (
+                                  <a 
+                                    href={`https://www.google.com/maps/search/?api=1&query=${log.location.lat},${log.location.lng}`} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-[#3E6837]"
+                                    title="Ver no Mapa"
+                                  >
+                                    <MapPin size={12} />
+                                  </a>
+                                )}
+                                <span className="bg-[#E1E4D5] text-[#3E6837] px-1.5 py-0.5 rounded text-[10px] uppercase">{log.type}</span>
+                              </div>
                            </div>
                            <p className="text-[#43483E]">{log.description}</p>
                         </div>
@@ -107,13 +146,18 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
                  <div className="flex gap-2 pt-2 border-t border-[#D8E6C6]">
                     <input 
                       type="text" 
-                      placeholder="Novo registo..." 
+                      placeholder="Registo com GPS..." 
                       className="flex-1 bg-[#FDFDF5] border border-[#E0E4D6] rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#3E6837]"
                       value={newLogText}
                       onChange={(e) => setNewLogText(e.target.value)}
+                      disabled={isLocating}
                     />
-                    <button onClick={handleAddLog} className="bg-[#3E6837] text-white p-1.5 rounded-lg">
-                       <Plus size={14} />
+                    <button 
+                      onClick={handleAddLog} 
+                      className="bg-[#3E6837] text-white p-1.5 rounded-lg disabled:opacity-50"
+                      disabled={isLocating}
+                    >
+                       {isLocating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
                     </button>
                  </div>
               </div>
