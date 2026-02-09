@@ -14,10 +14,10 @@ import FieldMap from './components/FieldMap';
 import StockManager from './components/StockManager'; 
 import FinanceManager from './components/FinanceManager';
 
-// --- DADOS INICIAIS ---
+// --- DADOS INICIAIS (CORRIGIDO PARA ARRAY 'INITIAL_ANIMALS') ---
 
-const MOCK_ANIMALS = {
-  '12345': {
+const INITIAL_ANIMALS = [
+  {
     id: 'PT-12345', name: 'Mimosa', type: 'Vaca Leiteira', age: '4 Anos', weight: '650kg',
     status: 'Saudável', lastVetVisit: '10/01/2026', notes: 'Produção leite acima da média.',
     feed: 'Ração A + Silagem', needs: ['Suplemento Cálcio', 'Verificar Cascos'],
@@ -26,19 +26,19 @@ const MOCK_ANIMALS = {
       { day: '04/02', value: 32 }, { day: '05/02', value: 31 }, { day: '06/02', value: 33 },
     ]
   },
-  '67890': {
+  {
     id: 'PT-67890', name: 'Bebé', type: 'Bezerro', age: '3 Meses', weight: '120kg',
     status: 'Atenção', lastVetVisit: '02/02/2026', notes: 'Ligeira febre.',
     feed: 'Leite Materno + Ração', needs: ['Monitorizar Febre', 'Vacina B dia 15'],
-    productionHistory: []
+    productionHistory: [] 
   },
-  '11223': {
+  {
     id: 'PT-11223', name: 'Trovão', type: 'Cavalo Lusitano', age: '6 Anos', weight: '580kg',
     status: 'Saudável', lastVetVisit: '15/12/2025', notes: 'Prep. feira.',
     feed: 'Feno + Aveia', needs: ['Treino Diário', 'Escovagem'],
     productionHistory: []
   }
-};
+];
 
 const CROP_CALENDAR = {
   '🌽': { plant: '15 Abril', harvest: '15 Setembro', label: 'Milho' },
@@ -67,21 +67,13 @@ const INITIAL_STOCKS = [
 const INITIAL_TASKS = [
   { id: 1, title: 'Vacinar Gado (Mimosa)', date: 'Hoje', done: false, stockId: 's2', usage: 1 },
   { id: 2, title: 'Comprar Adubo', date: 'Amanhã', done: false },
-  // Tarefa associada ao Campo 3 para testar o histórico automático
-  { id: 3, title: 'Verificar sensores', date: 'Hoje', done: true, fieldId: 3 }
-];
-
-// --- NOVO: Histórico Inicial ---
-const INITIAL_FIELD_LOGS = [
-  { id: 101, fieldId: 2, date: '15/01/2026', description: 'Poda de Inverno realizada', type: 'intervention' },
-  { id: 102, fieldId: 1, date: '01/02/2026', description: 'Adubação de fundo (NPK)', type: 'treatment' }
+  { id: 3, title: 'Verificar sensores', date: 'Hoje', done: true }
 ];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const [isScanning, setIsScanning] = useState(false);
   
-  // Agora guardamos apenas o ID do animal lido para garantir reatividade
   const [scannedAnimalId, setScannedAnimalId] = useState(null);
   
   const [notification, setNotification] = useState(null);
@@ -100,7 +92,7 @@ export default function App() {
   const [saleDesc, setSaleDesc] = useState('');
   const [saleAmount, setSaleAmount] = useState('');
 
-  // --- NOVOS ESTADOS: Adicionar Animal ---
+  // Estados: Adicionar Animal
   const [isAddingAnimal, setIsAddingAnimal] = useState(false);
   const [newAnimalName, setNewAnimalName] = useState('');
   const [newAnimalTag, setNewAnimalTag] = useState('');
@@ -108,6 +100,7 @@ export default function App() {
 
   // --- ESTADOS COM PERSISTÊNCIA ---
 
+  // Aqui estava o erro: chamava INITIAL_ANIMALS mas só existia MOCK_ANIMALS
   const [animals, setAnimals] = useState(() => {
     const saved = localStorage.getItem('agrosmart_animals');
     return saved ? JSON.parse(saved) : INITIAL_ANIMALS;
@@ -133,12 +126,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Estado para o Caderno de Campo
-  const [fieldLogs, setFieldLogs] = useState(() => {
-    const saved = localStorage.getItem('agrosmart_field_logs');
-    return saved ? JSON.parse(saved) : INITIAL_FIELD_LOGS;
-  });
-
   const [selectedImage, setSelectedImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -149,7 +136,6 @@ export default function App() {
   useEffect(() => { localStorage.setItem('agrosmart_tasks', JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem('agrosmart_stocks', JSON.stringify(stocks)); }, [stocks]);
   useEffect(() => { localStorage.setItem('agrosmart_finance', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('agrosmart_field_logs', JSON.stringify(fieldLogs)); }, [fieldLogs]);
 
   // Monitorizar rede
   useEffect(() => {
@@ -159,7 +145,7 @@ export default function App() {
     return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
   }, [pendingSync]);
 
-  // Simulação Sensores e Clima
+  // Simulação Sensores
   useEffect(() => {
     const sensorInterval = setInterval(() => {
       setFields(curr => curr.map(f => ({
@@ -186,16 +172,11 @@ export default function App() {
   const handleScanNFC = () => {
     setIsScanning(true); setScannedAnimalId(null);
     setTimeout(() => {
-      const keys = Object.keys(animals); // Ajuste: usar chaves do objeto se animals for objeto, ou indices se for array. MOCK_ANIMALS aqui é objeto, mas INITIAL_ANIMALS era array.
-      // O estado animals é inicializado como array a partir do INITIAL_ANIMALS que era um objeto no código anterior,
-      // mas no código corrigido anterior MOCK_ANIMALS era objeto e INITIAL_ANIMALS não existia como tal. 
-      // VOU CORRIGIR a inicialização para usar array sempre.
-      
-      // Assumindo que animals é um array (do código anterior)
-      const randomAnimal = Array.isArray(animals) ? animals[Math.floor(Math.random() * animals.length)] : Object.values(animals)[0];
+      // Como animals agora é um array, isto funciona perfeitamente
+      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
       if (randomAnimal) {
-          setScannedAnimalId(randomAnimal.id);
-          showNotification(`NFC Lido: ${randomAnimal.name}`);
+        setScannedAnimalId(randomAnimal.id);
+        showNotification(`NFC Lido: ${randomAnimal.name}`);
       }
       setIsScanning(false); 
     }, 2000);
@@ -220,9 +201,7 @@ export default function App() {
       productionHistory: []
     };
     
-    // Se animals for objeto, converter. Mas vamos manter array.
-    const currentAnimals = Array.isArray(animals) ? animals : Object.values(animals);
-    setAnimals([...currentAnimals, newAnimal]);
+    setAnimals([...animals, newAnimal]);
     setNewAnimalName('');
     setNewAnimalTag('');
     setIsAddingAnimal(false);
@@ -232,16 +211,13 @@ export default function App() {
   const addAnimalProduction = (animalId, value) => {
     const todayStr = new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
     
-    setAnimals(prevAnimals => {
-        const list = Array.isArray(prevAnimals) ? prevAnimals : Object.values(prevAnimals);
-        return list.map(animal => {
-          if (animal.id === animalId) {
-            const newHistory = [...(animal.productionHistory || []), { day: todayStr, value: value }];
-            return { ...animal, productionHistory: newHistory.slice(-10) };
-          }
-          return animal;
-        });
-    });
+    setAnimals(prevAnimals => prevAnimals.map(animal => {
+      if (animal.id === animalId) {
+        const newHistory = [...(animal.productionHistory || []), { day: todayStr, value: value }];
+        return { ...animal, productionHistory: newHistory.slice(-10) };
+      }
+      return animal;
+    }));
     
     showNotification(`Registo guardado: ${value}`);
   };
@@ -253,12 +229,6 @@ export default function App() {
         const newState = !f.irrigation;
         showNotification(isOnline ? (newState ? 'Rega iniciada' : 'Rega parada') : 'Ação guardada offline');
         if (!isOnline) setPendingSync(p => p + 1);
-        
-        // --- ADICIONAR AO CADERNO DE CAMPO AUTOMATICAMENTE ---
-        if (newState) { // Se ligou a rega
-            addFieldLog(fieldId, "Rega Automática Iniciada");
-        }
-
         return { ...f, irrigation: newState };
       }
       return f;
@@ -303,21 +273,12 @@ export default function App() {
 
   const toggleTask = (taskId) => {
     const task = tasks.find(t => t.id === taskId);
-    if (task && !task.done) {
-      if (task.stockId) {
-        updateStock(task.stockId, -task.usage, `Tarefa: ${task.title}`);
-        const stockItem = stocks.find(s => s.id === task.stockId);
-        const cost = stockItem ? (stockItem.price * task.usage) : 0;
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, done: true, cost: cost } : t));
-        showNotification(`Concluído! Custo registado: ${cost.toFixed(2)}€`);
-      } else {
-         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, done: true } : t));
-      }
-
-      // --- ADICIONAR AO CADERNO DE CAMPO SE TIVER FIELD ID ---
-      if (task.fieldId) {
-         addFieldLog(task.fieldId, `Tarefa Concluída: ${task.title}`);
-      }
+    if (task && !task.done && task.stockId) {
+      updateStock(task.stockId, -task.usage, `Tarefa: ${task.title}`);
+      const stockItem = stocks.find(s => s.id === task.stockId);
+      const cost = stockItem ? (stockItem.price * task.usage) : 0;
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, done: true, cost: cost } : t));
+      showNotification(`Concluído! Custo registado: ${cost.toFixed(2)}€`);
       return;
     }
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, done: !t.done } : t));
@@ -325,20 +286,6 @@ export default function App() {
 
   const deleteTask = (taskId) => { setTasks(prev => prev.filter(t => t.id !== taskId)); showNotification('Tarefa removida.'); };
   const addTask = (title) => { const newTask = { id: Date.now(), title, date: 'Hoje', done: false }; setTasks(prev => [...prev, newTask]); showNotification('Tarefa adicionada à AgroAgenda!'); };
-
-  // --- FUNÇÃO PARA ADICIONAR REGISTO AO CADERNO DE CAMPO ---
-  const addFieldLog = (fieldId, description) => {
-      const newLog = {
-          id: Date.now(),
-          fieldId: fieldId,
-          date: new Date().toLocaleDateString('pt-PT'),
-          description: description,
-          type: 'intervention' // ou 'treatment', 'harvest', etc.
-      };
-      setFieldLogs(prev => [newLog, ...prev]);
-      // A notificação já é dada pelas outras funções, mas pode ser útil para debug
-      // showNotification('Caderno de campo atualizado.');
-  };
 
   const handleAddField = () => {
     if (!newFieldName.trim()) { showNotification('Por favor, dê um nome ao campo.'); return; }
@@ -351,7 +298,6 @@ export default function App() {
   const deleteField = (id) => {
     if (window.confirm('Tem a certeza que deseja eliminar este campo?')) {
       setFields(prev => prev.filter(f => f.id !== id));
-      // Limpar logs associados também seria boa prática, mas vamos manter simples por agora
       showNotification('Campo eliminado.');
     }
   };
@@ -361,7 +307,8 @@ export default function App() {
   const showNotification = (msg) => { setNotification(msg); setTimeout(() => setNotification(null), 5000); };
 
   // --- RENDER ---
-  const scannedAnimalData = scannedAnimalId ? (Array.isArray(animals) ? animals : Object.values(animals)).find(a => a.id === scannedAnimalId) : null;
+  
+  const scannedAnimalData = scannedAnimalId ? animals.find(a => a.id === scannedAnimalId) : null;
 
   return (
     <div className="flex flex-col h-screen bg-[#FDFDF5] font-sans text-[#1A1C18] overflow-hidden">
@@ -388,10 +335,7 @@ export default function App() {
             
             <div className="flex flex-col items-center gap-4">
                <button onClick={handleScanNFC} disabled={isScanning} className={`relative w-40 h-40 rounded-[2rem] flex flex-col items-center justify-center transition-all duration-500 shadow-sm ${isScanning ? 'bg-[#E1E4D5] scale-95' : 'bg-[#CBE6A2] hover:bg-[#BBD692] hover:shadow-md active:scale-95 text-[#2D4F00]'}`}>{isScanning ? <><Activity className="w-12 h-12 text-[#3E6837] animate-pulse mb-2" /><span className="text-[#3E6837] font-medium text-sm tracking-wide">A LER...</span></> : <><Scan className="w-12 h-12 mb-3" /><span className="font-medium tracking-wide">LER TAG</span></>}</button>
-               
-               <button onClick={() => setIsAddingAnimal(true)} className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl text-[#3E6837] font-medium shadow-sm border border-[#CBE6A2] hover:bg-[#E1E4D5] transition-colors">
-                 <Plus size={16} /> Adicionar Tag
-               </button>
+               <button onClick={() => setIsAddingAnimal(true)} className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl text-[#3E6837] font-medium shadow-sm border border-[#CBE6A2] hover:bg-[#E1E4D5] transition-colors"><Plus size={16} /> Adicionar Tag</button>
             </div>
             
             {isAddingAnimal && (
@@ -415,25 +359,10 @@ export default function App() {
             {isAddingField && (
               <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in"><div className="bg-white rounded-[24px] p-6 w-full max-w-sm shadow-2xl"><h3 className="text-lg font-bold text-[#1A1C18] mb-4">Novo Campo</h3>
               <div className="space-y-4"><div><label className="text-xs text-[#43483E] font-medium ml-1">Nome</label><input type="text" className="w-full bg-[#FDFDF5] border border-[#E0E4D6] rounded-xl px-4 py-3 text-sm" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} /></div>
-              <div><label className="text-xs text-[#43483E] font-medium ml-1">Cultura</label><div className="flex gap-2 mt-2 overflow-x-auto pb-2 no-scrollbar">{Object.keys(CROP_CALENDAR).map(emoji => (<button key={emoji} onClick={() => setNewFieldType(emoji)} className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-xl border-2 ${newFieldType === emoji ? 'border-[#3E6837] bg-[#E1E4D5]' : 'border-transparent bg-[#FDFDF5]'}`}>{emoji}</button>))}</div></div>
+              <div><label className="text-xs text-[#43483E] font-medium ml-1">Cultura</label><div className="flex gap-2 mt-2 overflow-x-auto pb-2 no-scrollbar">{Object.keys(CROP_CALENDAR).map(emoji => (<button key={emoji} onClick={() => setNewFieldType(emoji)} className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center text-xl border-2 ${newFieldType === emoji ? 'border-[#3E6837] bg-[#E1E4D5]' : 'border-transparent bg-[#FDFDF5]'}`}>{emoji}</button>))}</div><div className="mt-2 text-xs text-[#43483E] bg-[#FDFDF5] p-2 rounded-lg border border-[#E0E4D6]"><span className="font-bold">Ciclo Sugerido:</span> Plantar em {CROP_CALENDAR[newFieldType]?.plant || 'Primavera'}, Colher em {CROP_CALENDAR[newFieldType]?.harvest || 'Outono'}.</div></div>
               <div className="flex gap-3 pt-2"><button onClick={() => setIsAddingField(false)} className="flex-1 py-3 rounded-xl border border-[#E0E4D6]">Cancelar</button><button onClick={handleAddField} className="flex-1 py-3 rounded-xl bg-[#3E6837] text-white">Criar</button></div></div></div></div>
             )}
-            <div className="space-y-3 pb-4">
-                {cultivoView === 'list' ? fields.map((field) => (
-                    <FieldCard 
-                        key={field.id} 
-                        field={field} 
-                        // Filtrar logs apenas para este campo
-                        logs={fieldLogs.filter(log => log.fieldId === field.id)}
-                        onToggleIrrigation={toggleIrrigation} 
-                        isExpanded={expandedFieldId === field.id} 
-                        onToggleHistory={() => setExpandedFieldId(expandedFieldId === field.id ? null : field.id)} 
-                        isOnline={isOnline} 
-                        onDelete={deleteField} 
-                        onAddLog={addFieldLog}
-                    />
-                )) : <FieldMap fields={fields} />}
-            </div>
+            <div className="space-y-3 pb-4">{cultivoView === 'list' ? fields.map((field) => (<FieldCard key={field.id} field={field} onToggleIrrigation={toggleIrrigation} isExpanded={expandedFieldId === field.id} onToggleHistory={() => setExpandedFieldId(expandedFieldId === field.id ? null : field.id)} isOnline={isOnline} onDelete={deleteField} />)) : <FieldMap fields={fields} />}</div>
           </div>
         )}
 
