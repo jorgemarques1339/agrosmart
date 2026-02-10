@@ -4,14 +4,14 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     
-    <!-- Viewport otimizado para mobile -->
+    <!-- Viewport otimizado para mobile (evita zoom indesejado) -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     
-    <!-- PWA: Manifesto -->
+    <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#3E6837" />
     
-    <!-- PWA: Configurações Standalone (Substitui a tag deprecated) -->
+    <!-- Configurações PWA -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="AgroSmart">
@@ -20,6 +20,7 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="./js/my-module.js"></script>
+    <!-- A LINHA IMPORTANTE É ESTA: Deve apontar para /src/main.jsx -->
+    <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
