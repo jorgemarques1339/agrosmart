@@ -1,21 +1,31 @@
 import React, { useState } from 'react';
 import { 
-  Sun, CloudRain, Calendar, Check, Plus, Trash2, ArrowRight
+  Sun, CloudRain, AlertTriangle, CheckCircle, ArrowRight, 
+  Calendar, Bell, Check, Plus, Trash2, Package, X
 } from 'lucide-react';
 
-// Importar o widget de calendário
 import CalendarWidget from './CalendarWidget'; 
 
 const DashboardHome = ({ weather, animals, fields, onNavigate, tasks, onToggleTask, onAddTask, onDeleteTask, stocks, onWeatherClick }) => {
-  
+  // Filtros de alertas
+  const sickAnimals = Array.isArray(animals) ? animals.filter(a => a.status !== 'Saudável') : [];
+  const lowStocks = Array.isArray(stocks) ? stocks.filter(s => s.quantity <= (s.minLevel || 0)) : [];
   const rainAlert = weather.precip >= 20;
   const today = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
-  const [newTaskInput, setNewTaskInput] = useState('');
+  
+  // --- Estados para Nova Tarefa ---
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDate, setNewTaskDate] = useState('');
 
-  const handleAddTask = () => {
-    if (newTaskInput.trim()) {
-      onAddTask(newTaskInput);
-      setNewTaskInput('');
+  const handleAddTaskClick = () => {
+    if (newTaskTitle.trim()) {
+      // Envia título e data para o App.jsx
+      onAddTask(newTaskTitle, newTaskDate);
+      // Limpar campos
+      setNewTaskTitle('');
+      setNewTaskDate('');
+      setIsAddingTask(false);
     }
   };
 
@@ -26,11 +36,7 @@ const DashboardHome = ({ weather, animals, fields, onNavigate, tasks, onToggleTa
         <p className="text-xs font-bold text-[#74796D] uppercase tracking-wider mb-1 capitalize">{today}</p>
         <h1 className="text-2xl font-normal text-[#1A1C18]">Olá, <span className="font-semibold text-[#3E6837]">Agricultor!</span></h1>
         
-        <div 
-          onClick={onWeatherClick}
-          className="mt-4 flex items-center gap-3 bg-[#FDFDF5] p-3 rounded-xl border border-[#EFF2E6] cursor-pointer active:scale-95 transition-all hover:border-[#3E6837]"
-          title="Ver Previsão Detalhada"
-        >
+        <div onClick={onWeatherClick} className="mt-4 flex items-center gap-3 bg-[#FDFDF5] p-3 rounded-xl border border-[#EFF2E6] cursor-pointer active:scale-95 transition-all hover:border-[#3E6837]" title="Ver Previsão Detalhada">
           <div className={`p-2 rounded-full ${rainAlert ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'}`}>
             {rainAlert ? <CloudRain size={20} /> : <Sun size={20} />}
           </div>
@@ -42,7 +48,7 @@ const DashboardHome = ({ weather, animals, fields, onNavigate, tasks, onToggleTa
         </div>
       </div>
 
-      {/* 2. Widget de Calendário */}
+      {/* 2. Calendário */}
       <CalendarWidget tasks={tasks} fields={fields} />
 
       {/* 3. Lista de Tarefas (AgroAgenda) */}
@@ -51,12 +57,55 @@ const DashboardHome = ({ weather, animals, fields, onNavigate, tasks, onToggleTa
           <h2 className="text-lg font-medium text-[#1A1C18] flex items-center gap-2">
             <Calendar size={18} className="text-[#3E6837]" />Lista de Tarefas
           </h2>
-          <span className="text-xs bg-[#E1E4D5] px-2 py-1 rounded-full text-[#43483E] font-medium">
-            {tasks.filter(t => !t.done).length} pendentes
-          </span>
+          
+          {/* Botão para EXPANDIR formulário de nova tarefa */}
+          {!isAddingTask && (
+             <button 
+               onClick={() => setIsAddingTask(true)}
+               className="text-xs bg-[#3E6837] text-white px-3 py-1.5 rounded-full font-bold flex items-center gap-1 active:scale-90 transition-transform shadow-sm"
+             >
+               <Plus size={14} /> Nova Tarefa
+             </button>
+          )}
         </div>
         
         <div className="bg-white rounded-[24px] p-4 border border-[#E0E4D6] shadow-sm">
+          
+          {/* FORMULÁRIO EXPANDÍVEL */}
+          {isAddingTask && (
+            <div className="mb-4 pb-4 border-b border-[#EFF2E6] animate-slide-down">
+               <div className="flex justify-between items-center mb-2">
+                 <span className="text-xs font-bold text-[#3E6837] uppercase tracking-wider">Nova Tarefa</span>
+                 <button onClick={() => setIsAddingTask(false)} className="text-[#74796D] p-1 bg-gray-100 rounded-full active:scale-90">
+                    <X size={14} />
+                 </button>
+               </div>
+               <div className="space-y-3">
+                 <input 
+                   type="text" 
+                   placeholder="O que precisa de ser feito?" 
+                   className="w-full bg-[#FDFDF5] border-2 border-[#E0E4D6] rounded-xl px-4 py-3 text-sm font-bold focus:border-[#3E6837] outline-none transition-colors"
+                   value={newTaskTitle}
+                   onChange={(e) => setNewTaskTitle(e.target.value)}
+                 />
+                 <div className="flex gap-2">
+                   <input 
+                     type="date" 
+                     className="flex-1 bg-[#FDFDF5] border-2 border-[#E0E4D6] rounded-xl px-4 py-3 text-sm font-bold focus:border-[#3E6837] outline-none text-[#43483E]"
+                     value={newTaskDate}
+                     onChange={(e) => setNewTaskDate(e.target.value)}
+                   />
+                   <button 
+                     onClick={handleAddTaskClick}
+                     className="bg-[#3E6837] text-white px-5 py-3 rounded-xl font-bold shadow-md active:scale-95 transition-transform flex items-center justify-center"
+                   >
+                     <Plus size={20} />
+                   </button>
+                 </div>
+               </div>
+            </div>
+          )}
+
           <div className="space-y-3">
             {tasks.map((task) => (
               <div key={task.id} className="flex items-center gap-3 p-2 hover:bg-[#FDFDF5] rounded-xl transition-colors group">
@@ -74,30 +123,16 @@ const DashboardHome = ({ weather, animals, fields, onNavigate, tasks, onToggleTa
 
                 <button 
                   onClick={() => onDeleteTask(task.id)}
-                  className="text-red-400 hover:text-red-600 p-2 rounded-lg transition-colors"
+                  className="text-red-400 hover:text-red-600 p-2 rounded-lg transition-colors active:scale-90"
                   title="Apagar Tarefa"
                 >
                   <Trash2 size={16} />
                 </button>
               </div>
             ))}
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-[#EFF2E6] flex gap-2">
-            <input 
-              type="text" 
-              placeholder="Nova tarefa..." 
-              className="flex-1 bg-[#FDFDF5] border border-[#E0E4D6] rounded-xl px-4 py-2 text-sm outline-none focus:border-[#3E6837] focus:ring-1 focus:ring-[#3E6837] transition-all"
-              value={newTaskInput}
-              onChange={(e) => setNewTaskInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleAddTask()}
-            />
-            <button 
-              onClick={handleAddTask}
-              className="bg-[#3E6837] text-white p-2.5 rounded-xl hover:bg-[#2D4F00] active:scale-95 transition-all shadow-sm"
-            >
-              <Plus size={20} />
-            </button>
+            {tasks.length === 0 && !isAddingTask && (
+              <p className="text-center text-xs text-[#74796D] py-4 italic">Sem tarefas pendentes.</p>
+            )}
           </div>
         </div>
       </div>
