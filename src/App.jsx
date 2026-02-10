@@ -15,7 +15,7 @@ import StockManager from './components/StockManager';
 import FinanceManager from './components/FinanceManager';
 import SettingsModal from './components/SettingsModal';
 import NotificationsModal from './components/NotificationsModal';
-import WeatherForecastModal from './components/WeatherForecastModal'; // Modal Importado
+import WeatherForecastModal from './components/WeatherForecastModal';
 
 // --- IMPORTAR DADOS ---
 import { 
@@ -23,9 +23,9 @@ import {
   INITIAL_FIELDS, 
   INITIAL_STOCKS, 
   INITIAL_TASKS, 
-  CROP_CALENDAR,
+  CROP_CALENDAR, 
   INITIAL_BATCHES,
-  MOCK_FORECAST // Dados da previsão
+  MOCK_FORECAST
 } from './data/mockData';
 
 // Estado inicial para logs (caso não haja localStorage)
@@ -72,7 +72,7 @@ export default function App() {
   // Estados de UI Globais
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false); // Estado para abrir o tempo
+  const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false); 
   const [userName, setUserName] = useState(() => localStorage.getItem('agrosmart_username') || 'Agricultor');
 
   // --- Estados com Persistência (try/catch para segurança) ---
@@ -248,7 +248,7 @@ export default function App() {
   const updateStockPrice = (id, newPrice) => {
     const price = parseFloat(newPrice);
     if (isNaN(price)) { showNotification('Preço inválido.'); return; }
-    setStocks(prev => prev.map(s => s.id === id ? { ...s, price } : s));
+    setStocks(prev => prev.map(s => s.id === id ? { ...s, price: price } : s));
     showNotification('Preço unitário atualizado!');
   };
 
@@ -389,7 +389,7 @@ export default function App() {
             <span className="text-[9px] text-[#43483E] font-black mt-1 tracking-widest">{userName.toUpperCase()}</span>
         </div>
 
-        {/* NOTIFICAÇÕES (DIREITA) */}
+        {/* NOTIFICAÇÕES (DIREITA) - ATUALIZADO: Abre o Modal de Notificações */}
         <div className="flex gap-1.5">
           <button 
             onClick={() => setIsNotificationsOpen(true)} 
@@ -434,15 +434,15 @@ export default function App() {
             }}
         />
         
-        {/* --- NOVO: Modal de Previsão do Tempo --- */}
+        {/* --- Modal de Previsão do Tempo --- */}
         <WeatherForecastModal 
           isOpen={isWeatherModalOpen} 
           onClose={() => setIsWeatherModalOpen(false)} 
-          forecast={MOCK_FORECAST || []} // Usa MOCK_FORECAST do mockData
+          forecast={MOCK_FORECAST || []} 
         />
 
         {/* --- MODAIS DE CRIAÇÃO --- */}
-        
+        {/* Modal Novo Campo */}
         {isAddingField && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0">
             <div className="bg-white rounded-t-[2.5rem] p-7 w-full max-w-md shadow-2xl animate-slide-up pb-12 border-t border-[#E0E4D6] max-h-[85vh] overflow-y-auto">
@@ -475,6 +475,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Modal Registar Receita */}
         {isAddingSale && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0">
             <div className="bg-white rounded-t-[2.5rem] p-7 w-full max-w-md shadow-2xl animate-slide-up border-t border-[#E0E4D6] max-h-[85vh] overflow-y-auto">
@@ -495,6 +496,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Modal Novo Produto */}
         {isAddingStock && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0">
             <div className="bg-white rounded-t-[2.5rem] p-7 w-full max-w-md shadow-2xl animate-slide-up border-t border-[#E0E4D6] max-h-[85vh] overflow-y-auto">
@@ -532,6 +534,7 @@ export default function App() {
           </div>
         )}
 
+        {/* Modal Novo Animal */}
         {isAddingAnimal && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm px-0">
             <div className="bg-white rounded-t-[2.5rem] p-7 w-full max-w-md shadow-2xl animate-slide-up border-t border-[#E0E4D6] max-h-[85vh] overflow-y-auto">
@@ -559,7 +562,7 @@ export default function App() {
           <DashboardHome 
             weather={weather} animals={animals} fields={fields} stocks={stocks}
             onNavigate={setActiveTab} tasks={tasks} onToggleTask={toggleTask} onAddTask={handleAddTask} onDeleteTask={deleteTask}
-            onWeatherClick={() => setIsWeatherModalOpen(true)} // AQUI ESTÁ A LIGAÇÃO
+            onWeatherClick={() => setIsWeatherModalOpen(true)}
           />
         )}
 
@@ -567,30 +570,13 @@ export default function App() {
           <div className="space-y-10 max-w-md mx-auto pb-4 pt-4">
             {!scannedAnimalId && (
               <div className="text-center space-y-6 animate-fade-in px-6">
-                
-                <div>
-                  <h2 className="text-3xl font-black text-[#1A1C18] tracking-tighter uppercase italic">NFC Scanner</h2>
-                  <p className="text-[#43483E] text-md leading-relaxed font-medium mt-2">Aproxime o smartphone da tag auricular do animal para ver o histórico.</p>
-                </div>
+                <div className="w-28 h-28 bg-[#E1E4D5] rounded-full flex items-center justify-center mx-auto text-[#3E6837] mb-4 shadow-inner border-4 border-white"><Scan size={56} /></div>
+                <div><h2 className="text-3xl font-black text-[#1A1C18] tracking-tighter uppercase italic">NFC Scanner</h2><p className="text-[#43483E] text-md leading-relaxed font-medium mt-2">Aproxime o smartphone da tag auricular do animal para ver o histórico.</p></div>
               </div>
             )}
             <div className="flex flex-col items-center justify-center gap-6 py-4">
-              <button 
-                onClick={handleScanNFC} 
-                disabled={isScanning} 
-                className={`relative w-48 h-48 rounded-[4rem] flex flex-col items-center justify-center transition-all duration-500 shadow-2xl border-[12px] border-white active:scale-90 ${isScanning ? 'bg-[#E1E4D5]' : 'bg-[#CBE6A2] text-[#2D4F00] hover:shadow-green-900/15'}`}
-              >
-                {isScanning ? (
-                  <>
-                    <Loader2 className="w-16 h-16 text-[#3E6837] animate-spin mb-4" />
-                    <span className="font-black text-[10px] tracking-widest uppercase">A LER...</span>
-                  </>
-                ) : (
-                  <>
-                    <Scan className="w-16 h-16 mb-4" />
-                    <span className="font-black text-[10px] tracking-widest uppercase">LER ANIMAL</span>
-                  </>
-                )}
+              <button onClick={handleScanNFC} disabled={isScanning} className={`relative w-48 h-48 rounded-[4rem] flex flex-col items-center justify-center transition-all duration-500 shadow-2xl border-[12px] border-white active:scale-90 ${isScanning ? 'bg-[#E1E4D5]' : 'bg-[#CBE6A2] text-[#2D4F00] hover:shadow-green-900/15'}`}>
+                {isScanning ? <><Loader2 className="w-16 h-16 text-[#3E6837] animate-spin mb-4" /><span className="font-black text-[10px] tracking-widest uppercase">A LER...</span></> : <><Scan className="w-16 h-16 mb-4" /><span className="font-black text-[10px] tracking-widest uppercase">LER ANIMAL</span></>}
                 <div className="absolute inset-0 rounded-[4rem] border-4 border-[#2D4F00]/5 animate-pulse"></div>
               </button>
               
@@ -611,21 +597,22 @@ export default function App() {
 
         {activeTab === 'cultivo' && (
           <div className="space-y-7 max-w-md mx-auto pb-4">
+            <WeatherWidget weather={weather} />
             <PestDetection selectedImage={selectedImage} isAnalyzing={isAnalyzing} result={analysisResult} onClose={() => {setSelectedImage(null); setAnalysisResult(null);}} />
 
             <div className="flex items-center justify-between mt-6 px-1">
-              <h2 className="text-[#1A1C18] font-black text-2xl tracking-tighter uppercase italic">Cultivos</h2>
+              <h2 className="text-[#1A1C18] font-black text-2xl tracking-tighter uppercase italic">Os Meus Campos</h2>
               <div className="flex gap-2.5">
-                <label className="flex items-center gap-2.5 p-4 bg-white rounded-2xl border-1 border-[#E0E4D6] text-[#3E6837] cursor-pointer shadow-sm active:scale-80 active:bg-[#FDFDF5] transition-all px-5">
-                  <Camera size={20} />
+                <label className="flex items-center gap-2.5 p-4 bg-white rounded-2xl border-2 border-[#E0E4D6] text-[#3E6837] cursor-pointer shadow-sm active:scale-90 active:bg-[#FDFDF5] transition-all px-5">
+                  <Camera size={22} />
                   <span className="text-[10px] font-black uppercase tracking-widest">Usar IA</span>
                   <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImageUpload} />
                 </label>
                 <button 
                   onClick={() => setIsAddingField(true)} 
-                  className="bg-[#3E6837] text-white p-4 rounded-2xl active:scale-80 shadow-lg shadow-green-900/20 transition-all border-1 border-[#2D4F00]"
+                  className="bg-[#3E6837] text-white p-4 rounded-2xl active:scale-85 shadow-lg shadow-green-900/20 transition-all border-2 border-[#2D4F00]"
                 >
-                  <Plus size={20} />
+                  <Plus size={26} />
                 </button>
               </div>
             </div>
@@ -680,7 +667,7 @@ export default function App() {
         )}
       </div>
 
-      {/* Bottom Navigation Bar */}
+      {/* Bottom Navigation Bar - Absolute Position */}
       <div className="absolute bottom-0 left-0 right-0 bg-[#FDFDF5]/95 backdrop-blur-2xl h-20 pb-4 flex justify-around items-center z-40 border-t border-[#E0E4D6] px-2 shadow-[0_-10px_40px_rgba(0,0,0,0.1)]">
         {[
           {id: 'home', icon: Home, label: 'Início'},
