@@ -1,5 +1,4 @@
 // --- CALENDÁRIO AGRÍCOLA INTELIGENTE ---
-// Define as datas ideais e a produtividade esperada (toneladas/hectare) para a IA
 export const CROP_CALENDAR = {
   '🌽': { plant: '15 Abril', harvest: '15 Setembro', label: 'Milho', yieldPerHa: 12 },
   '🍇': { plant: 'Jan-Mar (Poda)', harvest: 'Set-Out (Vindima)', label: 'Vinha', yieldPerHa: 8 },
@@ -11,7 +10,16 @@ export const CROP_CALENDAR = {
   '🍓': { plant: 'Novembro', harvest: 'Maio', label: 'Morango', yieldPerHa: 15 },
 };
 
-// --- DADOS PARA GRÁFICOS (Novos) ---
+// --- PREVISÃO METEOROLÓGICA (5 DIAS) - NOVO ---
+export const MOCK_FORECAST = [
+  { day: 'Amanhã', tempMax: 22, tempMin: 14, condition: 'Chuva', precip: '15mm', icon: 'rain' },
+  { day: 'Quarta', tempMax: 20, tempMin: 13, condition: 'Nublado', precip: '5mm', icon: 'cloud' },
+  { day: 'Quinta', tempMax: 24, tempMin: 15, condition: 'Limpo', precip: '0mm', icon: 'sun' },
+  { day: 'Sexta', tempMax: 25, tempMin: 16, condition: 'Limpo', precip: '0mm', icon: 'sun' },
+  { day: 'Sábado', tempMax: 23, tempMin: 14, condition: 'Vento', precip: '2mm', icon: 'wind' },
+];
+
+// --- DADOS PARA GRÁFICOS (Usados no FieldCard) ---
 export const HUMIDITY_HISTORY_DATA = [
   { time: '08:00', hum: 45 }, 
   { time: '10:00', hum: 40 }, 
@@ -21,53 +29,32 @@ export const HUMIDITY_HISTORY_DATA = [
   { time: '18:00', hum: 55 }
 ];
 
-// --- ANIMAIS (Com histórico de produção de leite) ---
+// --- ANIMAIS ---
 export const INITIAL_ANIMALS = [
   {
-    id: 'PT-12345', 
-    name: 'Mimosa', 
-    type: 'Vaca Leiteira', 
-    age: '4 Anos', 
-    weight: '650kg',
-    status: 'Saudável', 
-    lastVetVisit: '10/01/2026', 
-    notes: 'Produção leite acima da média.',
-    feed: 'Ração A + Silagem', 
-    needs: ['Suplemento Cálcio', 'Verificar Cascos'],
+    id: 'PT-12345', name: 'Mimosa', type: 'Vaca Leiteira', age: '4 Anos', weight: '650kg',
+    status: 'Saudável', lastVetVisit: '10/01/2026', notes: 'Produção leite acima da média.',
+    feed: 'Ração A + Silagem', needs: ['Suplemento Cálcio', 'Verificar Cascos'],
     productionHistory: [
       { day: '01/02', value: 28 }, { day: '02/02', value: 30 }, { day: '03/02', value: 29 },
       { day: '04/02', value: 32 }, { day: '05/02', value: 31 }, { day: '06/02', value: 33 },
     ]
   },
   {
-    id: 'PT-67890', 
-    name: 'Bebé', 
-    type: 'Bezerro', 
-    age: '3 Meses', 
-    weight: '120kg',
-    status: 'Atenção', 
-    lastVetVisit: '02/02/2026', 
-    notes: 'Ligeira febre.',
-    feed: 'Leite Materno + Ração', 
-    needs: ['Monitorizar Febre', 'Vacina B dia 15'],
+    id: 'PT-67890', name: 'Bebé', type: 'Bezerro', age: '3 Meses', weight: '120kg',
+    status: 'Atenção', lastVetVisit: '02/02/2026', notes: 'Ligeira febre.',
+    feed: 'Leite Materno + Ração', needs: ['Monitorizar Febre', 'Vacina B dia 15'],
     productionHistory: [] 
   },
   {
-    id: 'PT-11223', 
-    name: 'Trovão', 
-    type: 'Cavalo Lusitano', 
-    age: '6 Anos', 
-    weight: '580kg',
-    status: 'Saudável', 
-    lastVetVisit: '15/12/2025', 
-    notes: 'Prep. feira.',
-    feed: 'Feno + Aveia', 
-    needs: ['Treino Diário', 'Escovagem'],
+    id: 'PT-11223', name: 'Trovão', type: 'Cavalo Lusitano', age: '6 Anos', weight: '580kg',
+    status: 'Saudável', lastVetVisit: '15/12/2025', notes: 'Prep. feira.',
+    feed: 'Feno + Aveia', needs: ['Treino Diário', 'Escovagem'],
     productionHistory: []
   }
 ];
 
-// --- CAMPOS DE CULTIVO (Com histórico NDVI e Área) ---
+// --- CAMPOS DE CULTIVO ---
 export const INITIAL_FIELDS = [
   { 
     id: 1, 
@@ -77,7 +64,7 @@ export const INITIAL_FIELDS = [
     irrigation: false, 
     health: 'Excelente', 
     img: '🌽', 
-    area: 5.5, // Hectares
+    area: 5.5, 
     cropCycle: CROP_CALENDAR['🌽'],
     ndviHistory: [
       { date: '01/01', value: 0.2 }, { date: '15/02', value: 0.35 }, 
@@ -117,7 +104,7 @@ export const INITIAL_FIELDS = [
   },
 ];
 
-// --- STOCKS (ARMAZÉM - Com Preços Unitários) ---
+// --- STOCKS (ARMAZÉM) ---
 export const INITIAL_STOCKS = [
   { id: 's1', name: 'Ração A', category: 'feed', quantity: 500, unit: 'kg', minLevel: 100, price: 1.50 },
   { id: 's2', name: 'Vacina B', category: 'meds', quantity: 10, unit: 'doses', minLevel: 5, price: 25.00 },
@@ -125,7 +112,7 @@ export const INITIAL_STOCKS = [
   { id: 's4', name: 'Gasóleo', category: 'fuel', quantity: 45, unit: 'L', minLevel: 20, price: 1.65 },
 ];
 
-// --- TAREFAS (AGROAGENDA - Com ligação a Stock) ---
+// --- TAREFAS (AGROAGENDA) ---
 export const INITIAL_TASKS = [
   { id: 1, title: 'Vacinar Gado (Mimosa)', date: 'Hoje', done: false, stockId: 's2', usage: 1 },
   { id: 2, title: 'Comprar Adubo', date: 'Amanhã', done: false },

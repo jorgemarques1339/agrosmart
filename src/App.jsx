@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Scan, Sprout, Activity, Tractor, Bell, WifiOff, Cloud, Database, Home,
-  Map as MapIcon, List, ClipboardList, Plus, Coins, Camera, Loader2
+  Map as MapIcon, List, ClipboardList, Plus, Coins, Camera, Loader2, Settings
 } from 'lucide-react';
 
 // --- IMPORTAR COMPONENTES LOCAIS (VS Code) ---
@@ -13,6 +13,9 @@ import DashboardHome from './components/DashboardHome';
 import FieldMap from './components/FieldMap'; 
 import StockManager from './components/StockManager'; 
 import FinanceManager from './components/FinanceManager';
+import SettingsModal from './components/SettingsModal';
+import NotificationsModal from './components/NotificationsModal';
+import WeatherForecastModal from './components/WeatherForecastModal'; // Modal Importado
 
 // --- IMPORTAR DADOS ---
 import { 
@@ -20,10 +23,12 @@ import {
   INITIAL_FIELDS, 
   INITIAL_STOCKS, 
   INITIAL_TASKS, 
-  CROP_CALENDAR, 
-  INITIAL_BATCHES
+  CROP_CALENDAR,
+  INITIAL_BATCHES,
+  MOCK_FORECAST // Dados da previsão
 } from './data/mockData';
 
+// Estado inicial para logs (caso não haja localStorage)
 const INITIAL_FIELD_LOGS = [
   { id: 101, fieldId: 2, date: '15/01/2026', description: 'Poda de Inverno realizada', type: 'intervention' },
   { id: 102, fieldId: 1, date: '01/02/2026', description: 'Adubação de fundo (NPK)', type: 'treatment' }
@@ -42,24 +47,35 @@ export default function App() {
   const [weather, setWeather] = useState({ temp: 23, condition: 'Limpo', precip: 0, loading: true });
   
   // --- Estados de Modais ---
+  
+  // Cultivo
   const [isAddingField, setIsAddingField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldType, setNewFieldType] = useState('🌽');
   const [newFieldArea, setNewFieldArea] = useState(''); 
   
+  // Finanças
   const [isAddingSale, setIsAddingSale] = useState(false);
   const [saleDesc, setSaleDesc] = useState('');
   const [saleAmount, setSaleAmount] = useState('');
   
+  // Animais
   const [isAddingAnimal, setIsAddingAnimal] = useState(false);
   const [newAnimalName, setNewAnimalName] = useState('');
   const [newAnimalTag, setNewAnimalTag] = useState('');
   const [newAnimalType, setNewAnimalType] = useState('Vaca');
 
+  // Stocks
   const [isAddingStock, setIsAddingStock] = useState(false);
   const [newStockData, setNewStockData] = useState({ name: '', category: 'feed', quantity: '', unit: 'kg', minLevel: '', price: '' });
 
-  // --- Estados com Persistência ---
+  // Estados de UI Globais
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false); // Estado para abrir o tempo
+  const [userName, setUserName] = useState(() => localStorage.getItem('agrosmart_username') || 'Agricultor');
+
+  // --- Estados com Persistência (try/catch para segurança) ---
   const [animals, setAnimals] = useState(() => {
     try { return JSON.parse(localStorage.getItem('agrosmart_animals')) || INITIAL_ANIMALS; } catch { return INITIAL_ANIMALS; }
   });
@@ -95,7 +111,8 @@ export default function App() {
     localStorage.setItem('agrosmart_stocks', JSON.stringify(stocks));
     localStorage.setItem('agrosmart_finance', JSON.stringify(transactions));
     localStorage.setItem('agrosmart_batches', JSON.stringify(batches));
-  }, [animals, fields, fieldLogs, tasks, stocks, transactions, batches]);
+    localStorage.setItem('agrosmart_username', userName);
+  }, [animals, fields, fieldLogs, tasks, stocks, transactions, batches, userName]);
 
   // Monitorizar rede
   useEffect(() => {
@@ -127,6 +144,25 @@ export default function App() {
 
   // --- LÓGICA DE NEGÓCIO ---
 
+  // Cálculo de Notificações Ativas para o Badge
+  const notificationCount = 
+    (animals.filter(a => a.status !== 'Saudável').length) +
+    (stocks.filter(s => s.quantity <= (s.minLevel || 0)).length) +
+    (fields.filter(f => f.health.includes('Atenção')).length) +
+    (weather.precip >= 20 ? 1 : 0);
+
+  const handleResetData = () => {
+    localStorage.clear();
+    window.location.reload();
+  };
+
+  const handleSaveName = (newName) => {
+    setUserName(newName);
+    showNotification(`Nome alterado para ${newName}`);
+    setIsSettingsOpen(false);
+  };
+
+  // Adicionar registo ao caderno de campo (GPS opcional)
   const addFieldLog = (fieldId, description, location = null) => {
     const newLog = {
       id: Date.now(),
@@ -134,7 +170,7 @@ export default function App() {
       date: new Date().toLocaleDateString('pt-PT'),
       description,
       type: 'intervencao',
-      location 
+      location // { lat, lng }
     };
     setFieldLogs(prev => [newLog, ...prev]);
     showNotification(location ? 'Registo com GPS gravado! 📍' : 'Registo gravado.');
@@ -164,7 +200,7 @@ export default function App() {
       setNewAnimalTag(randomId);
       setIsScanning(false);
       setIsAddingAnimal(true);
-      showNotification("Nova Tag NFC detetada!");
+      showNotification("Nova Tag detetada!");
     }, 2000);
   };
 
@@ -211,10 +247,9 @@ export default function App() {
 
   const updateStockPrice = (id, newPrice) => {
     const price = parseFloat(newPrice);
-    if (!isNaN(price)) {
-      setStocks(prev => prev.map(s => s.id === id ? { ...s, price } : s));
-      showNotification('Preço atualizado.');
-    }
+    if (isNaN(price)) { showNotification('Preço inválido.'); return; }
+    setStocks(prev => prev.map(s => s.id === id ? { ...s, price } : s));
+    showNotification('Preço unitário atualizado!');
   };
 
   const handleAddSale = () => {
@@ -313,87 +348,22 @@ export default function App() {
     setAnimals(prev => [...prev, newAnimal]); setNewAnimalName(''); setNewAnimalTag(''); setIsAddingAnimal(false); showNotification('Animal adicionado!');
   };
 
-  // --- LÓGICA DE IA COM GOOGLE GEMINI ---
-  // API Key do ambiente (substituir por chave real se necessário no VS Code)
-  const apiKey = ""; 
-
-  const analyzePlantImageWithAI = async (base64Image) => {
-    setIsAnalyzing(true);
-    setAnalysisResult(null);
-
-    try {
-      // Remover cabeçalho data URL se existir
-      const base64Data = base64Image.split(',')[1];
-
-      const prompt = `Analise esta imagem agrícola. Identifique pragas, doenças ou deficiências.
-      Responda APENAS com este JSON exato (sem markdown):
-      {
-        "status": "Saudável" | "Atenção" | "Crítico",
-        "disease": "Nome da praga/doença ou 'Nenhuma'",
-        "confidence": "Percentagem (ex: '95%')",
-        "treatment": "Tratamento curto recomendado (ou 'Manter monitorização')"
-      }`;
-
-      // Se não houver chave API configurada, simular para não quebrar a demo
-      if (!apiKey) {
-         console.warn("API Key não configurada. A usar simulação.");
-         setTimeout(() => {
-            setIsAnalyzing(false);
-            setAnalysisResult({ 
-              status: 'Atenção (Simulado)', 
-              disease: 'Míldio (Simulação)', 
-              treatment: 'Aplicar fungicida à base de cobre. (Configure a API Key para resultados reais)', 
-              confidence: '98%' 
-            });
-         }, 2000);
-         return;
-      }
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-            ]
-          }]
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.error) throw new Error(data.error.message);
-
-      const textResponse = data.candidates[0].content.parts[0].text;
-      // Limpar formatação markdown ```json ... ``` se existir
-      const jsonStr = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-      const result = JSON.parse(jsonStr);
-
-      setAnalysisResult(result);
-
-    } catch (error) {
-      console.error("Erro IA:", error);
-      setAnalysisResult({ 
-        status: 'Erro', 
-        disease: 'Falha na Análise', 
-        treatment: 'Verifique a conexão ou a chave de API.', 
-        confidence: '0%' 
-      });
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onloadend = () => {
       setSelectedImage(reader.result);
-      // Chama a função de IA em vez do timeout simples
-      analyzePlantImageWithAI(reader.result);
+      setIsAnalyzing(true);
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setAnalysisResult({ 
+          status: 'Atenção', 
+          disease: 'Míldio', 
+          treatment: 'Aplicar fungicida à base de cobre.', 
+          confidence: '94%' 
+        });
+      }, 2500);
     };
     reader.readAsDataURL(file);
   };
@@ -405,35 +375,71 @@ export default function App() {
       
       {/* Top Bar */}
       <div className="px-4 py-5 bg-[#FDFDF5] flex justify-between items-center z-30 sticky top-0 border-b border-[#E0E4D6] backdrop-blur-lg bg-opacity-95 flex-none">
-        <div className="flex items-center gap-3 active:scale-95 transition-transform cursor-pointer" onClick={() => setActiveTab('home')}>
-          <div className="w-12 h-12 bg-[#CBE6A2] rounded-[1.25rem] flex items-center justify-center text-[#2D4F00] shadow-sm">
-            <Tractor size={26} />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tight leading-none uppercase italic">AgroSmart</span>
-            <span className="text-[10px] text-[#43483E] font-black mt-1 flex items-center gap-1 tracking-widest">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-orange-500'}`}></div>
-              {isOnline ? 'SISTEMA ONLINE' : 'MODO OFFLINE'}
-            </span>
-          </div>
+        
+        {/* BOTÃO DEFINIÇÕES (ESQUERDA) */}
+        <div className="flex gap-2">
+            <button onClick={() => setIsSettingsOpen(true)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#EFF2E6] text-[#43483E] active:scale-90 transition-all shadow-sm">
+                <Settings size={22} />
+            </button>
         </div>
+
+        {/* NOME DO AGRICULTOR */}
+        <div className="flex flex-col items-center">
+            <span className="text-xl font-black tracking-tight leading-none uppercase italic text-[#3E6837]">AgroSmart</span>
+            <span className="text-[9px] text-[#43483E] font-black mt-1 tracking-widest">{userName.toUpperCase()}</span>
+        </div>
+
+        {/* NOTIFICAÇÕES (DIREITA) */}
         <div className="flex gap-1.5">
-          {!isOnline && <div className="w-10 h-10 flex items-center justify-center text-orange-600 bg-orange-50 rounded-xl"><WifiOff size={20} /></div>}
-          <button className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#EFF2E6] text-[#43483E] active:scale-90 transition-all relative">
+          <button 
+            onClick={() => setIsNotificationsOpen(true)} 
+            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#EFF2E6] text-[#43483E] active:scale-90 transition-all relative"
+          >
             <Bell size={24} />
-            <span className="absolute top-3 right-3 w-3 h-3 bg-[#BA1A1A] border-[3px] border-[#FDFDF5] rounded-full"></span>
+            {notificationCount > 0 && (
+              <span className="absolute top-3 right-3 w-3 h-3 bg-[#BA1A1A] border-[3px] border-[#FDFDF5] rounded-full animate-pulse"></span>
+            )}
           </button>
         </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-40 space-y-5 scroll-smooth w-full">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-36 space-y-5 scroll-smooth w-full">
         {notification && (
           <div className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-[#1A1C18] text-white px-5 py-4 rounded-[1.5rem] shadow-2xl text-sm z-[60] flex items-center justify-between animate-slide-up border border-white/5 w-11/12 max-w-xs">
             <span className="font-bold tracking-tight">{notification}</span>
             <button onClick={() => setNotification(null)} className="text-[#CBE6A2] font-black px-4 py-2 bg-white/5 rounded-xl text-xs">OK</button>
           </div>
         )}
+
+        {/* --- MODAIS GLOBAIS --- */}
+        <SettingsModal 
+            isOpen={isSettingsOpen} 
+            onClose={() => setIsSettingsOpen(false)} 
+            onResetData={handleResetData}
+            currentName={userName}
+            onSaveName={handleSaveName}
+        />
+
+        <NotificationsModal 
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+            weather={weather}
+            animals={animals}
+            fields={fields}
+            stocks={stocks}
+            onNavigate={(tab) => {
+              setActiveTab(tab);
+              setIsNotificationsOpen(false); // Fecha o modal ao navegar
+            }}
+        />
+        
+        {/* --- NOVO: Modal de Previsão do Tempo --- */}
+        <WeatherForecastModal 
+          isOpen={isWeatherModalOpen} 
+          onClose={() => setIsWeatherModalOpen(false)} 
+          forecast={MOCK_FORECAST || []} // Usa MOCK_FORECAST do mockData
+        />
 
         {/* --- MODAIS DE CRIAÇÃO --- */}
         
@@ -445,13 +451,7 @@ export default function App() {
               <div className="space-y-7 pb-10">
                 <div>
                   <label className="text-[11px] font-black text-[#74796D] uppercase ml-1 block mb-3 tracking-[0.15em]">Identificação</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-[#FDFDF5] border-2 border-[#E0E4D6] rounded-2xl px-5 py-5 text-lg focus:border-[#3E6837] outline-none transition-all shadow-sm font-bold" 
-                    placeholder="Ex: Vinha Sul" 
-                    value={newFieldName} 
-                    onChange={(e) => setNewFieldName(e.target.value)} 
-                  />
+                  <input type="text" className="w-full bg-[#FDFDF5] border-2 border-[#E0E4D6] rounded-2xl px-5 py-5 text-lg focus:border-[#3E6837] outline-none transition-all shadow-sm font-bold" placeholder="Ex: Vinha Sul" value={newFieldName} onChange={(e) => setNewFieldName(e.target.value)} />
                 </div>
                 <div>
                   <label className="text-[11px] font-black text-[#74796D] uppercase ml-1 block mb-3 tracking-[0.15em]">Área (Hectares)</label>
@@ -559,6 +559,7 @@ export default function App() {
           <DashboardHome 
             weather={weather} animals={animals} fields={fields} stocks={stocks}
             onNavigate={setActiveTab} tasks={tasks} onToggleTask={toggleTask} onAddTask={handleAddTask} onDeleteTask={deleteTask}
+            onWeatherClick={() => setIsWeatherModalOpen(true)} // AQUI ESTÁ A LIGAÇÃO
           />
         )}
 
@@ -566,6 +567,7 @@ export default function App() {
           <div className="space-y-10 max-w-md mx-auto pb-4 pt-4">
             {!scannedAnimalId && (
               <div className="text-center space-y-6 animate-fade-in px-6">
+                
                 <div>
                   <h2 className="text-3xl font-black text-[#1A1C18] tracking-tighter uppercase italic">NFC Scanner</h2>
                   <p className="text-[#43483E] text-md leading-relaxed font-medium mt-2">Aproxime o smartphone da tag auricular do animal para ver o histórico.</p>
@@ -614,14 +616,14 @@ export default function App() {
             <div className="flex items-center justify-between mt-6 px-1">
               <h2 className="text-[#1A1C18] font-black text-2xl tracking-tighter uppercase italic">Cultivos</h2>
               <div className="flex gap-2.5">
-                <label className="flex items-center gap-2.5 p-4 bg-white rounded-2xl border-1 border-[#E0E4D6] text-[#3E6837] cursor-pointer shadow-sm active:scale-90 active:bg-[#FDFDF5] transition-all px-5">
+                <label className="flex items-center gap-2.5 p-4 bg-white rounded-2xl border-1 border-[#E0E4D6] text-[#3E6837] cursor-pointer shadow-sm active:scale-80 active:bg-[#FDFDF5] transition-all px-5">
                   <Camera size={20} />
                   <span className="text-[10px] font-black uppercase tracking-widest">Usar IA</span>
                   <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleImageUpload} />
                 </label>
                 <button 
                   onClick={() => setIsAddingField(true)} 
-                  className="bg-[#3E6837] text-white p-4 rounded-2xl active:scale-85 shadow-lg shadow-green-900/20 transition-all border-1 border-[#2D4F00]"
+                  className="bg-[#3E6837] text-white p-4 rounded-2xl active:scale-80 shadow-lg shadow-green-900/20 transition-all border-1 border-[#2D4F00]"
                 >
                   <Plus size={20} />
                 </button>
