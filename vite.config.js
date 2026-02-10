@@ -8,15 +8,18 @@ export default defineConfig({
   // para evitar erros de MIME type e caminhos relativos quebrados.
   base: '/', 
   build: {
-    // Aumenta o limite de aviso de tamanho do chunk para evitar warnings desnecessários
+    // Define explicitamente a pasta de saída (deve coincidir com a config da Vercel)
+    outDir: 'dist',
+    // Aumenta o limite de aviso de tamanho para evitar alertas desnecessários na consola
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
-        // Divide as bibliotecas principais em ficheiros separados para melhor cache e carregamento
+        // Divide as bibliotecas pesadas em ficheiros separados (chunks)
+        // Isto faz com que o site carregue mais rápido no telemóvel
         manualChunks(id) {
           if (id.includes('node_modules')) {
             if (id.includes('recharts')) {
-              return 'charts'; // Separa os gráficos (pesado)
+              return 'charts'; // Separa os gráficos
             }
             if (id.includes('leaflet') || id.includes('react-leaflet')) {
               return 'maps'; // Separa mapas (se usado futuramente)
