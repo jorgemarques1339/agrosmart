@@ -5,9 +5,15 @@ import {
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 
-// IMPORTAR DADOS CENTRALIZADOS
-// Certifica-te que o caminho '../data/mockData' está correto em relação à pasta 'components'
-import { HUMIDITY_HISTORY_DATA } from '../data/mockData';
+// Dados estáticos do gráfico de humidade (Definidos localmente para evitar erros de importação)
+const HUMIDITY_HISTORY_DATA = [
+  { time: '08:00', hum: 45 }, 
+  { time: '10:00', hum: 40 }, 
+  { time: '12:00', hum: 35 },
+  { time: '14:00', hum: 30 }, 
+  { time: '16:00', hum: 42 }, 
+  { time: '18:00', hum: 55 }
+];
 
 const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isOnline, onDelete, logs = [], onAddLog }) => {
   const [viewMode, setViewMode] = useState('chart'); // 'chart' ou 'history'
@@ -18,7 +24,7 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
   // Função de previsão IA (Simulada)
   const handlePredictYield = () => {
     if (!field.area || !field.cropCycle) {
-      alert("Faltam dados de área ou cultura para previsão.");
+      alert("Faltam dados de área ou cultura para previsão. Edite o campo para adicionar estes dados.");
       return;
     }
     const yieldPerHa = field.cropCycle.yieldPerHa || 10;
@@ -89,7 +95,7 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
 
   // Preparar dados do gráfico consoante a seleção
   // field.ndviHistory vem via props do App.jsx (que carrega do mockData ou localStorage)
-  // HUMIDITY_HISTORY_DATA vem importado diretamente do mockData
+  // HUMIDITY_HISTORY_DATA vem da constante local
   const chartData = chartSource === 'ndvi' ? (field.ndviHistory || []) : HUMIDITY_HISTORY_DATA;
   const dataKey = chartSource === 'ndvi' ? 'value' : 'hum';
   const color = chartSource === 'ndvi' ? '#3E6837' : '#0ea5e9'; // Verde para NDVI, Azul para Humidade
@@ -97,8 +103,10 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
 
   return (
     <div className="bg-[#EFF2E6] rounded-[20px] p-4 transition-all overflow-hidden border border-[#E0E4D6]">
-      <div className="flex gap-4">
-        <div className="w-24 h-24 bg-[#E1E4D5] rounded-2xl flex items-center justify-center text-4xl shadow-inner shrink-0 relative">
+      <div className="flex gap-3">
+        
+        {/* ÍCONE DA CULTURA */}
+        <div className="w-16 h-16 bg-[#E1E4D5] rounded-2xl flex items-center justify-center text-3xl shadow-inner shrink-0 relative">
           {field.img}
           {field.area && (
              <div className="absolute -bottom-2 bg-white px-2 py-0.5 rounded-full text-[9px] font-bold text-[#3E6837] shadow-sm border border-[#E0E4D6]">
@@ -112,6 +120,7 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
              </div>
           )}
         </div>
+
         <div className="flex-1 flex flex-col justify-between py-1">
           <div className="flex justify-between items-start">
             <div>
@@ -166,10 +175,7 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
                       <defs>
-                        <linearGradient id="colorChart" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor={color} stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor={color} stopOpacity={0}/>
-                        </linearGradient>
+                        <linearGradient id="colorChart" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={color} stopOpacity={0.3}/><stop offset="95%" stopColor={color} stopOpacity={0}/></linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0E4D6" />
                       <XAxis dataKey={xKey} axisLine={false} tickLine={false} tick={{fontSize: 10, fill: '#74796D'}} />
@@ -179,6 +185,7 @@ const FieldCard = ({ field, onToggleIrrigation, isExpanded, onToggleHistory, isO
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
+                {chartSource === 'ndvi' && <p className="text-[9px] text-center text-[#74796D] italic">Índice de Vigor da Vegetação (0.0 - 1.0)</p>}
               </div>
            ) : (
               <div className="space-y-3">
