@@ -23,16 +23,7 @@ const StockManager = ({ stocks, onUpdateStock, onUpdatePrice }) => {
 
   return (
     <div className="space-y-4 animate-slide-up">
-      <div className="bg-white p-5 rounded-[24px] shadow-sm border border-[#E0E4D6] flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-normal text-[#1A1C18]">Armazém Digital</h2>
-          <p className="text-xs text-[#43483E]">Gestão de recursos da quinta</p>
-        </div>
-        <div className="w-10 h-10 bg-[#E1E4D5] rounded-full flex items-center justify-center">
-          <ClipboardList size={20} className="text-[#3E6837]" />
-        </div>
-      </div>
-
+    
       <div className="grid gap-3">
         {stocks.map(stock => {
           const isLow = stock.quantity <= stock.minLevel;
