@@ -1,85 +1,101 @@
 import React, { useState } from 'react';
-import { Milk, Plus, Activity, Calendar, Weight, X, Check, Beef } from 'lucide-react';
+import { 
+  Milk, Plus, Activity, Calendar, Weight, X, 
+  Check, Beef, Heart, ChevronRight, Clipboard, 
+  ShieldCheck, AlertCircle, TrendingUp, History
+} from 'lucide-react';
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer, YAxis } from 'recharts';
 
 const AnimalCard = (props) => {
-  // Lógica defensiva: Aceita tanto 'data' como 'animal' para evitar erros de ecrã branco
+  // Lógica defensiva para aceitar diferentes nomes de props
   const animal = props.data || props.animal;
   const { onAddProduction } = props;
 
-  // Estados para o formulário de registo
   const [isAdding, setIsAdding] = useState(false);
   const [description, setDescription] = useState('');
-  const [prodType, setProdType] = useState('Litros'); // 'Litros' ou 'Carne'
+  const [prodType, setProdType] = useState('Litros'); 
   const [amount, setAmount] = useState('');
 
-  // Se não houver dados, não renderiza nada (evita crash)
-  if (!animal) return <div className="p-4 text-center text-red-500">Erro: Dados do animal não encontrados.</div>;
+  if (!animal) return null;
 
   const handleSave = () => {
     if (amount && onAddProduction) {
-      // Envia os dados formatados (ou objeto) para a função pai
       const finalValue = prodType === 'Litros' ? parseFloat(amount) : `${amount}kg (${description})`;
       onAddProduction(animal.id, finalValue);
-      
-      // Limpar formulário
       setIsAdding(false);
       setDescription('');
       setAmount('');
-      setProdType('Litros');
     }
   };
 
   return (
-    <div className="bg-white p-5 rounded-[2rem] border border-[#E0E4D6] shadow-xl animate-slide-up relative overflow-hidden transition-all">
-      {/* Ícone de Fundo Decorativo */}
-      <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-        <Milk size={80} className="text-[#3E6837]" />
+    <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 border border-gray-100 dark:border-neutral-800 shadow-sm active:shadow-md transition-all animate-fade-in relative overflow-hidden">
+      
+      {/* Decoração de Fundo Profissional */}
+      <div className="absolute -top-6 -right-6 p-4 opacity-[0.03] dark:opacity-[0.05] pointer-events-none rotate-12">
+        <Heart size={140} className="text-[#3E6837]" />
       </div>
 
-      {/* Cabeçalho do Cartão */}
-      <div className="flex justify-between items-start mb-5 relative z-10">
-        <div>
-          <h3 className="text-2xl font-black italic uppercase tracking-tighter text-[#1A1C18] leading-none">
-            {animal.name}
-          </h3>
-          <p className="text-xs font-bold text-[#74796D] mt-1.5 tracking-widest uppercase flex items-center gap-1">
-            {animal.id} • {animal.type}
+      {/* Cabeçalho: Identidade e Status */}
+      <div className="flex justify-between items-start mb-6 relative z-10">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-3xl font-black italic uppercase tracking-tighter text-[#1A1C18] dark:text-white leading-none">
+              {animal.name}
+            </h3>
+            <div className="bg-[#EFF2E6] dark:bg-neutral-800 p-1 rounded-lg">
+              <ShieldCheck size={14} className="text-[#3E6837] dark:text-[#4ade80]" />
+            </div>
+          </div>
+          <p className="text-[10px] font-black text-[#74796D] dark:text-neutral-500 tracking-[0.2em] uppercase flex items-center gap-1.5">
+            <span className="bg-[#3E6837] text-white px-1.5 py-0.5 rounded-md text-[8px]">{animal.id}</span>
+            {animal.type}
           </p>
         </div>
-        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${
+        
+        <div className={`px-4 py-1.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm border ${
           animal.status === 'Saudável' 
-            ? 'bg-[#EFF2E6] text-[#3E6837] border border-[#CBE6A2]' 
-            : 'bg-red-50 text-red-600 border border-red-100'
+            ? 'bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/30' 
+            : 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/30'
         }`}>
           {animal.status}
-        </span>
+        </div>
       </div>
 
-      {/* Informações Rápidas */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        <div className="bg-[#FDFDF5] p-3 rounded-2xl border border-[#EFF2E6] flex items-center gap-3">
-           <div className="bg-white p-2 rounded-xl text-[#3E6837] shadow-sm"><Calendar size={16} /></div>
-           <div><p className="text-[9px] font-black uppercase text-[#74796D]">Idade</p><p className="text-sm font-bold text-[#1A1C18]">{animal.age}</p></div>
+      {/* Grelha de Atributos Bio-Métricos */}
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="bg-[#FDFDF5] dark:bg-neutral-950 p-4 rounded-3xl border border-[#EFF2E6] dark:border-neutral-800 flex items-center gap-3">
+           <div className="bg-white dark:bg-neutral-800 p-2.5 rounded-2xl text-[#3E6837] dark:text-[#4ade80] shadow-sm"><Calendar size={20} /></div>
+           <div>
+             <p className="text-[9px] font-black uppercase text-[#74796D] dark:text-neutral-500 tracking-tighter">Idade Animal</p>
+             <p className="text-base font-black text-[#1A1C18] dark:text-white leading-none mt-0.5">{animal.age}</p>
+           </div>
         </div>
-        <div className="bg-[#FDFDF5] p-3 rounded-2xl border border-[#EFF2E6] flex items-center gap-3">
-           <div className="bg-white p-2 rounded-xl text-[#3E6837] shadow-sm"><Weight size={16} /></div>
-           <div><p className="text-[9px] font-black uppercase text-[#74796D]">Peso</p><p className="text-sm font-bold text-[#1A1C18]">{animal.weight}</p></div>
+        <div className="bg-[#FDFDF5] dark:bg-neutral-950 p-4 rounded-3xl border border-[#EFF2E6] dark:border-neutral-800 flex items-center gap-3">
+           <div className="bg-white dark:bg-neutral-800 p-2.5 rounded-2xl text-[#3E6837] dark:text-[#4ade80] shadow-sm"><Weight size={20} /></div>
+           <div>
+             <p className="text-[9px] font-black uppercase text-[#74796D] dark:text-neutral-500 tracking-tighter">Peso Atual</p>
+             <p className="text-base font-black text-[#1A1C18] dark:text-white leading-none mt-0.5">{animal.weight}</p>
+           </div>
         </div>
       </div>
       
-      {/* Gráfico de Produção */}
-      <div className="mb-2">
-        <p className="text-[10px] font-black uppercase text-[#74796D] mb-2 tracking-widest flex items-center gap-1">
-          <Activity size={12} /> Produção Recente
-        </p>
-        <div className="h-32 w-full bg-[#FDFDF5] rounded-3xl border border-[#EFF2E6] p-2 relative">
+      {/* Secção de Performance (Gráfico) */}
+      <div className="mb-4">
+        <div className="flex justify-between items-center mb-3 px-1">
+          <p className="text-[10px] font-black uppercase text-[#74796D] dark:text-neutral-500 tracking-widest flex items-center gap-1.5">
+            <TrendingUp size={14} className="text-[#3E6837] dark:text-[#4ade80]" /> Histórico de Rendimento
+          </p>
+          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 rounded-full">+4.2%</span>
+        </div>
+        
+        <div className="h-40 w-full bg-gray-50/50 dark:bg-neutral-950/50 rounded-[2rem] p-3 border border-gray-100 dark:border-neutral-800 shadow-inner overflow-hidden">
           {animal.productionHistory && animal.productionHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={animal.productionHistory}>
                 <defs>
-                  <linearGradient id="colorMilk" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3E6837" stopOpacity={0.3}/>
+                  <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3E6837" stopOpacity={0.4}/>
                     <stop offset="95%" stopColor="#3E6837" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
@@ -87,95 +103,99 @@ const AnimalCard = (props) => {
                   type="monotone" 
                   dataKey="value" 
                   stroke="#3E6837" 
-                  strokeWidth={3} 
-                  fill="url(#colorMilk)" 
-                  animationDuration={1000}
+                  strokeWidth={4} 
+                  fill="url(#colorProd)" 
+                  animationDuration={1500}
                 />
                 <XAxis dataKey="day" hide />
-                <YAxis hide />
+                <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
                 <Tooltip 
                   contentStyle={{
-                    borderRadius: '12px', 
+                    borderRadius: '16px', 
                     border: 'none', 
-                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     fontSize: '12px',
-                    fontWeight: 'bold',
-                    color: '#3E6837'
+                    fontWeight: '900',
+                    backgroundColor: '#1A1C18',
+                    color: '#fff'
                   }} 
-                  cursor={{ stroke: '#CBE6A2', strokeWidth: 2 }}
+                  itemStyle={{ color: '#CBE6A2' }}
+                  cursor={{ stroke: '#3E6837', strokeWidth: 2, strokeDasharray: '4 4' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex items-center justify-center h-full text-xs text-gray-400 italic">
-              Sem dados de produção.
+            <div className="flex flex-col items-center justify-center h-full text-xs text-gray-400 italic gap-2">
+              <History size={20} className="opacity-20" />
+              Sem dados registados
             </div>
           )}
         </div>
       </div>
+
+      {/* Notas e Alertas Rápidos */}
+      {animal.notes && (
+        <div className="bg-[#FDFDF5] dark:bg-neutral-800/40 p-4 rounded-3xl border border-[#EFF2E6] dark:border-neutral-800 mb-6 flex gap-3 items-start">
+           <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+           <p className="text-xs font-medium text-[#43483E] dark:text-neutral-400 leading-relaxed italic">
+             "{animal.notes}"
+           </p>
+        </div>
+      )}
       
-      {/* Área de Ação: Botão ou Formulário */}
+      {/* Ações: Registo Mobile-First */}
       {!isAdding ? (
         <button 
           onClick={() => setIsAdding(true)} 
-          className="mt-5 w-full py-4 bg-[#1A1C18] text-white rounded-2xl font-black text-xs uppercase tracking-widest active:scale-95 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-200"
+          className="w-full py-5 bg-[#1A1C18] dark:bg-[#3E6837] text-white rounded-[1.5rem] font-black text-xs uppercase tracking-[0.2em] active:scale-95 transition-all flex items-center justify-center gap-3 shadow-xl shadow-gray-200 dark:shadow-none"
         >
-          <Plus size={18} className="text-[#CBE6A2]" /> Registar Produção
+          <div className="bg-white/20 p-1 rounded-lg"><Plus size={18} /></div>
+          Registar Produção
         </button>
       ) : (
-        <div className="mt-5 bg-[#FDFDF5] p-4 rounded-3xl border border-[#E0E4D6] animate-slide-up">
-          <div className="flex justify-between items-center mb-3">
-            <h4 className="text-xs font-black text-[#3E6837] uppercase tracking-widest">Novo Registo</h4>
-            <button onClick={() => setIsAdding(false)} className="bg-white p-1.5 rounded-full text-[#74796D] shadow-sm active:scale-90"><X size={16} /></button>
+        <div className="bg-[#FDFDF5] dark:bg-neutral-950 p-5 rounded-[2.5rem] border-2 border-[#E0E4D6] dark:border-neutral-800 animate-slide-up">
+          <div className="flex justify-between items-center mb-4">
+            <h4 className="text-[10px] font-black text-[#3E6837] dark:text-[#4ade80] uppercase tracking-[0.2em]">Novo Registo Diário</h4>
+            <button onClick={() => setIsAdding(false)} className="p-2 bg-white dark:bg-neutral-800 rounded-full text-[#74796D] shadow-sm active:scale-90 transition-all"><X size={18} /></button>
           </div>
 
-          <div className="space-y-3">
-            {/* Descrição - Fonte maior para mobile */}
-            <input 
-              type="text" 
-              placeholder="Descrição (ex: Manhã)" 
-              className="w-full bg-white border border-[#E0E4D6] rounded-xl px-4 py-3 text-sm font-bold outline-none focus:border-[#3E6837] text-[#1A1C18]"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-
-            {/* Tipo: Litros ou Carne */}
+          <div className="space-y-4">
             <div className="flex gap-2">
               <button 
                 onClick={() => setProdType('Litros')}
-                className={`flex-1 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${prodType === 'Litros' ? 'bg-[#3E6837] text-white shadow-md' : 'bg-white text-[#74796D] border border-[#E0E4D6]'}`}
+                className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all border-2 ${prodType === 'Litros' ? 'bg-[#3E6837] text-white border-transparent shadow-lg' : 'bg-white dark:bg-neutral-800 text-[#74796D] border-[#EFF2E6] dark:border-neutral-700'}`}
               >
-                <Milk size={16} /> Litros
+                <Milk size={16} /> Leite
               </button>
               <button 
                 onClick={() => setProdType('Carne')}
-                className={`flex-1 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${prodType === 'Carne' ? 'bg-[#8B4513] text-white shadow-md' : 'bg-white text-[#74796D] border border-[#E0E4D6]'}`}
+                className={`flex-1 py-4 rounded-2xl text-[10px] font-black uppercase flex items-center justify-center gap-2 transition-all border-2 ${prodType === 'Carne' ? 'bg-[#8B4513] text-white border-transparent shadow-lg' : 'bg-white dark:bg-neutral-800 text-[#74796D] border-[#EFF2E6] dark:border-neutral-700'}`}
               >
-                <Beef size={16} /> Carne
+                <Beef size={16} /> Peso
               </button>
             </div>
 
-            {/* Quantidade */}
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input 
-                  type="number" 
-                  placeholder="Qtd" 
-                  className="w-full bg-white border border-[#E0E4D6] rounded-xl pl-4 pr-8 py-3 text-lg font-bold outline-none focus:border-[#3E6837] text-[#1A1C18]"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#74796D]">
-                  {prodType === 'Litros' ? 'L' : 'Kg'}
-                </span>
-              </div>
-              <button 
-                onClick={handleSave}
-                className="bg-[#3E6837] text-white w-14 rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center"
-              >
-                <Check size={24} />
-              </button>
+            <div className="relative">
+              <input 
+                type="number" 
+                inputMode="decimal"
+                placeholder="Quantidade" 
+                className="w-full bg-white dark:bg-neutral-800 border-2 border-[#E0E4D6] dark:border-neutral-700 rounded-2xl pl-5 pr-14 py-5 text-2xl font-black text-[#1A1C18] dark:text-white outline-none focus:border-[#3E6837]"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <span className="absolute right-5 top-1/2 -translate-y-1/2 text-xs font-black text-[#74796D] uppercase">
+                {prodType === 'Litros' ? 'L' : 'Kg'}
+              </span>
             </div>
+
+            <button 
+              onClick={handleSave}
+              disabled={!amount}
+              className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 ${!amount ? 'bg-gray-200 text-gray-400' : 'bg-[#3E6837] text-white'}`}
+            >
+              <Check size={20} /> Confirmar Registo
+            </button>
           </div>
         </div>
       )}

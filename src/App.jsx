@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-// Importação MQTT via CDN para garantir compatibilidade no browser
+// Importação MQTT via CDN para compatibilidade no browser/Vite
 import * as mqttModule from 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/+esm';
 import { 
   Scan, Sprout, Activity, Tractor, Bell, WifiOff, Cloud, Database, Home,
   Map as MapIcon, List, ClipboardList, Plus, Coins, Camera, Loader2, Settings, 
-  Trash2, AlertTriangle, Brain, Scale, Calendar, Wifi, Zap, X, MapPin, ArrowRight
+  Trash2, AlertTriangle, Brain, Scale, Calendar, Wifi, Zap, X, MapPin, 
+  ArrowRight, ShieldCheck, Info, RefreshCw
 } from 'lucide-react';
 
-// --- IMPORTAR COMPONENTES (Estrutura modular para VS Code) ---
+// --- IMPORTAR COMPONENTES LOCAIS (Estrutura VS Code) ---
 import WeatherWidget from './components/WeatherWidget';
 import PestDetection from './components/PestDetection';
 import FieldCard, { AddFieldModal } from './components/FieldCard';
@@ -44,10 +45,7 @@ export default function App() {
 
   // --- ESTADO METEOROLOGIA ---
   const [weather, setWeather] = useState({ 
-    temp: 23, 
-    condition: 'Céu Limpo', 
-    precip: 0, 
-    loading: false, 
+    temp: 23, condition: 'Céu Limpo', precip: 0, loading: false, 
     locationName: 'Laundos, PT' 
   });
 
@@ -95,7 +93,6 @@ export default function App() {
 
   // --- 3. EFEITOS ---
 
-  // Aplicação do Tema
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -107,7 +104,6 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Sincronização LocalStorage
   useEffect(() => {
     localStorage.setItem('agrosmart_animals', JSON.stringify(animals));
     localStorage.setItem('agrosmart_fields', JSON.stringify(fields));
@@ -118,7 +114,6 @@ export default function App() {
     localStorage.setItem('agrosmart_username', userName);
   }, [animals, fields, tasks, stocks, transactions, fieldLogs, userName]);
 
-  // Lógica MQTT
   useEffect(() => {
     const connectFn = mqttModule.connect || (mqttModule.default && mqttModule.default.connect);
     if (!connectFn) return;
@@ -133,7 +128,6 @@ export default function App() {
 
     if (!mqttClient.current) {
       mqttClient.current = connectFn(host, options);
-
       mqttClient.current.on('connect', () => {
         setMqttStatus('ligado');
         fields.forEach(f => {
@@ -141,12 +135,10 @@ export default function App() {
           mqttClient.current.subscribe(`agrosmart/fields/${f.id}/irrigation/status`);
         });
       });
-
       mqttClient.current.on('message', (topic, payload) => {
         const message = payload.toString();
         const parts = topic.split('/');
         const fieldId = parseInt(parts[2]);
-
         setFields(curr => curr.map(f => {
           if (f.id === fieldId) {
             if (topic.includes('humidity')) return { ...f, humidity: parseFloat(message) };
@@ -155,7 +147,6 @@ export default function App() {
           return f;
         }));
       });
-
       mqttClient.current.on('error', () => setMqttStatus('erro'));
     }
     return () => { if (mqttClient.current) mqttClient.current.end(); };
@@ -196,11 +187,6 @@ export default function App() {
     }
   };
 
-  const addFieldLog = (fieldId, description) => {
-    const newLog = { id: Date.now(), fieldId, date: new Date().toLocaleDateString('pt-PT'), description, type: 'Nota' };
-    setFieldLogs(prev => [newLog, ...prev]);
-  };
-
   const deleteField = (id) => {
     if (window.confirm("Apagar este campo?")) {
       setFields(prev => prev.filter(f => f.id !== id));
@@ -208,8 +194,9 @@ export default function App() {
     }
   };
 
-  const handleAddTask = (title) => {
-    setTasks(prev => [...prev, { id: Date.now(), title, date: 'Hoje', done: false }]);
+  const handleAddTask = (title, date) => {
+    const newTask = { id: Date.now(), title, date: date || 'Hoje', done: false };
+    setTasks(prev => [...prev, newTask]);
     showNotification('Tarefa agendada!');
   };
 
@@ -237,6 +224,17 @@ export default function App() {
     }
   };
 
+  const handleStartScan = () => {
+    setIsScanning(true);
+    setScannedAnimalId(null);
+    setTimeout(() => {
+      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+      setScannedAnimalId(randomAnimal?.id || null);
+      setIsScanning(false);
+      showNotification('Identificação concluída');
+    }, 2500);
+  };
+
   return (
     <div className={`relative flex flex-col h-[100dvh] w-full max-w-md mx-auto shadow-2xl border-x overflow-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-neutral-950 text-white border-neutral-800' : 'bg-[#FDFDF5] text-[#1A1C18] border-gray-100'}`}>
       
@@ -254,14 +252,14 @@ export default function App() {
         </div>
         <button onClick={() => setIsNotificationsOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl active:scale-90 transition-all relative ${isDarkMode ? 'bg-neutral-800 text-neutral-300' : 'bg-[#EFF2E6] text-[#43483E]'}`}>
           <Bell size={24} />
+          {mqttStatus === 'ligado' && <span className="absolute top-3 right-3 w-2 h-2 bg-green-500 rounded-full border-2 border-white dark:border-neutral-950"></span>}
         </button>
       </div>
 
-      {/* Conteúdo */}
+      {/* Área de Conteúdo */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-40 space-y-5 scroll-smooth w-full">
         {notification && <div className={`fixed top-24 left-1/2 -translate-x-1/2 px-5 py-4 rounded-[1.5rem] shadow-2xl text-sm z-[60] flex items-center justify-between border w-11/12 max-w-xs ${isDarkMode ? 'bg-white text-black border-white/5' : 'bg-[#1A1C18] text-white border-white/5'}`}><span>{notification}</span><button onClick={() => setNotification(null)} className="font-black text-[#CBE6A2] ml-4">OK</button></div>}
 
-        {/* Modais */}
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onResetData={() => { localStorage.clear(); window.location.reload(); }} currentName={userName} onSaveName={(n) => { setUserName(n); setIsSettingsOpen(false); }} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
         <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} weather={weather} animals={animals} fields={fields} stocks={stocks} onNavigate={setActiveTab} />
         <WeatherForecastModal isOpen={isWeatherModalOpen} onClose={() => setIsWeatherModalOpen(false)} forecast={MOCK_FORECAST} locationName={weather.locationName} />
@@ -273,17 +271,6 @@ export default function App() {
           cropCalendar={CROP_CALENDAR} 
         />
 
-        {/* PestDetection na aba Cultivo */}
-        {activeTab === 'cultivo' && (
-          <PestDetection 
-            selectedImage={selectedImage} 
-            isAnalyzing={isAnalyzing} 
-            result={analysisResult} 
-            onClose={() => { setSelectedImage(null); setAnalysisResult(null); }} 
-          />
-        )}
-
-        {/* Abas */}
         {activeTab === 'home' && (
           <DashboardHome 
             weather={weather} fields={fields} tasks={tasks} 
@@ -292,8 +279,98 @@ export default function App() {
           />
         )}
 
+        {/* --- ABA ANIMAL (OTIMIZADA PARA MOBILE) --- */}
+        {activeTab === 'animal' && (
+          <div className="h-full flex flex-col pt-2 pb-6">
+            {!scannedAnimalId ? (
+              <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in px-2">
+                
+                <div className="text-center space-y-2 mb-10">
+                  <h2 className="text-3xl font-black tracking-tight dark:text-white uppercase italic leading-tight">Sincronização<br/>Pecuária</h2>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="w-8 h-1 bg-[#3E6837] dark:bg-[#4ade80] rounded-full"></span>
+                    <p className="text-[10px] font-black text-[#74796D] dark:text-neutral-400 uppercase tracking-[0.3em]">Scanner NFC Ativo</p>
+                    <span className="w-8 h-1 bg-[#3E6837] dark:bg-[#4ade80] rounded-full"></span>
+                  </div>
+                </div>
+
+                <div className="relative flex items-center justify-center w-full max-w-[280px] aspect-square">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className={`absolute w-full h-full rounded-[4rem] border-2 border-[#3E6837]/20 dark:border-[#4ade80]/20 ${isScanning ? 'animate-ping' : 'animate-pulse'}`}></div>
+                    <div className={`absolute w-4/5 h-4/5 rounded-[3.5rem] border-2 border-[#3E6837]/10 dark:border-[#4ade80]/10 ${isScanning ? 'animate-pulse' : ''}`}></div>
+                  </div>
+                  
+                  <button 
+                    onClick={handleStartScan}
+                    disabled={isScanning}
+                    className={`
+                      relative w-56 h-56 rounded-[4.5rem] flex flex-col items-center justify-center transition-all duration-500 z-10 shadow-2xl overflow-hidden
+                      ${isScanning 
+                        ? 'bg-neutral-900 scale-95 ring-8 ring-[#3E6837]/20' 
+                        : 'bg-white dark:bg-neutral-800 border-4 border-[#EFF2E6] dark:border-neutral-700 active:scale-90 active:bg-gray-50 dark:active:bg-neutral-700'}
+                    `}
+                  >
+                    {isScanning ? (
+                      <div className="flex flex-col items-center gap-5">
+                        <div className="relative">
+                          <Loader2 className="w-20 h-20 text-[#CBE6A2] animate-spin" strokeWidth={3} />
+                          <Wifi className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#CBE6A2] opacity-40 animate-pulse" size={28} />
+                        </div>
+                        <span className="text-[11px] text-[#CBE6A2] font-black tracking-[0.5em] uppercase">Lendo...</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="p-6 bg-[#FDFDF5] dark:bg-neutral-900 rounded-[3rem] shadow-inner border border-[#EFF2E6] dark:border-neutral-700">
+                          <Scan size={64} className="text-[#3E6837] dark:text-[#4ade80]" />
+                        </div>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[11px] font-black text-[#3E6837] dark:text-[#4ade80] tracking-[0.2em] uppercase">Iniciar Scanner</span>
+                        </div>
+                      </div>
+                    )}
+                  </button>
+                  
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white dark:bg-neutral-900 border border-[#EFF2E6] dark:border-neutral-700 rounded-2xl shadow-xl z-20 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                    <span className="text-[9px] font-black uppercase text-[#1A1C18] dark:text-white tracking-widest">NFC Ready</span>
+                  </div>
+                </div>
+
+                <div className="w-full mt-12 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm p-5 rounded-[2.5rem] border border-[#E0E4D6] dark:border-neutral-800 flex items-center gap-4 mx-4">
+                  <div className="p-3 bg-[#EFF2E6] dark:bg-neutral-800 rounded-2xl text-[#3E6837] dark:text-[#4ade80]">
+                    <Info size={24} />
+                  </div>
+                  <p className="text-[11px] font-bold text-[#74796D] dark:text-neutral-400 leading-tight uppercase tracking-wider">
+                    Encoste o topo do telemóvel à tag auricular para identificar.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 animate-fade-in pb-10">
+                {/* BOTÃO NOVA LEITURA: DESIGN OTIMIZADO */}
+                <div className="flex justify-center pt-2">
+                  <button 
+                    onClick={() => setScannedAnimalId(null)}
+                    className="px-8 py-3.5 bg-[#1A1C18] dark:bg-white text-white dark:text-neutral-950 rounded-full font-black text-[10px] uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10 dark:border-none"
+                  >
+                    <RefreshCw size={14} className="animate-spin-slow" /> Nova Leitura
+                  </button>
+                </div>
+
+                <AnimalCard 
+                  animal={animals.find(a => a.id === scannedAnimalId)} 
+                  onAddProduction={(id, val) => showNotification(`Registo guardado: ${val}`)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Aba Cultivo */}
         {activeTab === 'cultivo' && (
           <div className="space-y-4">
+            {activeTab === 'cultivo' && <PestDetection selectedImage={selectedImage} isAnalyzing={isAnalyzing} result={analysisResult} onClose={() => { setSelectedImage(null); setAnalysisResult(null); }} />}
+            
             <div className="flex items-center justify-between px-1">
               <div><h2 className="text-xl font-black uppercase italic leading-none dark:text-white">Meus Cultivos</h2><span className="text-[9px] font-bold text-[#74796D] uppercase">{mqttStatus === 'ligado' ? 'Hardware Online ✅' : 'Hardware Offline ❌'}</span></div>
               <div className="flex gap-2">
@@ -303,53 +380,54 @@ export default function App() {
                 <button onClick={() => setIsAddingField(true)} className="bg-[#3E6837] text-white w-10 h-10 rounded-xl active:scale-90 flex items-center justify-center shadow-sm"><Plus size={24} /></button>
               </div>
             </div>
-            {fields.map(f => (
-              <FieldCard 
-                key={f.id} field={f} 
-                isExpanded={expandedFieldId === f.id} 
-                onToggleHistory={() => setExpandedFieldId(expandedFieldId === f.id ? null : f.id)} 
-                logs={fieldLogs.filter(l => l.fieldId === f.id)} 
-                onAddLog={addFieldLog} 
-                onToggleIrrigation={toggleIrrigation} 
-                onDelete={deleteField} 
-              />
-            ))}
-          </div>
-        )}
 
-        {activeTab === 'animal' && (
-          <div className="space-y-4">
-            <div className="text-center py-10">
-              <div className="w-32 h-32 bg-[#EFF2E6] dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-white dark:border-neutral-700 shadow-inner">
-                <Scan size={48} className="text-[#3E6837] dark:text-[#4ade80]" />
-              </div>
-              <h2 className="text-2xl font-black uppercase italic dark:text-white">Identificação NFC</h2>
-              <p className="text-xs text-[#74796D] px-10">Aproxime o dispositivo da tag auricular do animal para ler os dados.</p>
-              <button onClick={() => { setIsScanning(true); setTimeout(() => { setScannedAnimalId(animals[0]?.id || null); setIsScanning(false); showNotification('Leitura concluída'); }, 2000); }} disabled={isScanning} className="mt-8 bg-[#3E6837] dark:bg-[#4ade80] text-white dark:text-neutral-900 px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">{isScanning ? 'A Ler Tag...' : 'Iniciar Scanner'}</button>
+            <div className="space-y-3">
+              {fields.map(f => (
+                <FieldCard 
+                  key={f.id} field={f} 
+                  isExpanded={expandedFieldId === f.id} 
+                  onToggleHistory={() => setExpandedFieldId(expandedFieldId === f.id ? null : f.id)} 
+                  logs={fieldLogs.filter(l => l.fieldId === f.id)} 
+                  onAddLog={(id, text) => { const newLog = { id: Date.now(), fieldId: id, date: new Date().toLocaleDateString('pt-PT'), description: text, type: 'Nota' }; setFieldLogs(prev => [newLog, ...prev]); }} 
+                  onToggleIrrigation={toggleIrrigation} 
+                  onDelete={deleteField} 
+                />
+              ))}
             </div>
-            {scannedAnimalId && animals.find(a => a.id === scannedAnimalId) && (
-              <AnimalCard 
-                animal={animals.find(a => a.id === scannedAnimalId)} 
-                onAddProduction={(id, val) => showNotification(`Produção registada.`)} 
-              />
-            )}
           </div>
         )}
 
+        {/* Outras Abas */}
         {activeTab === 'stocks' && <StockManager stocks={stocks} onUpdateStock={(id, val) => setStocks(prev => prev.map(s => s.id === id ? {...s, quantity: Math.max(0, s.quantity + val)} : s))} />}
         {activeTab === 'finance' && <FinanceManager transactions={transactions} stocks={stocks} />}
 
       </div>
 
-      {/* Navegação Inferior */}
+      {/* Navegação Inferior (Mobile Fix) */}
       <div className={`absolute bottom-0 left-0 right-0 h-20 pb-4 flex justify-around items-center z-40 border-t px-4 shadow-lg transition-colors ${isDarkMode ? 'bg-neutral-950/95 border-neutral-800' : 'bg-[#FDFDF5]/95 border-[#E0E4D6]'}`}>
-        {[ {id: 'home', icon: Home, label: 'Início'}, {id: 'animal', icon: Scan, label: 'Animal'}, {id: 'cultivo', icon: Sprout, label: 'Cultivo'}, {id: 'stocks', icon: ClipboardList, label: 'Stocks'}, {id: 'finance', icon: Coins, label: 'Contas'} ].map(tab => (
+        {[ 
+          {id: 'home', icon: Home, label: 'Início'}, {id: 'animal', icon: Scan, label: 'Animal'}, 
+          {id: 'cultivo', icon: Sprout, label: 'Cultivo'}, {id: 'stocks', icon: ClipboardList, label: 'Stocks'}, 
+          {id: 'finance', icon: Coins, label: 'Contas'} 
+        ].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-1 flex-1 active:scale-90 transition-transform">
-            <div className={`h-9 w-14 rounded-xl flex items-center justify-center transition-colors ${activeTab === tab.id ? (isDarkMode ? 'bg-[#4ade80] text-neutral-900' : 'bg-[#3E6837] text-white shadow-md') : (isDarkMode ? 'text-neutral-500' : 'text-[#74796D]')}`}><tab.icon size={26} /></div>
+            <div className={`h-9 w-14 rounded-xl flex items-center justify-center transition-colors ${activeTab === tab.id ? (isDarkMode ? 'bg-[#4ade80] text-neutral-900' : 'bg-[#3E6837] text-white shadow-md') : (isDarkMode ? 'text-neutral-500' : 'text-[#74796D]')}`}>
+              <tab.icon size={26} />
+            </div>
             <span className={`text-[9px] font-black uppercase transition-colors ${activeTab === tab.id ? (isDarkMode ? 'text-white' : 'text-[#042100]') : (isDarkMode ? 'text-neutral-500' : 'text-[#74796D]')}`}>{tab.label}</span>
           </button>
         ))}
       </div>
+
+      <style>{`
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
+        }
+      `}</style>
     </div>
   );
 }
