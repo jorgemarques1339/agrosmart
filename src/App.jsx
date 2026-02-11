@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-// Importação MQTT via CDN para compatibilidade no browser/Vite
+// Importação MQTT via CDN para garantir compatibilidade no browser/Vite
 import * as mqttModule from 'https://cdn.jsdelivr.net/npm/mqtt@5.10.1/+esm';
 import { 
   Scan, Sprout, Activity, Tractor, Bell, WifiOff, Cloud, Database, Home,
   Map as MapIcon, List, ClipboardList, Plus, Coins, Camera, Loader2, Settings, 
-  Trash2, AlertTriangle, Brain, Scale, Calendar, Wifi, Zap, X, MapPin, 
-  ArrowRight, ShieldCheck, Info, RefreshCw
+  Trash2, AlertTriangle, Brain, Scale, Calendar, Wifi, Zap, X, MapPin, ArrowRight
 } from 'lucide-react';
 
-// --- IMPORTAR COMPONENTES LOCAIS (Estrutura VS Code) ---
+// --- IMPORTAR COMPONENTES (Estrutura modular para VS Code) ---
 import WeatherWidget from './components/WeatherWidget';
 import PestDetection from './components/PestDetection';
 import FieldCard, { AddFieldModal } from './components/FieldCard';
@@ -20,7 +19,7 @@ import SettingsModal from './components/SettingsModal';
 import NotificationsModal from './components/NotificationsModal';
 import WeatherForecastModal from './components/WeatherForecastModal';
 
-// --- IMPORTAR DADOS ---
+// --- IMPORTAR DADOS DO MOCKDATA ---
 import { 
   INITIAL_ANIMALS, 
   INITIAL_FIELDS, 
@@ -45,7 +44,10 @@ export default function App() {
 
   // --- ESTADO METEOROLOGIA ---
   const [weather, setWeather] = useState({ 
-    temp: 23, condition: 'Céu Limpo', precip: 0, loading: false, 
+    temp: 23, 
+    condition: 'Céu Limpo', 
+    precip: 0, 
+    loading: false, 
     locationName: 'Laundos, PT' 
   });
 
@@ -65,7 +67,7 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
 
-  // --- 2. ESTADOS COM PERSISTÊNCIA ---
+  // --- 2. ESTADOS COM PERSISTÊNCIA (DADOS) ---
   const [animals, setAnimals] = useState(() => {
     const saved = localStorage.getItem('agrosmart_animals');
     return saved ? JSON.parse(saved) : INITIAL_ANIMALS;
@@ -93,6 +95,7 @@ export default function App() {
 
   // --- 3. EFEITOS ---
 
+  // Lógica de cores do Dark Mode
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
@@ -104,6 +107,7 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // Persistência no LocalStorage
   useEffect(() => {
     localStorage.setItem('agrosmart_animals', JSON.stringify(animals));
     localStorage.setItem('agrosmart_fields', JSON.stringify(fields));
@@ -114,6 +118,7 @@ export default function App() {
     localStorage.setItem('agrosmart_username', userName);
   }, [animals, fields, tasks, stocks, transactions, fieldLogs, userName]);
 
+  // MQTT para Sensores e Rega
   useEffect(() => {
     const connectFn = mqttModule.connect || (mqttModule.default && mqttModule.default.connect);
     if (!connectFn) return;
@@ -128,6 +133,7 @@ export default function App() {
 
     if (!mqttClient.current) {
       mqttClient.current = connectFn(host, options);
+
       mqttClient.current.on('connect', () => {
         setMqttStatus('ligado');
         fields.forEach(f => {
@@ -135,10 +141,12 @@ export default function App() {
           mqttClient.current.subscribe(`agrosmart/fields/${f.id}/irrigation/status`);
         });
       });
+
       mqttClient.current.on('message', (topic, payload) => {
         const message = payload.toString();
         const parts = topic.split('/');
         const fieldId = parseInt(parts[2]);
+
         setFields(curr => curr.map(f => {
           if (f.id === fieldId) {
             if (topic.includes('humidity')) return { ...f, humidity: parseFloat(message) };
@@ -147,6 +155,7 @@ export default function App() {
           return f;
         }));
       });
+
       mqttClient.current.on('error', () => setMqttStatus('erro'));
     }
     return () => { if (mqttClient.current) mqttClient.current.end(); };
@@ -224,53 +233,43 @@ export default function App() {
     }
   };
 
-  const handleStartScan = () => {
-    setIsScanning(true);
-    setScannedAnimalId(null);
-    setTimeout(() => {
-      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-      setScannedAnimalId(randomAnimal?.id || null);
-      setIsScanning(false);
-      showNotification('Identificação concluída');
-    }, 2500);
+  const handleAddStock = (item) => {
+    setStocks(prev => [...prev, item]);
+    showNotification(`${item.name} adicionado ao stock.`);
   };
 
   return (
     <div className={`relative flex flex-col h-[100dvh] w-full max-w-md mx-auto shadow-2xl border-x overflow-hidden transition-colors duration-300 ${isDarkMode ? 'dark bg-neutral-950 text-white border-neutral-800' : 'bg-[#FDFDF5] text-[#1A1C18] border-gray-100'}`}>
       
-      {/* Barra Superior */}
-      <div className={`px-4 py-5 flex justify-between items-center z-30 sticky top-0 border-b backdrop-blur-lg bg-opacity-95 transition-colors duration-300 ${isDarkMode ? 'bg-neutral-950/95 border-neutral-800' : 'bg-[#FDFDF5]/95 border-[#E0E4D6]'}`}>
-        <button onClick={() => setIsSettingsOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl active:scale-90 transition-all shadow-sm ${isDarkMode ? 'bg-neutral-800 text-neutral-300' : 'bg-[#EFF2E6] text-[#43483E]'}`}>
-          <Settings size={22} />
+      {/* --- BARRA SUPERIOR FIXA --- */}
+      <div className={`w-full max-w-md px-4 py-5 flex justify-between items-center z-[100] sticky top-0 border-b backdrop-blur-lg bg-opacity-95 ${isDarkMode ? 'bg-neutral-950/95 border-neutral-800' : 'bg-[#FDFDF5]/95 border-[#E0E4D6]'}`}>
+        <button onClick={() => setIsSettingsOpen(true)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-100 dark:bg-neutral-800 active:scale-90 transition-transform shadow-sm">
+          <Settings size={22} className="text-[#43483E] dark:text-neutral-400" />
         </button>
         <div className="flex flex-col items-center">
-            <span className={`text-xl font-black tracking-tight leading-none uppercase italic ${isDarkMode ? 'text-[#4ade80]' : 'text-[#3E6837]'}`}>AgroSmart</span>
+            <span className={`text-xl font-black italic uppercase leading-none ${isDarkMode ? 'text-[#4ade80]' : 'text-[#3E6837]'}`}>AgroSmart</span>
             <div className="flex items-center gap-1.5 mt-1">
-               <div className={`w-1.5 h-1.5 rounded-full ${mqttStatus === 'ligado' ? 'bg-green-500' : 'bg-red-400'}`}></div>
-               <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-neutral-500' : 'text-[#74796D]'}`}>{userName}</span>
+               <div className={`w-1.5 h-1.5 rounded-full ${mqttStatus === 'ligado' ? 'bg-green-500 animate-pulse' : 'bg-red-400'}`}></div>
+               <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">{userName}</span>
             </div>
         </div>
-        <button onClick={() => setIsNotificationsOpen(true)} className={`w-12 h-12 flex items-center justify-center rounded-2xl active:scale-90 transition-all relative ${isDarkMode ? 'bg-neutral-800 text-neutral-300' : 'bg-[#EFF2E6] text-[#43483E]'}`}>
-          <Bell size={24} />
+        <button onClick={() => setIsNotificationsOpen(true)} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gray-100 dark:bg-neutral-800 active:scale-90 transition-transform relative">
+          <Bell size={24} className="text-[#43483E] dark:text-neutral-400" />
           {mqttStatus === 'ligado' && <span className="absolute top-3 right-3 w-2 h-2 bg-green-500 rounded-full border-2 border-white dark:border-neutral-950"></span>}
         </button>
       </div>
 
-      {/* Área de Conteúdo */}
+      {/* --- ÁREA DE CONTEÚDO (SCROLL) --- */}
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-40 space-y-5 scroll-smooth w-full">
         {notification && <div className={`fixed top-24 left-1/2 -translate-x-1/2 px-5 py-4 rounded-[1.5rem] shadow-2xl text-sm z-[60] flex items-center justify-between border w-11/12 max-w-xs ${isDarkMode ? 'bg-white text-black border-white/5' : 'bg-[#1A1C18] text-white border-white/5'}`}><span>{notification}</span><button onClick={() => setNotification(null)} className="font-black text-[#CBE6A2] ml-4">OK</button></div>}
 
+        {/* Modais do Sistema */}
         <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onResetData={() => { localStorage.clear(); window.location.reload(); }} currentName={userName} onSaveName={(n) => { setUserName(n); setIsSettingsOpen(false); }} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode(!isDarkMode)} />
         <NotificationsModal isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} weather={weather} animals={animals} fields={fields} stocks={stocks} onNavigate={setActiveTab} />
         <WeatherForecastModal isOpen={isWeatherModalOpen} onClose={() => setIsWeatherModalOpen(false)} forecast={MOCK_FORECAST} locationName={weather.locationName} />
-        
-        <AddFieldModal 
-          isOpen={isAddingField} 
-          onClose={() => setIsAddingField(false)} 
-          onAdd={handleAddField} 
-          cropCalendar={CROP_CALENDAR} 
-        />
+        <AddFieldModal isOpen={isAddingField} onClose={() => setIsAddingField(false)} onAdd={handleAddField} cropCalendar={CROP_CALENDAR} />
 
+        {/* Abas Dinâmicas */}
         {activeTab === 'home' && (
           <DashboardHome 
             weather={weather} fields={fields} tasks={tasks} 
@@ -279,133 +278,73 @@ export default function App() {
           />
         )}
 
-        {/* --- ABA ANIMAL (OTIMIZADA PARA MOBILE) --- */}
-        {activeTab === 'animal' && (
-          <div className="h-full flex flex-col pt-2 pb-6">
-            {!scannedAnimalId ? (
-              <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] animate-fade-in px-2">
-                
-                <div className="text-center space-y-2 mb-10">
-                  <h2 className="text-3xl font-black tracking-tight dark:text-white uppercase italic leading-tight">Sincronização<br/>Pecuária</h2>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="w-8 h-1 bg-[#3E6837] dark:bg-[#4ade80] rounded-full"></span>
-                    <p className="text-[10px] font-black text-[#74796D] dark:text-neutral-400 uppercase tracking-[0.3em]">Scanner NFC Ativo</p>
-                    <span className="w-8 h-1 bg-[#3E6837] dark:bg-[#4ade80] rounded-full"></span>
-                  </div>
-                </div>
-
-                <div className="relative flex items-center justify-center w-full max-w-[280px] aspect-square">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className={`absolute w-full h-full rounded-[4rem] border-2 border-[#3E6837]/20 dark:border-[#4ade80]/20 ${isScanning ? 'animate-ping' : 'animate-pulse'}`}></div>
-                    <div className={`absolute w-4/5 h-4/5 rounded-[3.5rem] border-2 border-[#3E6837]/10 dark:border-[#4ade80]/10 ${isScanning ? 'animate-pulse' : ''}`}></div>
-                  </div>
-                  
-                  <button 
-                    onClick={handleStartScan}
-                    disabled={isScanning}
-                    className={`
-                      relative w-56 h-56 rounded-[4.5rem] flex flex-col items-center justify-center transition-all duration-500 z-10 shadow-2xl overflow-hidden
-                      ${isScanning 
-                        ? 'bg-neutral-900 scale-95 ring-8 ring-[#3E6837]/20' 
-                        : 'bg-white dark:bg-neutral-800 border-4 border-[#EFF2E6] dark:border-neutral-700 active:scale-90 active:bg-gray-50 dark:active:bg-neutral-700'}
-                    `}
-                  >
-                    {isScanning ? (
-                      <div className="flex flex-col items-center gap-5">
-                        <div className="relative">
-                          <Loader2 className="w-20 h-20 text-[#CBE6A2] animate-spin" strokeWidth={3} />
-                          <Wifi className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[#CBE6A2] opacity-40 animate-pulse" size={28} />
-                        </div>
-                        <span className="text-[11px] text-[#CBE6A2] font-black tracking-[0.5em] uppercase">Lendo...</span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-4">
-                        <div className="p-6 bg-[#FDFDF5] dark:bg-neutral-900 rounded-[3rem] shadow-inner border border-[#EFF2E6] dark:border-neutral-700">
-                          <Scan size={64} className="text-[#3E6837] dark:text-[#4ade80]" />
-                        </div>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[11px] font-black text-[#3E6837] dark:text-[#4ade80] tracking-[0.2em] uppercase">Iniciar Scanner</span>
-                        </div>
-                      </div>
-                    )}
-                  </button>
-                  
-                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-white dark:bg-neutral-900 border border-[#EFF2E6] dark:border-neutral-700 rounded-2xl shadow-xl z-20 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                    <span className="text-[9px] font-black uppercase text-[#1A1C18] dark:text-white tracking-widest">NFC Ready</span>
-                  </div>
-                </div>
-
-                <div className="w-full mt-12 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm p-5 rounded-[2.5rem] border border-[#E0E4D6] dark:border-neutral-800 flex items-center gap-4 mx-4">
-                  <div className="p-3 bg-[#EFF2E6] dark:bg-neutral-800 rounded-2xl text-[#3E6837] dark:text-[#4ade80]">
-                    <Info size={24} />
-                  </div>
-                  <p className="text-[11px] font-bold text-[#74796D] dark:text-neutral-400 leading-tight uppercase tracking-wider">
-                    Encoste o topo do telemóvel à tag auricular para identificar.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4 animate-fade-in pb-10">
-                {/* BOTÃO NOVA LEITURA: DESIGN OTIMIZADO */}
-                <div className="flex justify-center pt-2">
-                  <button 
-                    onClick={() => setScannedAnimalId(null)}
-                    className="px-8 py-3.5 bg-[#1A1C18] dark:bg-white text-white dark:text-neutral-950 rounded-full font-black text-[10px] uppercase tracking-[0.3em] shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all border border-white/10 dark:border-none"
-                  >
-                    <RefreshCw size={14} className="animate-spin-slow" /> Nova Leitura
-                  </button>
-                </div>
-
-                <AnimalCard 
-                  animal={animals.find(a => a.id === scannedAnimalId)} 
-                  onAddProduction={(id, val) => showNotification(`Registo guardado: ${val}`)}
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Aba Cultivo */}
         {activeTab === 'cultivo' && (
           <div className="space-y-4">
-            {activeTab === 'cultivo' && <PestDetection selectedImage={selectedImage} isAnalyzing={isAnalyzing} result={analysisResult} onClose={() => { setSelectedImage(null); setAnalysisResult(null); }} />}
-            
+            <PestDetection selectedImage={selectedImage} isAnalyzing={isAnalyzing} result={analysisResult} onClose={() => { setSelectedImage(null); setAnalysisResult(null); }} />
             <div className="flex items-center justify-between px-1">
-              <div><h2 className="text-xl font-black uppercase italic leading-none dark:text-white">Meus Cultivos</h2><span className="text-[9px] font-bold text-[#74796D] uppercase">{mqttStatus === 'ligado' ? 'Hardware Online ✅' : 'Hardware Offline ❌'}</span></div>
+              <h2 className="text-xl font-black uppercase italic dark:text-white">Cultivos</h2>
               <div className="flex gap-2">
-                <label className={`w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer shadow-sm active:scale-90 transition-all ${isDarkMode ? 'bg-neutral-800 text-[#4ade80]' : 'bg-white text-[#3E6837] border border-[#E0E4D6]'}`}>
+                <label className="w-10 h-10 rounded-xl bg-white dark:bg-neutral-800 text-[#3E6837] dark:text-[#4ade80] flex items-center justify-center cursor-pointer shadow-sm border border-[#E0E4D6] dark:border-neutral-700">
                   <Camera size={20} /><input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
                 </label>
-                <button onClick={() => setIsAddingField(true)} className="bg-[#3E6837] text-white w-10 h-10 rounded-xl active:scale-90 flex items-center justify-center shadow-sm"><Plus size={24} /></button>
+                <button onClick={() => setIsAddingField(true)} className="bg-[#3E6837] text-white w-10 h-10 rounded-xl active:scale-90 flex items-center justify-center shadow-lg"><Plus size={24} /></button>
               </div>
             </div>
-
-            <div className="space-y-3">
-              {fields.map(f => (
-                <FieldCard 
-                  key={f.id} field={f} 
-                  isExpanded={expandedFieldId === f.id} 
-                  onToggleHistory={() => setExpandedFieldId(expandedFieldId === f.id ? null : f.id)} 
-                  logs={fieldLogs.filter(l => l.fieldId === f.id)} 
-                  onAddLog={(id, text) => { const newLog = { id: Date.now(), fieldId: id, date: new Date().toLocaleDateString('pt-PT'), description: text, type: 'Nota' }; setFieldLogs(prev => [newLog, ...prev]); }} 
-                  onToggleIrrigation={toggleIrrigation} 
-                  onDelete={deleteField} 
-                />
-              ))}
-            </div>
+            {fields.map(f => (
+              <FieldCard 
+                key={f.id} field={f} 
+                isExpanded={expandedFieldId === f.id} 
+                onToggleHistory={() => setExpandedFieldId(expandedFieldId === f.id ? null : f.id)} 
+                onToggleIrrigation={toggleIrrigation} 
+                onDelete={deleteField} 
+                onAddLog={(id, text) => { const newLog = { id: Date.now(), fieldId: id, date: new Date().toLocaleDateString('pt-PT'), description: text, type: 'Nota' }; setFieldLogs(prev => [newLog, ...prev]); }}
+                logs={fieldLogs.filter(l => l.fieldId === f.id)}
+              />
+            ))}
           </div>
         )}
 
-        {/* Outras Abas */}
-        {activeTab === 'stocks' && <StockManager stocks={stocks} onUpdateStock={(id, val) => setStocks(prev => prev.map(s => s.id === id ? {...s, quantity: Math.max(0, s.quantity + val)} : s))} />}
+        {activeTab === 'animal' && (
+          <div className="space-y-4 pt-4">
+             <div className="text-center py-10 flex flex-col items-center gap-6">
+                <div className="relative w-40 h-40">
+                  <div className={`absolute inset-0 rounded-full border-2 border-[#3E6837]/20 ${isScanning ? 'animate-ping' : ''}`}></div>
+                  <div className="absolute inset-4 bg-[#EFF2E6] dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-inner">
+                    <Scan size={48} className="text-[#3E6837] dark:text-[#4ade80]" />
+                  </div>
+                </div>
+                {!scannedAnimalId ? (
+                   <div className="space-y-4">
+                      <h3 className="text-2xl font-black uppercase italic dark:text-white leading-tight">Identificação NFC</h3>
+                      <p className="text-xs text-neutral-500 px-10">Aproxime a tag auricular do animal para ler os registos vitais.</p>
+                      <button onClick={() => { setIsScanning(true); setTimeout(() => { setScannedAnimalId(animals[0]?.id); setIsScanning(false); }, 2000); }} className="bg-[#3E6837] dark:bg-[#4ade80] text-white dark:text-neutral-900 px-8 py-4 rounded-2xl font-black text-xs uppercase shadow-lg active:scale-95 transition-all">Iniciar Scanner</button>
+                   </div>
+                ) : (
+                  <div className="w-full space-y-4">
+                    <button onClick={() => setScannedAnimalId(null)} className="text-xs font-black uppercase text-[#3E6837] dark:text-[#4ade80] flex items-center gap-2 mx-auto"><ArrowRight size={14} className="rotate-180" /> Nova Leitura</button>
+                    <AnimalCard animal={animals.find(a => a.id === scannedAnimalId)} onAddProduction={(id, val) => showNotification('Produção registada!')} />
+                  </div>
+                )}
+             </div>
+          </div>
+        )}
+
+        {activeTab === 'stocks' && (
+          <StockManager 
+            stocks={stocks} 
+            onUpdateStock={(id, val) => setStocks(prev => prev.map(s => s.id === id ? {...s, quantity: Math.max(0, s.quantity + val)} : s))} 
+            onUpdatePrice={(id, p) => setStocks(prev => prev.map(s => s.id === id ? {...s, price: p} : s))}
+            onAddStock={handleAddStock}
+          />
+        )}
+
         {activeTab === 'finance' && <FinanceManager transactions={transactions} stocks={stocks} />}
 
       </div>
 
-      {/* --- BARRA INFERIOR OTIMIZADA (VIDRO FOSCO + ARREDONDADA + FIXA) --- */}
-      <div className="absolute bottom-6 left-4 right-4 z-50">
-        <div className={`h-20 flex justify-around items-center rounded-[2.5rem] border backdrop-blur-xl shadow-2xl px-2 transition-all duration-300 ${isDarkMode ? 'bg-neutral-900/80 border-neutral-800' : 'bg-white/80 border-[#E0E4D6]'}`}>
+      {/* --- BARRA INFERIOR FLUTUANTE (GLASSMORPHISM) --- */}
+      <div className="fixed bottom-6 left-4 right-4 z-[100] max-w-md mx-auto pointer-events-none">
+        <div className={`h-20 flex justify-around items-center rounded-[2.5rem] border backdrop-blur-xl shadow-2xl px-2 transition-all duration-300 pointer-events-auto ${isDarkMode ? 'bg-neutral-900/80 border-neutral-800' : 'bg-white/80 border-[#E0E4D6]'}`}>
           {[ 
             {id: 'home', icon: Home, label: 'Início'}, 
             {id: 'animal', icon: Scan, label: 'Animal'}, 
@@ -418,12 +357,12 @@ export default function App() {
               onClick={() => setActiveTab(tab.id)} 
               className="flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all active:scale-75"
             >
-              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center transition-all ${
+              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center transition-all ${
                 activeTab === tab.id 
-                  ? (isDarkMode ? 'bg-[#4ade80] text-neutral-950 shadow-lg' : 'bg-[#3E6837] text-white shadow-lg') 
+                  ? (isDarkMode ? 'bg-[#4ade80] text-neutral-950 shadow-lg scale-110' : 'bg-[#3E6837] text-white shadow-lg scale-110') 
                   : (isDarkMode ? 'text-neutral-500' : 'text-neutral-400')
               }`}>
-                <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+                <tab.icon size={24} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
               </div>
               <span className={`text-[8px] font-black uppercase tracking-tighter transition-colors ${
                 activeTab === tab.id 
@@ -436,7 +375,6 @@ export default function App() {
           ))}
         </div>
       </div>
-
     </div>
   );
 }
