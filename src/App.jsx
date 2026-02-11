@@ -403,31 +403,40 @@ export default function App() {
 
       </div>
 
-      {/* Navegação Inferior (Mobile Fix) */}
-      <div className={`absolute bottom-0 left-0 right-0 h-20 pb-4 flex justify-around items-center z-40 border-t px-4 shadow-lg transition-colors ${isDarkMode ? 'bg-neutral-950/95 border-neutral-800' : 'bg-[#FDFDF5]/95 border-[#E0E4D6]'}`}>
-        {[ 
-          {id: 'home', icon: Home, label: 'Início'}, {id: 'animal', icon: Scan, label: 'Animal'}, 
-          {id: 'cultivo', icon: Sprout, label: 'Cultivo'}, {id: 'stocks', icon: ClipboardList, label: 'Stocks'}, 
-          {id: 'finance', icon: Coins, label: 'Contas'} 
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center gap-1 flex-1 active:scale-90 transition-transform">
-            <div className={`h-9 w-14 rounded-xl flex items-center justify-center transition-colors ${activeTab === tab.id ? (isDarkMode ? 'bg-[#4ade80] text-neutral-900' : 'bg-[#3E6837] text-white shadow-md') : (isDarkMode ? 'text-neutral-500' : 'text-[#74796D]')}`}>
-              <tab.icon size={26} />
-            </div>
-            <span className={`text-[9px] font-black uppercase transition-colors ${activeTab === tab.id ? (isDarkMode ? 'text-white' : 'text-[#042100]') : (isDarkMode ? 'text-neutral-500' : 'text-[#74796D]')}`}>{tab.label}</span>
-          </button>
-        ))}
+      {/* --- BARRA INFERIOR OTIMIZADA (VIDRO FOSCO + ARREDONDADA + FIXA) --- */}
+      <div className="absolute bottom-6 left-4 right-4 z-50">
+        <div className={`h-20 flex justify-around items-center rounded-[2.5rem] border backdrop-blur-xl shadow-2xl px-2 transition-all duration-300 ${isDarkMode ? 'bg-neutral-900/80 border-neutral-800' : 'bg-white/80 border-[#E0E4D6]'}`}>
+          {[ 
+            {id: 'home', icon: Home, label: 'Início'}, 
+            {id: 'animal', icon: Scan, label: 'Animal'}, 
+            {id: 'cultivo', icon: Sprout, label: 'Cultivo'}, 
+            {id: 'stocks', icon: ClipboardList, label: 'Stocks'}, 
+            {id: 'finance', icon: Coins, label: 'Contas'} 
+          ].map(tab => (
+            <button 
+              key={tab.id} 
+              onClick={() => setActiveTab(tab.id)} 
+              className="flex flex-col items-center justify-center gap-1 flex-1 h-full transition-all active:scale-75"
+            >
+              <div className={`h-10 w-10 rounded-2xl flex items-center justify-center transition-all ${
+                activeTab === tab.id 
+                  ? (isDarkMode ? 'bg-[#4ade80] text-neutral-950 shadow-lg' : 'bg-[#3E6837] text-white shadow-lg') 
+                  : (isDarkMode ? 'text-neutral-500' : 'text-neutral-400')
+              }`}>
+                <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+              </div>
+              <span className={`text-[8px] font-black uppercase tracking-tighter transition-colors ${
+                activeTab === tab.id 
+                  ? (isDarkMode ? 'text-white' : 'text-[#3E6837]') 
+                  : (isDarkMode ? 'text-neutral-600' : 'text-neutral-400')
+              }`}>
+                {tab.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <style>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin-slow {
-          animation: spin-slow 8s linear infinite;
-        }
-      `}</style>
     </div>
   );
 }
