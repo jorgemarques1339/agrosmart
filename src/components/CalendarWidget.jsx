@@ -21,14 +21,17 @@ const CalendarWidget = ({ tasks = [], fields = [] }) => {
   const getEventsForDay = (date, index) => {
     const events = [];
     
+    // 1. Verificar Tarefas
     const isToday = index === 0;
     const isTomorrow = index === 1;
 
-    // 1. Verificar Tarefas
     if (Array.isArray(tasks)) {
       const hasTask = tasks.some(t => {
         if (t.done) return false;
+        // Normalizar a data para comparação (DD/MM)
         const dateStr = date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit' });
+        
+        // Verifica se a data da tarefa coincide
         if (t.date.includes(dateStr)) return true;
         if (isToday && t.date.toLowerCase() === 'hoje') return true;
         if (isTomorrow && t.date.toLowerCase() === 'amanhã') return true;
@@ -37,7 +40,7 @@ const CalendarWidget = ({ tasks = [], fields = [] }) => {
       if (hasTask) events.push('task');
     }
 
-    // 2. Verificar Colheitas
+    // 2. Verificar Colheitas (Baseado no CROP_CALENDAR dos campos)
     const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
     const monthName = monthNames[date.getMonth()];
     
@@ -52,24 +55,18 @@ const CalendarWidget = ({ tasks = [], fields = [] }) => {
   const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   return (
-    <div className="bg-white p-4 rounded-[24px] border border-[#E0E4D6] shadow-sm animate-fade-in">
+    <div className="bg-white dark:bg-neutral-900 p-4 rounded-[24px] border border-gray-200 dark:border-neutral-800 shadow-sm animate-fade-in transition-colors duration-300">
       <div className="flex justify-between items-center mb-4 px-1">
-        <h3 className="text-sm font-bold text-[#1A1C18] flex items-center gap-2">
-          <CalendarIcon size={16} className="text-[#3E6837]" />
+        <h3 className="text-sm font-bold text-neutral-900 dark:text-white flex items-center gap-2">
+          <CalendarIcon size={16} className="text-[#3E6837] dark:text-[#4ade80]" />
           Próximos 7 Dias
         </h3>
-        <button className="text-[10px] font-bold text-[#3E6837] flex items-center hover:bg-[#FDFDF5] px-2 py-1 rounded-lg transition-colors">
+        <button className="text-[10px] font-bold text-[#3E6837] dark:text-[#4ade80] flex items-center hover:bg-gray-50 dark:hover:bg-neutral-800 px-2 py-1 rounded-lg transition-colors">
           Ver mês <ChevronRight size={12} />
         </button>
       </div>
 
-      {/* CORREÇÃO MOBILE: 
-         - overflow-x-auto: Permite scroll horizontal
-         - pb-2: Espaço para a barra de scroll não colar
-         - gap-2: Espaçamento consistente
-         - hide-scrollbar: Classe utilitária (ou estilo inline) para esconder barra de scroll se desejares
-      */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="flex justify-between gap-1 overflow-x-auto pb-2 no-scrollbar">
         {nextDays.map((date, index) => {
           const events = getEventsForDay(date, index);
           const isToday = index === 0;
@@ -77,24 +74,26 @@ const CalendarWidget = ({ tasks = [], fields = [] }) => {
           return (
             <div 
               key={index} 
-              // min-w-[52px] garante tamanho fixo e impede que os dias fiquem esmagados
-              // flex-shrink-0 impede que o flexbox encolha os itens
-              className={`flex-shrink-0 flex flex-col items-center justify-center p-2 rounded-2xl min-w-[52px] transition-all ${isToday ? 'bg-[#3E6837] text-white shadow-md' : 'bg-[#FDFDF5] border border-transparent text-[#43483E]'}`}
+              className={`flex flex-col items-center justify-center p-2 rounded-2xl min-w-[44px] flex-1 transition-all 
+                ${isToday 
+                  ? 'bg-[#3E6837] dark:bg-[#4ade80] text-white dark:text-neutral-900 shadow-md scale-105' 
+                  : 'bg-gray-50 dark:bg-neutral-800 text-neutral-500 dark:text-neutral-400'
+                }`}
             >
               <span className={`text-[9px] font-bold uppercase mb-1 ${isToday ? 'opacity-80' : 'opacity-50'}`}>
                 {weekDays[date.getDay()]}
               </span>
-              <span className="text-lg font-black">
+              <span className="text-base font-black">
                 {date.getDate()}
               </span>
               
               {/* Pontos de Eventos */}
               <div className="flex gap-1 mt-1.5 h-1.5 justify-center">
                 {events.includes('task') && (
-                  <div className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-orange-400' : 'bg-orange-500'}`} title="Tarefa"></div>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-orange-300' : 'bg-orange-500'}`} title="Tarefa"></div>
                 )}
                 {events.includes('harvest') && (
-                  <div className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white' : 'bg-green-600'}`} title="Colheita Prevista"></div>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isToday ? 'bg-white dark:bg-neutral-900' : 'bg-green-600 dark:bg-green-500'}`} title="Colheita Prevista"></div>
                 )}
               </div>
             </div>
@@ -103,14 +102,14 @@ const CalendarWidget = ({ tasks = [], fields = [] }) => {
       </div>
       
       {/* Legenda simples */}
-      <div className="flex justify-center gap-4 mt-3 pt-2 border-t border-[#EFF2E6]">
+      <div className="flex justify-center gap-4 mt-3 pt-2 border-t border-gray-100 dark:border-neutral-800">
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-          <span className="text-[9px] font-medium text-[#74796D]">Tarefas</span>
+          <span className="text-[9px] font-medium text-neutral-500 dark:text-neutral-400">Tarefas</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-green-600"></div>
-          <span className="text-[9px] font-medium text-[#74796D]">Colheita Estimada</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-green-600 dark:bg-green-500"></div>
+          <span className="text-[9px] font-medium text-neutral-500 dark:text-neutral-400">Colheita Estimada</span>
         </div>
       </div>
     </div>
