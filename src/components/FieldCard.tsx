@@ -59,7 +59,8 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onAddL
 
           {/* Informação Principal */}
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-lg text-gray-900 dark:text-white uppercase tracking-tight truncate">
+            {/* Tamanho da fonte ajustado: text-sm em mobile para melhor enquadramento, text-lg em desktop */}
+            <h3 className="font-bold text-sm md:text-lg text-gray-900 dark:text-white uppercase tracking-tight truncate">
               {field.name}
             </h3>
             <div className="flex items-center gap-3 mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -126,6 +127,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onAddL
             <div className="space-y-6 animate-slide-up">
               {/* Mini Mapa - Optimized Height for Tablet */}
               <div className="h-48 md:h-64 w-full rounded-[2rem] overflow-hidden shadow-inner border border-gray-100 dark:border-neutral-800 relative z-0">
+                {/* @ts-ignore */}
                 <MapContainer 
                   center={field.coordinates} 
                   zoom={14} 
