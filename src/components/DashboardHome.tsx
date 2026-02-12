@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Sun, CloudRain, Calendar, Check, Plus, Trash2, 
   ArrowRight, X, User, CloudLightning, Wind, Droplets, MapPin,
@@ -17,6 +17,7 @@ interface DashboardHomeProps {
   onWeatherClick: () => void;
   onOpenSettings: () => void;
   onOpenNotifications: () => void;
+  onModalChange?: (isOpen: boolean) => void;
   alertCount: number;
 }
 
@@ -31,12 +32,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   onWeatherClick,
   onOpenSettings,
   onOpenNotifications,
+  onModalChange,
   alertCount
 }) => {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Notificar o pai quando o estado do modal muda
+  useEffect(() => {
+    if (onModalChange) {
+      onModalChange(isWeatherModalOpen);
+    }
+  }, [isWeatherModalOpen, onModalChange]);
 
   // --- 1. Lógica de Tempo e Saudação ---
   const today = new Date();

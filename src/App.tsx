@@ -325,6 +325,11 @@ const App = () => {
     setIsTabBarVisible(true);
   }, [activeTab]);
 
+  // Hide BottomNav when Settings is open
+  useEffect(() => {
+    setIsTabBarVisible(!isSettingsOpen);
+  }, [isSettingsOpen]);
+
   // Apply Dark Mode Class
   useEffect(() => {
     if (isDarkMode) {
@@ -542,6 +547,7 @@ const App = () => {
             onWeatherClick={() => setIsNotificationsOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onModalChange={handleChildModalChange}
             alertCount={alertCount}
           />
         )}
