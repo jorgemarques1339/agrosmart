@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Heart, ShieldCheck, Activity, TrendingUp, History, 
-  Plus, X, Milk, Beef, Scan, Loader2 
+  Plus, X, Milk, Beef, Scan, Loader2, Minus 
 } from 'lucide-react';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Animal } from '../types';
@@ -15,26 +15,44 @@ interface AnimalCardProps {
 const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProduction }) => {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
-  const [productionValue, setProductionValue] = useState('');
+  const [productionValue, setProductionValue] = useState<number>(0);
 
   // Filtrar dados do gráfico baseado no tipo mais comum ou último registo
   const chartData = useMemo(() => {
-    // Por defeito mostra Leite, se tiver mais registos de peso, mostra peso
     const milkCount = animal.productionHistory.filter(r => r.type === 'milk').length;
     const weightCount = animal.productionHistory.filter(r => r.type === 'weight').length;
     const activeType = weightCount > milkCount ? 'weight' : 'milk';
     
     return animal.productionHistory
       .filter(r => r.type === activeType)
-      .slice(-7); // Últimos 7 registos
+      .slice(-7);
   }, [animal.productionHistory]);
 
+  // Reset value when modal opens or type changes
+  useEffect(() => {
+    if (showProductionModal) {
+      // Valores por defeito inteligentes para facilitar o ajuste
+      setProductionValue(productionType === 'milk' ? 25 : animal.weight || 500);
+    }
+  }, [showProductionModal, productionType, animal.weight]);
+
   const handleSave = () => {
-    if (!productionValue) return;
-    onAddProduction(animal.id, parseFloat(productionValue), productionType);
-    setProductionValue('');
+    if (productionValue <= 0) return;
+    onAddProduction(animal.id, productionValue, productionType);
     setShowProductionModal(false);
   };
+
+  const adjustValue = (delta: number) => {
+    setProductionValue(prev => {
+      const newVal = prev + delta;
+      return Math.max(0, parseFloat(newVal.toFixed(1))); // Evitar negativos e erros de float
+    });
+  };
+
+  // Configurações baseadas no tipo
+  const config = productionType === 'milk' 
+    ? { step: 0.5, max: 60, unit: 'L', label: 'Litros' } 
+    : { step: 1, max: 1200, unit: 'kg', label: 'Kg' };
 
   return (
     <div className="animate-slide-up relative pb-20">
@@ -147,12 +165,12 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
 
       {/* Modal Bottom Sheet: Registar Produção */}
       {showProductionModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => setShowProductionModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowProductionModal(false)}>
           <div 
             className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-bold dark:text-white">Novo Registo</h3>
               <button onClick={() => setShowProductionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
                 <X size={20} className="dark:text-white" />
@@ -160,7 +178,7 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             </div>
 
             {/* Selector de Tipo */}
-            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl mb-6">
+            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
               <button 
                 onClick={() => setProductionType('milk')}
                 className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
@@ -183,32 +201,58 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
               </button>
             </div>
 
-            {/* Input */}
+            {/* CONTROLOS TÁTEIS GRANDES */}
             <div className="mb-8">
-              <label className="block text-sm text-gray-500 mb-2 font-medium ml-2">
-                Quantidade ({productionType === 'milk' ? 'Litros' : 'Kg'})
-              </label>
-              <div className="relative">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                {/* Botão Menos */}
+                <button 
+                  onClick={() => adjustValue(-config.step)}
+                  className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"
+                >
+                  <Minus size={32} strokeWidth={3} />
+                </button>
+
+                {/* Valor Central */}
+                <div className="flex-1 text-center">
+                  <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">
+                    {productionValue}
+                  </div>
+                  <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
+                </div>
+
+                {/* Botão Mais */}
+                <button 
+                  onClick={() => adjustValue(config.step)}
+                  className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"
+                >
+                  <Plus size={32} strokeWidth={3} />
+                </button>
+              </div>
+
+              {/* Slider Tátil */}
+              <div className="px-2">
                 <input 
-                  type="text" 
-                  inputMode="decimal"
+                  type="range" 
+                  min="0" 
+                  max={config.max} 
+                  step={config.step}
                   value={productionValue}
-                  onChange={(e) => setProductionValue(e.target.value)}
-                  className="w-full text-5xl font-black bg-transparent border-b-2 border-gray-200 dark:border-neutral-700 focus:border-agro-green outline-none py-2 text-gray-900 dark:text-white"
-                  placeholder="0.0"
-                  autoFocus
+                  onChange={(e) => setProductionValue(parseFloat(e.target.value))}
+                  className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y"
                 />
-                <span className="absolute right-0 bottom-4 text-xl font-bold text-gray-400">
-                  {productionType === 'milk' ? 'L' : 'kg'}
-                </span>
+                <div className="flex justify-between text-xs font-bold text-gray-400 mt-2 px-1">
+                  <span>0 {config.unit}</span>
+                  <span>{config.max / 2} {config.unit}</span>
+                  <span>{config.max} {config.unit}</span>
+                </div>
               </div>
             </div>
 
             <button 
               onClick={handleSave}
-              className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg active:scale-95 transition-transform"
+              className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform"
             >
-              Confirmar Registo
+              Confirmar
             </button>
           </div>
         </div>

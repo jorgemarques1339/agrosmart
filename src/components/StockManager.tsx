@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, Droplets, Sprout, Syringe, ArrowDown, ArrowUp, 
-  Edit2, Plus, X, Save, Info, AlertTriangle, Search, Fuel
+  Edit2, Plus, X, Save, Info, AlertTriangle, Search, Fuel, Minus
 } from 'lucide-react';
 import { StockItem } from '../types';
 
@@ -12,6 +12,71 @@ interface StockManagerProps {
   onEditStock: (id: string, updates: Partial<StockItem>) => void;
   onModalChange?: (isOpen: boolean) => void;
 }
+
+// Componente Helper: Stepper Gigante para Touch
+const BigStepper = ({ 
+  value, 
+  onChange, 
+  step = 1, 
+  min = 0, 
+  unit = '', 
+  isFloat = false 
+}: { 
+  value: number, 
+  onChange: (val: number) => void, 
+  step?: number, 
+  min?: number, 
+  unit?: string,
+  isFloat?: boolean
+}) => {
+  
+  const adjust = (delta: number) => {
+    const next = value + delta;
+    if (next < min) return;
+    onChange(isFloat ? parseFloat(next.toFixed(2)) : Math.round(next));
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={() => adjust(-step)}
+          className="w-14 h-14 bg-gray-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-gray-500 border border-gray-200 dark:border-neutral-700 active:scale-90 transition-transform"
+        >
+          <Minus size={24} strokeWidth={3} />
+        </button>
+        
+        <div className="flex-1 bg-gray-50 dark:bg-neutral-900 border-b-2 border-gray-200 dark:border-neutral-800 h-14 flex items-center justify-center rounded-t-xl">
+           <span className="text-2xl font-black text-gray-900 dark:text-white">
+             {value} <span className="text-sm font-medium text-gray-400 ml-1">{unit}</span>
+           </span>
+        </div>
+
+        <button 
+          onClick={() => adjust(step)}
+          className="w-14 h-14 bg-agro-green rounded-2xl flex items-center justify-center text-white shadow-lg shadow-agro-green/20 active:scale-90 transition-transform"
+        >
+          <Plus size={24} strokeWidth={3} />
+        </button>
+      </div>
+
+      {/* Preset Buttons for Quick Add (Only for Integers or if explicitly enabled) */}
+      {!isFloat && (
+        <div className="flex justify-center gap-2">
+          {[10, 50].map(preset => (
+            <button 
+              key={preset}
+              onClick={() => adjust(preset)}
+              className="px-3 py-1 bg-gray-100 dark:bg-neutral-800 rounded-lg text-xs font-bold text-gray-500 active:bg-gray-200"
+            >
+              +{preset}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const StockManager: React.FC<StockManagerProps> = ({ 
   stocks, 
@@ -192,18 +257,19 @@ const StockManager: React.FC<StockManagerProps> = ({
                       </div>
                    </div>
 
+                   {/* Botões Grandes para Uso com Luvas */}
                    <div className="flex items-center gap-2">
                       <button 
                         onClick={() => onUpdateStock(item.id, -1)}
-                        className="w-10 h-10 rounded-2xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-600 dark:text-white active:scale-90 transition-transform shadow-sm"
+                        className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-600 dark:text-white active:scale-90 transition-transform shadow-sm border border-gray-200 dark:border-neutral-700"
                       >
-                        <ArrowDown size={18} />
+                        <ArrowDown size={24} />
                       </button>
                       <button 
-                        onClick={() => onUpdateStock(item.id, 10)}
-                        className="w-10 h-10 rounded-2xl bg-agro-green flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-agro-green/30"
+                        onClick={() => onUpdateStock(item.id, 1)}
+                        className="w-12 h-12 rounded-2xl bg-agro-green flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-agro-green/30"
                       >
-                        <ArrowUp size={18} />
+                        <ArrowUp size={24} />
                       </button>
                    </div>
                 </div>
@@ -218,7 +284,7 @@ const StockManager: React.FC<StockManagerProps> = ({
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsAddModalOpen(false)}>
           <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 h-[85vh] overflow-y-auto" 
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
@@ -228,25 +294,28 @@ const StockManager: React.FC<StockManagerProps> = ({
               </button>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
+              
+              {/* Nome do Produto */}
               <div>
-                <label className="text-xs font-bold uppercase text-gray-400 ml-2">Nome do Produto</label>
+                <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Produto</label>
                 <input 
-                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white border-2 border-transparent focus:border-agro-green outline-none"
+                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl dark:text-white border-2 border-transparent focus:border-agro-green outline-none text-lg font-bold"
                   placeholder="Ex: Ração A"
                   value={newItem.name}
                   onChange={e => setNewItem({...newItem, name: e.target.value})}
                 />
               </div>
 
+              {/* Categorias (Chips Grandes) */}
               <div>
-                <label className="text-xs font-bold uppercase text-gray-400 ml-2">Categoria</label>
-                <div className="flex gap-2 overflow-x-auto pb-2 mt-1">
-                  {['Fertilizante', 'Semente', 'Fito', 'Combustível', 'Ração', 'Medicamento'].map(cat => (
+                <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Categoria</label>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  {['Fertilizante', 'Semente', 'Fito', 'Combustível', 'Ração', 'Outro'].map(cat => (
                     <button
                       key={cat}
                       onClick={() => setNewItem({...newItem, category: cat as any})}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${
+                      className={`px-3 py-3 rounded-xl text-sm font-bold transition-colors ${
                         newItem.category === cat 
                           ? 'bg-agro-green text-white shadow-md' 
                           : 'bg-gray-100 dark:bg-neutral-800 text-gray-500 dark:text-gray-400'
@@ -258,56 +327,60 @@ const StockManager: React.FC<StockManagerProps> = ({
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <div className="flex-1">
-                   <label className="text-xs font-bold uppercase text-gray-400 ml-2">Qtd Inicial</label>
-                   <input 
-                    type="number"
-                    inputMode="decimal"
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none"
-                    value={newItem.quantity}
-                    onChange={e => setNewItem({...newItem, quantity: parseFloat(e.target.value) || 0})}
-                  />
+              {/* Quantidade (Stepper Gigante) */}
+              <div>
+                 <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade Inicial</label>
+                 <BigStepper 
+                    value={newItem.quantity || 0} 
+                    onChange={(val) => setNewItem({...newItem, quantity: val})} 
+                    unit={newItem.unit || 'un'}
+                 />
+                 
+                 {/* Unidade Selector Rapido */}
+                 <div className="flex gap-2 mt-2 justify-center">
+                    {['kg', 'L', 'un', 'sc'].map(u => (
+                      <button 
+                        key={u}
+                        onClick={() => setNewItem({...newItem, unit: u})}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                          newItem.unit === u ? 'bg-black text-white dark:bg-white dark:text-black' : 'bg-gray-100 dark:bg-neutral-800 text-gray-500'
+                        }`}
+                      >
+                        {u}
+                      </button>
+                    ))}
+                 </div>
+              </div>
+
+              {/* Detalhes Extra */}
+              <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço (€)</label>
+                   <BigStepper 
+                      value={newItem.pricePerUnit || 0} 
+                      onChange={(val) => setNewItem({...newItem, pricePerUnit: val})} 
+                      step={0.5} 
+                      isFloat={true}
+                   />
                 </div>
-                <div className="w-24">
-                   <label className="text-xs font-bold uppercase text-gray-400 ml-2">Unidade</label>
-                   <input 
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-center"
-                    placeholder="kg"
-                    value={newItem.unit}
-                    onChange={e => setNewItem({...newItem, unit: e.target.value})}
-                  />
+                 <div>
+                   <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Mínimo</label>
+                   <BigStepper 
+                      value={newItem.minStock || 0} 
+                      onChange={(val) => setNewItem({...newItem, minStock: val})} 
+                      step={1}
+                   />
                 </div>
               </div>
 
-              <div className="flex gap-4 mb-6">
-                 <div className="flex-1">
-                   <label className="text-xs font-bold uppercase text-gray-400 ml-2">Preço Unit (€)</label>
-                   <input 
-                    type="number"
-                    inputMode="decimal"
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none"
-                    value={newItem.pricePerUnit}
-                    onChange={e => setNewItem({...newItem, pricePerUnit: parseFloat(e.target.value) || 0})}
-                  />
-                </div>
-                 <div className="flex-1">
-                   <label className="text-xs font-bold uppercase text-gray-400 ml-2">Alerta Min.</label>
-                   <input 
-                    type="number"
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none"
-                    value={newItem.minStock}
-                    onChange={e => setNewItem({...newItem, minStock: parseFloat(e.target.value) || 0})}
-                  />
-                </div>
-              </div>
+              <div className="h-4"></div> {/* Spacer */}
 
               <button 
                 onClick={handleSaveNewItem}
-                className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 mb-6"
               >
-                <Save size={20} />
-                Adicionar ao Stock
+                <Save size={24} />
+                Adicionar Stock
               </button>
             </div>
           </div>
