@@ -4,7 +4,7 @@ import {
   Settings, Bell, Plus, Minus, Droplets, Map as MapIcon, 
   Navigation, Tractor, AlertTriangle, CloudRain, Thermometer,
   Wind, MapPin, Brain, Scan, Camera, Sprout, CheckCircle, AlertCircle,
-  X, ChevronRight, Activity, Loader2, Save
+  X, ChevronRight, Activity, Loader2, Save, FileText
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-leaflet';
@@ -21,6 +21,7 @@ import StockManager from './components/StockManager';
 import FieldCard from './components/FieldCard';
 import FinanceManager from './components/FinanceManager';
 import DashboardHome from './components/DashboardHome';
+import FieldNotebook from './components/FieldNotebook';
 
 // --- Corrigir Ícones do Leaflet ---
 // @ts-ignore
@@ -146,15 +147,18 @@ const CultivationView = ({
   toggleIrrigation, 
   onAddLog,
   onAddField,
-  onModalChange
+  onModalChange,
+  operatorName
 }: { 
   fields: Field[], 
   toggleIrrigation: (id: string, s: boolean) => void,
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>) => void,
   onAddField: (field: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => void,
-  onModalChange?: (isOpen: boolean) => void
+  onModalChange?: (isOpen: boolean) => void,
+  operatorName: string
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNotebookOpen, setIsNotebookOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newArea, setNewArea] = useState('');
   const [selectedCrop, setSelectedCrop] = useState(CROP_TYPES[0]);
@@ -162,9 +166,9 @@ const CultivationView = ({
   // Notificar o pai quando o estado do modal muda
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(isModalOpen);
+      onModalChange(isModalOpen || isNotebookOpen);
     }
-  }, [isModalOpen, onModalChange]);
+  }, [isModalOpen, isNotebookOpen, onModalChange]);
 
   const handleSubmit = () => {
     if (newName && newArea) {
@@ -186,14 +190,31 @@ const CultivationView = ({
       
       {/* Control Section Header */}
       <div className="flex justify-between items-end px-2">
-        <h2 className="text-2xl font-black uppercase italic text-gray-800 dark:text-white">Meus<br/>Cultivos</h2>
-        <div className="flex gap-2">
-           <button 
-             onClick={() => setIsModalOpen(true)}
-             className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
-           >
-             <Plus size={24} />
-           </button>
+        <h2 className="text-2xl font-black uppercase italic text-gray-800 dark:text-white mb-1">Meus<br/>Cultivos</h2>
+        <div className="flex gap-3">
+           {/* Botão Caderno de Campo */}
+           <div className="flex flex-col items-center gap-1">
+             <button 
+               onClick={() => setIsNotebookOpen(true)}
+               className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 shadow-md border border-gray-100 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-transform"
+               title="Caderno de Campo"
+             >
+               <FileText size={22} />
+             </button>
+             <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
+           </div>
+
+           {/* Botão Adicionar Campo */}
+           <div className="flex flex-col items-center gap-1">
+             <button 
+               onClick={() => setIsModalOpen(true)}
+               className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
+             >
+               <Plus size={24} />
+             </button>
+             {/* Espaçador invisível para alinhamento */}
+             <span className="text-[10px] font-bold text-transparent select-none">Novo</span>
+           </div>
         </div>
       </div>
 
@@ -293,6 +314,14 @@ const CultivationView = ({
           </div>
         </div>
       )}
+
+      {/* FIELD NOTEBOOK COMPONENT */}
+      <FieldNotebook 
+        isOpen={isNotebookOpen}
+        onClose={() => setIsNotebookOpen(false)}
+        fields={fields}
+        operatorName={operatorName}
+      />
     </div>
   );
 };
@@ -564,6 +593,7 @@ const App = () => {
             onAddLog={handleAddLog}
             onAddField={addField}
             onModalChange={handleChildModalChange}
+            operatorName={userName}
           />
         )}
         {activeTab === 'stocks' && (
