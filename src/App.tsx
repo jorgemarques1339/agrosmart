@@ -305,6 +305,7 @@ const App = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [userName, setUserName] = useState(() => localStorage.getItem('agro_username') || 'Sr. Silva');
   const [isTabBarVisible, setIsTabBarVisible] = useState(true);
+  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
   
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -317,18 +318,22 @@ const App = () => {
 
   // Handler para ocultar a barra de navegação quando modais estão abertos nos filhos
   const handleChildModalChange = (isOpen: boolean) => {
-    setIsTabBarVisible(!isOpen);
+    setIsChildModalOpen(isOpen);
   };
 
-  // Assegurar que a barra volta quando se muda de tab
+  // Assegurar que a barra volta quando se muda de tab e reset do estado child
   useEffect(() => {
-    setIsTabBarVisible(true);
+    setIsChildModalOpen(false);
+    if (!isSettingsOpen && !isNotificationsOpen) {
+      setIsTabBarVisible(true);
+    }
   }, [activeTab]);
 
-  // Hide BottomNav when Settings is open
+  // Gestão centralizada da visibilidade da barra de navegação
   useEffect(() => {
-    setIsTabBarVisible(!isSettingsOpen);
-  }, [isSettingsOpen]);
+    const shouldHide = isSettingsOpen || isNotificationsOpen || isChildModalOpen;
+    setIsTabBarVisible(!shouldHide);
+  }, [isSettingsOpen, isNotificationsOpen, isChildModalOpen]);
 
   // Apply Dark Mode Class
   useEffect(() => {

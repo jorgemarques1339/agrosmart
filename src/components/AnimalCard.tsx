@@ -39,17 +39,6 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
   return (
     <div className="animate-slide-up relative pb-20">
       
-      {/* Botão Flutuante de Reset (Nova Leitura) */}
-      <div className="fixed bottom-24 right-4 z-30">
-        <button 
-          onClick={onReset}
-          className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-6 py-3 rounded-full font-bold shadow-xl flex items-center gap-2 active:scale-95 transition-transform"
-        >
-          <Scan size={20} />
-          Nova Leitura
-        </button>
-      </div>
-
       {/* Header do Card */}
       <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
         {/* Background Decorativo */}
@@ -134,14 +123,25 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             </div>
           )}
 
-          {/* Botão de Ação Principal */}
-          <button 
-            onClick={() => setShowProductionModal(true)}
-            className="w-full py-4 bg-agro-green hover:bg-green-700 text-white rounded-[2rem] font-bold shadow-lg shadow-agro-green/40 active:scale-95 transition-all flex items-center justify-center gap-2"
-          >
-            <Plus size={20} />
-            Registar Produção
-          </button>
+          {/* Botões de Ação - Layout Horizontal */}
+          <div className="flex gap-3 mt-4">
+            <button 
+              onClick={() => setShowProductionModal(true)}
+              className="flex-1 py-4 bg-agro-green hover:bg-green-700 text-white rounded-[2rem] font-bold shadow-lg shadow-agro-green/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+            >
+              <Plus size={20} />
+              Registar Produção
+            </button>
+
+            <button 
+              onClick={onReset}
+              className="w-20 bg-gray-100 dark:bg-neutral-800 border-2 border-transparent hover:border-gray-200 dark:hover:border-neutral-700 text-gray-600 dark:text-gray-400 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center shadow-sm"
+              title="Nova Leitura"
+            >
+              <Scan size={24} />
+            </button>
+          </div>
+
         </div>
       </div>
 
