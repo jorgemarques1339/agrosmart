@@ -1,14 +1,15 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
   Droplets, Thermometer, Brain, Sprout, ChevronDown, 
-  MapPin, Loader2, Activity, Wifi, Plus, Trash2, Calendar,
-  Package, ShoppingBag, ArrowRight, Mic, MicOff, StopCircle,
-  Coins, TrendingUp, TrendingDown, Wallet
+  MapPin, Loader2, Activity, Wifi, Plus, Calendar,
+  Package, ShoppingBag, Mic, StopCircle,
+  Coins, TrendingUp, TrendingDown, Wallet, Radio, Cpu, Signal,
+  CheckCircle2
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
-import { Field, FieldLog, StockItem } from '../types';
+import { Field, FieldLog, StockItem, Sensor } from '../types';
 import PestDetection from './PestDetection';
 
 interface FieldCardProps {
@@ -17,6 +18,7 @@ interface FieldCardProps {
   onToggleIrrigation: (id: string, status: boolean) => void;
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>) => void;
   onUseStock?: (fieldId: string, stockId: string, quantity: number, date: string) => void;
+  onRegisterSensor?: (fieldId: string, sensor: Sensor) => void;
 }
 
 const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrigation, onAddLog, onUseStock }) => {
@@ -52,7 +54,6 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
     const totalExpenses = field.logs?.reduce((acc, log) => acc + (log.cost || 0), 0) || 0;
 
     // 2. Calcular Receita Estimada (Mock Price per crop type)
-    // Em produção real, isto viria de uma tabela de preços de mercado
     const getMarketPrice = (crop: string) => {
       if (crop.includes('Uva')) return 1200; // €/ton
       if (crop.includes('Milho')) return 280; // €/ton
@@ -176,7 +177,6 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
 
           {/* Informação Principal */}
           <div className="flex-1 min-w-0">
-            {/* Tamanho da fonte ajustado: text-sm em mobile para melhor enquadramento, text-lg em desktop */}
             <h3 className="font-bold text-sm md:text-lg text-gray-900 dark:text-white uppercase tracking-tight truncate">
               {field.name}
             </h3>
@@ -186,7 +186,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
                <span>{field.areaHa} ha</span>
             </div>
             
-            {/* Sensor Pills Mini - Agora com espaço garantido abaixo */}
+            {/* Sensor Pills Mini */}
             <div className="flex gap-2 mt-2 relative z-10">
               <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1 ${field.humidity < 40 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                 <Droplets size={10} /> {field.humidity}%
@@ -213,7 +213,6 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
         </div>
 
         {/* Expand Indicator / Hint Visual */}
-        {/* Posicionado no padding inferior criado (pb-14) */}
         <div className="absolute bottom-3 w-full left-0 right-0 flex justify-center pointer-events-none">
           {isExpanded ? (
             <div className="bg-gray-100 dark:bg-neutral-800 rounded-full p-1 animate-fade-in">
@@ -254,7 +253,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
           {/* TAB: SENSORES */}
           {activeTab === 'sensors' && (
             <div className="space-y-6 animate-slide-up">
-              {/* Mini Mapa - Optimized Height for Tablet */}
+              {/* Mini Mapa */}
               <div className="h-48 md:h-64 w-full rounded-[2rem] overflow-hidden shadow-inner border border-gray-100 dark:border-neutral-800 relative z-0">
                 {/* @ts-ignore */}
                 <MapContainer 
@@ -273,7 +272,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
                 </div>
               </div>
 
-              {/* Gráficos - Grid for Tablet */}
+              {/* Gráficos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                  <div className="bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-3xl">
                     <p className="text-xs font-bold text-gray-500 mb-2 uppercase">Humidade do Solo (24h)</p>
@@ -312,6 +311,44 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
                       </ResponsiveContainer>
                     </div>
                  </div>
+              </div>
+
+              {/* --- IOT DEVICES LIST --- */}
+              <div className="pt-2 border-t border-gray-100 dark:border-neutral-800">
+                 <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white uppercase flex items-center gap-2">
+                       <Cpu size={16} /> Dispositivos Conectados
+                    </h4>
+                 </div>
+
+                 {field.sensors && field.sensors.length > 0 ? (
+                    <div className="space-y-3">
+                       {field.sensors.map(sensor => (
+                          <div key={sensor.id} className="bg-black/5 dark:bg-white/5 rounded-2xl p-3 flex items-center gap-3">
+                             <div className="w-10 h-10 bg-white dark:bg-neutral-800 rounded-xl flex items-center justify-center text-gray-500 shadow-sm">
+                                {sensor.type === 'moisture' ? <Droplets size={18} /> : <Activity size={18} />}
+                             </div>
+                             <div className="flex-1">
+                                <p className="font-bold text-sm dark:text-white">{sensor.name}</p>
+                                <p className="text-[10px] text-gray-500 font-mono">ID: {sensor.id}</p>
+                             </div>
+                             <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-center gap-1 text-[10px] font-bold text-green-600">
+                                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> Online
+                                </div>
+                                <div className="flex items-center gap-1 text-gray-400">
+                                   <Signal size={12} /> <span className="text-[10px]">{sensor.signalStrength}%</span>
+                                </div>
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+                 ) : (
+                    <div className="text-center py-6 bg-gray-50 dark:bg-neutral-800/30 rounded-3xl border border-dashed border-gray-200 dark:border-neutral-800">
+                       <Radio size={24} className="mx-auto text-gray-300 mb-2" />
+                       <p className="text-xs text-gray-400">Nenhum sensor vinculado a esta parcela.</p>
+                    </div>
+                 )}
               </div>
             </div>
           )}

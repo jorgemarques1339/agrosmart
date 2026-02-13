@@ -58,6 +58,16 @@ export interface FieldHistory {
   ndvi: number;
 }
 
+export interface Sensor {
+  id: string;
+  type: 'moisture' | 'weather' | 'valve' | 'camera';
+  name: string;
+  batteryLevel: number; // 0-100
+  signalStrength: number; // 0-100 (RSSI logic)
+  lastSeen: string;
+  status: 'online' | 'offline' | 'pairing';
+}
+
 export interface Field {
   id: string;
   name: string;
@@ -74,6 +84,7 @@ export interface Field {
   harvestWindow: string; // Prediction text
   history: FieldHistory[]; // Graph data
   logs: FieldLog[]; // Journal
+  sensors?: Sensor[]; // Connected IoT Devices
 }
 
 export interface StockItem {

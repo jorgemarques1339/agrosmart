@@ -5,14 +5,15 @@ import {
   Settings, Bell, Plus, Minus, Droplets, Map as MapIcon, 
   Navigation, Tractor, AlertTriangle, CloudRain, Thermometer,
   Wind, MapPin, Brain, Scan, Camera, Sprout, CheckCircle, AlertCircle,
-  X, ChevronRight, Activity, Loader2, Save, FileText, Wifi, WifiOff, RefreshCw, CloudOff
+  X, ChevronRight, Activity, Loader2, Save, FileText, Wifi, WifiOff, RefreshCw, CloudOff,
+  Radio, Cpu, CheckCircle2
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-leaflet';
 import mqtt from 'mqtt';
 import L from 'leaflet';
 
-import { AppState, Animal, Field, StockItem, Task, Transaction, WeatherForecast, FieldLog, Machine, MaintenanceLog } from './types';
+import { AppState, Animal, Field, StockItem, Task, Transaction, WeatherForecast, FieldLog, Machine, MaintenanceLog, Sensor } from './types';
 import { INITIAL_WEATHER, MQTT_BROKER, MQTT_TOPIC_PREFIX, MOCK_STATE, STORAGE_KEY } from './constants';
 import { loadState, saveState } from './services/storageService';
 import SettingsModal from './components/SettingsModal';
@@ -47,6 +48,155 @@ const CROP_TYPES = [
 ];
 
 const WEATHER_API_KEY = "c7f76605724ecafb54933077ede4166a";
+
+// --- Componente Global: IoT Pairing Wizard ---
+const IoTPairingWizard = ({ onClose, onPair, fields }: { onClose: () => void, onPair: (fieldId: string, s: Sensor) => void, fields: Field[] }) => {
+  const [step, setStep] = useState<'scan' | 'found' | 'select_field' | 'connecting' | 'success'>('scan');
+  const [foundDevice, setFoundDevice] = useState<Partial<Sensor> | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<string>('');
+
+  // Simular processo de scanning
+  useEffect(() => {
+    if (step === 'scan') {
+      const timer = setTimeout(() => {
+        setFoundDevice({
+          id: `sensor-${Math.floor(Math.random() * 1000)}`,
+          type: 'moisture',
+          name: 'Oriva-Sense-X1',
+          batteryLevel: 100,
+          signalStrength: 95,
+          status: 'online'
+        });
+        setStep('found');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [step]);
+
+  const handleDeviceFound = () => {
+    setStep('select_field');
+  };
+
+  const handleConnect = () => {
+    if (!selectedFieldId) return;
+    
+    setStep('connecting');
+    setTimeout(() => {
+      if (foundDevice) {
+        onPair(selectedFieldId, {
+          ...foundDevice,
+          lastSeen: new Date().toISOString()
+        } as Sensor);
+        setStep('success');
+        setTimeout(onClose, 1500);
+      }
+    }, 2000);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-6">
+      <div className="bg-black border border-green-500/30 w-full max-w-sm rounded-[2rem] p-8 shadow-[0_0_50px_rgba(0,255,0,0.1)] relative overflow-hidden text-green-500 font-mono">
+        
+        {/* Background Grid */}
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(0, 255, 0, .3) 25%, rgba(0, 255, 0, .3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .3) 75%, rgba(0, 255, 0, .3) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(0, 255, 0, .3) 25%, rgba(0, 255, 0, .3) 26%, transparent 27%, transparent 74%, rgba(0, 255, 0, .3) 75%, rgba(0, 255, 0, .3) 76%, transparent 77%, transparent)', backgroundSize: '30px 30px' }}></div>
+
+        <button onClick={onClose} className="absolute top-4 right-4 text-green-700 hover:text-green-400">
+          <X size={24} />
+        </button>
+
+        {step === 'scan' && (
+          <div className="flex flex-col items-center justify-center py-10">
+            <div className="relative w-32 h-32 flex items-center justify-center mb-8">
+               <div className="absolute inset-0 border-2 border-green-500/30 rounded-full animate-ping"></div>
+               <div className="absolute inset-0 border-2 border-green-500/50 rounded-full animate-pulse"></div>
+               <Radio size={48} className="text-green-400" />
+            </div>
+            <h3 className="text-xl font-bold animate-pulse">A procurar sinal...</h3>
+            <p className="text-xs text-green-700 mt-2">Mantenha o dispositivo próximo</p>
+          </div>
+        )}
+
+        {step === 'found' && foundDevice && (
+          <div className="animate-slide-up">
+            <h3 className="text-lg font-bold mb-6 text-center border-b border-green-900 pb-4">Dispositivo Encontrado</h3>
+            <div className="bg-green-900/20 p-4 rounded-xl border border-green-500/30 mb-6 flex items-center gap-4">
+               <div className="w-12 h-12 bg-green-900/40 rounded-full flex items-center justify-center">
+                 <Cpu size={24} />
+               </div>
+               <div>
+                 <p className="font-bold text-white">{foundDevice.name}</p>
+                 <p className="text-xs text-green-600">ID: {foundDevice.id}</p>
+               </div>
+               <div className="ml-auto flex flex-col items-end">
+                 <Wifi size={16} />
+                 <span className="text-[10px]">{foundDevice.signalStrength}%</span>
+               </div>
+            </div>
+            <button 
+              onClick={handleDeviceFound}
+              className="w-full py-4 bg-green-600 text-black font-bold rounded-xl hover:bg-green-500 transition-colors shadow-[0_0_20px_rgba(34,197,94,0.4)]"
+            >
+              Configurar
+            </button>
+          </div>
+        )}
+
+        {step === 'select_field' && (
+          <div className="animate-slide-up">
+             <h3 className="text-lg font-bold mb-4 text-center border-b border-green-900 pb-4">Associar a Cultivo</h3>
+             <p className="text-xs text-green-600 mb-4 text-center">Selecione onde este sensor será instalado:</p>
+             
+             <div className="space-y-2 mb-6 max-h-[200px] overflow-y-auto custom-scrollbar">
+                {fields.map(f => (
+                  <button 
+                    key={f.id}
+                    onClick={() => setSelectedFieldId(f.id)}
+                    className={`w-full text-left p-3 rounded-xl border transition-all ${
+                      selectedFieldId === f.id 
+                        ? 'bg-green-600 text-black border-green-400' 
+                        : 'bg-green-900/10 border-green-900 text-green-400 hover:bg-green-900/20'
+                    }`}
+                  >
+                    <span className="font-bold">{f.name}</span>
+                    <span className="block text-[10px] opacity-70">{f.crop}</span>
+                  </button>
+                ))}
+             </div>
+
+             <button 
+              onClick={handleConnect}
+              disabled={!selectedFieldId}
+              className={`w-full py-4 font-bold rounded-xl transition-colors shadow-[0_0_20px_rgba(34,197,94,0.4)] ${
+                selectedFieldId ? 'bg-green-600 text-black hover:bg-green-500' : 'bg-green-900/30 text-green-800 cursor-not-allowed'
+              }`}
+            >
+              Concluir Emparelhamento
+            </button>
+          </div>
+        )}
+
+        {step === 'connecting' && (
+          <div className="flex flex-col items-center justify-center py-12">
+             <Loader2 size={48} className="animate-spin text-green-400 mb-4" />
+             <p className="text-sm">A estabelecer handshake...</p>
+             <p className="text-xs text-green-800 mt-2">A provisionar chaves MQTT</p>
+          </div>
+        )}
+
+        {step === 'success' && (
+          <div className="flex flex-col items-center justify-center py-10 animate-scale-up">
+             <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-black mb-6 shadow-[0_0_30px_#22c55e]">
+               <CheckCircle2 size={40} />
+             </div>
+             <h3 className="text-2xl font-bold text-white">Conectado!</h3>
+             <p className="text-sm text-green-600 mt-2">Recebendo telemetria...</p>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
 
 // --- Componentes ---
 
@@ -152,6 +302,7 @@ const CultivationView = ({
   onAddLog,
   onUseStock,
   onAddField,
+  onRegisterSensor,
   onModalChange,
   operatorName
 }: { 
@@ -161,11 +312,14 @@ const CultivationView = ({
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>) => void,
   onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void,
   onAddField: (field: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => void,
+  onRegisterSensor: (fieldId: string, sensor: Sensor) => void,
   onModalChange?: (isOpen: boolean) => void,
   operatorName: string
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotebookOpen, setIsNotebookOpen] = useState(false);
+  const [showIoTWizard, setShowIoTWizard] = useState(false);
+  
   const [newName, setNewName] = useState('');
   const [newArea, setNewArea] = useState('');
   const [selectedCrop, setSelectedCrop] = useState(CROP_TYPES[0]);
@@ -173,9 +327,9 @@ const CultivationView = ({
   // Notificar o pai quando o estado do modal muda
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(isModalOpen || isNotebookOpen);
+      onModalChange(isModalOpen || isNotebookOpen || showIoTWizard);
     }
-  }, [isModalOpen, isNotebookOpen, onModalChange]);
+  }, [isModalOpen, isNotebookOpen, showIoTWizard, onModalChange]);
 
   const handleSubmit = () => {
     if (newName && newArea) {
@@ -211,6 +365,18 @@ const CultivationView = ({
              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
            </div>
 
+           {/* Botão IoT Pairing (NEW) */}
+           <div className="flex flex-col items-center gap-1">
+             <button 
+               onClick={() => setShowIoTWizard(true)}
+               className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 shadow-md border border-gray-100 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-transform"
+               title="Adicionar Sensor IoT"
+             >
+               <Wifi size={22} />
+             </button>
+             <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">IoT</span>
+           </div>
+
            {/* Botão Adicionar Campo */}
            <div className="flex flex-col items-center gap-1">
              <button 
@@ -219,8 +385,7 @@ const CultivationView = ({
              >
                <Plus size={24} />
              </button>
-             {/* Espaçador invisível para alinhamento */}
-             <span className="text-[10px] font-bold text-transparent select-none">Novo</span>
+             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo Cultivo</span>
            </div>
         </div>
       </div>
@@ -235,6 +400,7 @@ const CultivationView = ({
             onToggleIrrigation={toggleIrrigation}
             onAddLog={onAddLog}
             onUseStock={onUseStock}
+            onRegisterSensor={onRegisterSensor}
           />
         ))}
       </div>
@@ -331,6 +497,17 @@ const CultivationView = ({
         fields={fields}
         operatorName={operatorName}
       />
+
+      {/* IOT PAIRING WIZARD */}
+      {showIoTWizard && (
+        <IoTPairingWizard 
+          onClose={() => setShowIoTWizard(false)}
+          fields={fields}
+          onPair={(fieldId, sensor) => {
+            onRegisterSensor(fieldId, sensor);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -962,6 +1139,22 @@ const App = () => {
     }));
   };
 
+  // IoT Sensor Registration
+  const handleRegisterSensor = (fieldId: string, sensor: Sensor) => {
+    trackOfflineAction();
+    setState(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => {
+        if (f.id === fieldId) {
+          // Add sensor to existing list or create new list
+          const updatedSensors = f.sensors ? [...f.sensors, sensor] : [sensor];
+          return { ...f, sensors: updatedSensors };
+        }
+        return f;
+      })
+    }));
+  };
+
   const handleResetData = () => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('oriva_username');
@@ -1066,6 +1259,7 @@ const App = () => {
             onAddLog={handleAddLog}
             onUseStock={handleUseStockOnField}
             onAddField={addField}
+            onRegisterSensor={handleRegisterSensor}
             onModalChange={handleChildModalChange}
             operatorName={userName}
           />
