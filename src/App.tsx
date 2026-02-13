@@ -5,7 +5,7 @@ import {
   Settings, Bell, Plus, Minus, Droplets, Map as MapIcon, 
   Navigation, Tractor, AlertTriangle, CloudRain, Thermometer,
   Wind, MapPin, Brain, Scan, Camera, Sprout, CheckCircle, AlertCircle,
-  X, ChevronRight, Activity, Loader2, Save, FileText
+  X, ChevronRight, Activity, Loader2, Save, FileText, Wifi, WifiOff, RefreshCw, CloudOff
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-leaflet';
@@ -350,6 +350,12 @@ const App = () => {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [alertActive, setAlertActive] = useState<string | null>(null);
 
+  // Connectivity & Sync State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncQueueCount, setSyncQueueCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [showOnlineSuccess, setShowOnlineSuccess] = useState(true); // Inicializa a true para feedback de arranque
+
   // Audio Ref for Alarm
   const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -358,6 +364,14 @@ const App = () => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('agro_theme') === 'dark' || 
         (!localStorage.getItem('agro_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  // --- SOLAR MODE (HIGH CONTRAST) ---
+  const [isSolarMode, setIsSolarMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('agro_solar') === 'true';
     }
     return false;
   });
@@ -381,6 +395,55 @@ const App = () => {
     setIsTabBarVisible(!shouldHide);
   }, [isSettingsOpen, isNotificationsOpen, isChildModalOpen]);
 
+  // Connectivity Listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineSuccess(true); // Mostrar barra verde
+
+      if (syncQueueCount > 0) {
+        setIsSyncing(true);
+        // Simular tempo de sync com a cloud
+        setTimeout(() => {
+          setIsSyncing(false);
+          setSyncQueueCount(0);
+          // Esconder mensagem de sucesso após sync
+          setTimeout(() => setShowOnlineSuccess(false), 2500);
+        }, 2000);
+      } else {
+        // Se não houver nada para sync, esconder após breve delay
+        setTimeout(() => setShowOnlineSuccess(false), 2500);
+      }
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setShowOnlineSuccess(false); // Reset imediato do sucesso
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Initial check timeout for startup feedback
+    setTimeout(() => {
+       if (navigator.onLine && syncQueueCount === 0) {
+         setShowOnlineSuccess(false);
+       }
+    }, 2500);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [syncQueueCount]);
+
+  // Helper para rastrear ações offline
+  const trackOfflineAction = () => {
+    if (!isOnline) {
+      setSyncQueueCount(prev => prev + 1);
+    }
+  };
+
   // Apply Dark Mode Class
   useEffect(() => {
     if (isDarkMode) {
@@ -391,6 +454,34 @@ const App = () => {
       localStorage.setItem('agro_theme', 'light');
     }
   }, [isDarkMode]);
+
+  // Apply Solar Mode Class
+  useEffect(() => {
+    if (isSolarMode) {
+      document.documentElement.classList.add('solar');
+      localStorage.setItem('agro_solar', 'true');
+    } else {
+      document.documentElement.classList.remove('solar');
+      localStorage.setItem('agro_solar', 'false');
+    }
+  }, [isSolarMode]);
+
+  // Handlers para Toggles Exclusivos
+  const toggleDarkMode = () => {
+    if (!isDarkMode) {
+      // Se ativar Dark, desativa Solar
+      setIsSolarMode(false);
+    }
+    setIsDarkMode(!isDarkMode);
+  };
+
+  const toggleSolarMode = () => {
+    if (!isSolarMode) {
+      // Se ativar Solar, desativa Dark
+      setIsDarkMode(false);
+    }
+    setIsSolarMode(!isSolarMode);
+  };
 
   // Persist User Name
   useEffect(() => {
@@ -432,6 +523,9 @@ const App = () => {
   };
 
   const fetchWeather = async (lat: number, lon: number) => {
+    // Ignorar fetch se offline
+    if (!navigator.onLine) return;
+
     setWeatherLoading(true);
     try {
       // 1. Current Weather
@@ -525,6 +619,8 @@ const App = () => {
 
   // MQTT Logic (Existing)
   useEffect(() => {
+    if (!isOnline) return; // Skip MQTT if offline
+
     const client = mqtt.connect(MQTT_BROKER);
     
     client.on('connect', () => {
@@ -548,7 +644,7 @@ const App = () => {
     });
 
     return () => { client.end(); };
-  }, []);
+  }, [isOnline]);
 
   // Persist State
   useEffect(() => {
@@ -566,13 +662,14 @@ const App = () => {
     count += state.fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
     // Stocks
     count += state.stocks.filter(s => s.quantity <= s.minStock).length;
-    // Machines
-    count += (state.machines || []).filter(m => (m.engineHours - m.lastServiceHours) > m.serviceInterval).length;
+    // Machines (Agora inclui Alertas Preditivos < 50h)
+    count += (state.machines || []).filter(m => (m.engineHours - m.lastServiceHours) > (m.serviceInterval - 50)).length;
     return count;
   }, [state, weatherData, alertActive]);
 
-  // Actions
+  // Actions with Offline Tracking
   const toggleTask = (id: string) => {
+    trackOfflineAction();
     setState(prev => ({
       ...prev,
       tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
@@ -580,6 +677,7 @@ const App = () => {
   };
 
   const addTask = (title: string, type: 'task' | 'harvest', date?: string) => {
+    trackOfflineAction();
     const newTask: Task = {
       id: Date.now().toString(),
       title,
@@ -594,6 +692,7 @@ const App = () => {
   };
 
   const deleteTask = (id: string) => {
+    trackOfflineAction();
     setState(prev => ({
       ...prev,
       tasks: prev.tasks.filter(t => t.id !== id)
@@ -601,6 +700,7 @@ const App = () => {
   };
 
   const addProduction = (animalId: string, value: number, type: 'milk' | 'weight') => {
+    trackOfflineAction();
     const date = new Date().toISOString().split('T')[0];
     setState(prev => ({
       ...prev,
@@ -613,6 +713,7 @@ const App = () => {
   };
 
   const toggleIrrigation = (fieldId: string, status: boolean) => {
+    trackOfflineAction();
     setState(prev => ({
       ...prev,
       fields: prev.fields.map(f => f.id === fieldId ? { ...f, irrigationStatus: status } : f)
@@ -623,6 +724,7 @@ const App = () => {
 
   // Add New Field
   const addField = (fieldData: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => {
+    trackOfflineAction();
     const newField: Field = {
       id: Date.now().toString(),
       ...fieldData,
@@ -648,6 +750,7 @@ const App = () => {
   };
 
   const updateStock = (id: string, delta: number) => {
+     trackOfflineAction();
      setState(prev => ({
        ...prev,
        stocks: prev.stocks.map(s => s.id === id ? { ...s, quantity: Math.max(0, s.quantity + delta) } : s)
@@ -655,6 +758,7 @@ const App = () => {
   };
 
   const addStock = (item: Omit<StockItem, 'id'>) => {
+    trackOfflineAction();
     const newItem: StockItem = { ...item, id: Date.now().toString(), minStock: 10, pricePerUnit: 0 };
     // Auto-generate expense transaction
     const transaction: Transaction = {
@@ -674,6 +778,7 @@ const App = () => {
   };
 
   const editStock = (id: string, updates: Partial<StockItem>) => {
+    trackOfflineAction();
     setState(prev => ({
       ...prev,
       stocks: prev.stocks.map(s => s.id === id ? { ...s, ...updates } : s)
@@ -681,6 +786,7 @@ const App = () => {
   };
 
   const handleAddLog = (fieldId: string, log: Omit<FieldLog, 'id'>) => {
+    trackOfflineAction();
     const newLog: FieldLog = { ...log, id: Date.now().toString() };
     setState(prev => ({
       ...prev,
@@ -694,6 +800,7 @@ const App = () => {
 
   // --- NEW INTEGRATION LOGIC: Stock -> Field -> Finance ---
   const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {
+    trackOfflineAction();
     // 1. Encontrar o Stock
     const stockItem = state.stocks.find(s => s.id === stockId);
     if(!stockItem) return;
@@ -743,6 +850,7 @@ const App = () => {
 
 
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    trackOfflineAction();
     const newTx: Transaction = { ...transaction, id: Date.now().toString() };
     setState(prev => ({
       ...prev,
@@ -752,6 +860,7 @@ const App = () => {
 
   // Machine Actions
   const updateMachineHours = (id: string, hours: number) => {
+    trackOfflineAction();
     setState(prev => ({
       ...prev,
       machines: (prev.machines || []).map(m => m.id === id ? { ...m, engineHours: hours } : m)
@@ -759,6 +868,7 @@ const App = () => {
   };
 
   const addMachineLog = (machineId: string, log: Omit<MaintenanceLog, 'id'>) => {
+    trackOfflineAction();
     const newLog: MaintenanceLog = { ...log, id: Date.now().toString() };
     
     // Auto generate expense
@@ -807,6 +917,7 @@ const App = () => {
   };
 
   const addMachine = (machineData: Omit<Machine, 'id' | 'logs'>) => {
+    trackOfflineAction();
     const newMachine: Machine = {
       ...machineData,
       id: Date.now().toString(),
@@ -827,13 +938,59 @@ const App = () => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('agro_username');
     localStorage.removeItem('agro_theme');
+    localStorage.removeItem('agro_solar');
     window.location.reload();
+  };
+
+  // --- UI Components for Offline ---
+  const OfflineStatusBanner = () => {
+    // VISIBILITY LOGIC:
+    // Visible if Offline OR Syncing OR showing Success Message
+    const isVisible = !isOnline || isSyncing || showOnlineSuccess;
+
+    return (
+      <div className={`fixed top-0 left-0 right-0 z-[160] transition-transform duration-500 ease-in-out ${isVisible ? 'translate-y-0' : '-translate-y-full'}`}>
+         {/* Status Bar with Dynamic Colors */}
+         <div className={`w-full px-4 py-3 shadow-lg flex items-center justify-center gap-2 backdrop-blur-md transition-colors duration-500 ${
+           !isOnline 
+             ? 'bg-amber-500/95 text-white'  // OFFLINE: Amber
+             : isSyncing 
+               ? 'bg-blue-500/95 text-white' // SYNCING: Blue
+               : 'bg-green-500/95 text-white' // SUCCESS: Green
+         }`}>
+           {!isOnline ? (
+             <>
+                <CloudOff size={18} className="animate-pulse" />
+                <span className="font-bold text-sm">Modo Offline</span>
+                {syncQueueCount > 0 && (
+                  <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs font-mono font-bold ml-1">
+                    {syncQueueCount} pendentes
+                  </span>
+                )}
+             </>
+           ) : isSyncing ? (
+             <>
+               <RefreshCw size={18} className="animate-spin" />
+               <span className="font-bold text-sm">A Sincronizar com a Cloud...</span>
+             </>
+           ) : (
+             <>
+               <Wifi size={18} />
+               <span className="font-bold text-sm">Sistema Online</span>
+             </>
+           )}
+         </div>
+      </div>
+    );
   };
 
   return (
     // Contentor Principal: Altura fixa na viewport (100dvh) para evitar scroll do body
     <div className="h-[100dvh] w-full flex flex-col bg-[#FDFDF5] dark:bg-[#0A0A0A] overflow-hidden font-sans text-gray-800 dark:text-gray-100 selection:bg-agro-green selection:text-white">
       
+      {/* Offline / Sync Banner */}
+      <OfflineStatusBanner />
+
       {/* ALERTA CRÍTICO FULLSCREEN */}
       {alertActive && (
         <div className="fixed inset-0 z-[200] bg-red-600 animate-pulse flex flex-col items-center justify-center text-white p-8 text-center">
@@ -850,8 +1007,8 @@ const App = () => {
       )}
 
       {/* Área de Conteúdo: Ocupa o espaço restante e permite scroll interno */}
-      {/* pb-36 adicionado para garantir que o conteúdo final não fica escondido atrás da barra flutuante */}
-      <main className="flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pt-2 pb-36">
+      {/* Dynamic Padding logic based on banner visibility */}
+      <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pb-36 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (
           <DashboardHome 
             userName={userName}
@@ -887,6 +1044,7 @@ const App = () => {
         {activeTab === 'machines' && (
           <MachineManager 
              machines={state.machines || []}
+             stocks={state.stocks}
              onUpdateHours={updateMachineHours}
              onAddLog={addMachineLog}
              onAddMachine={addMachine}
@@ -926,7 +1084,9 @@ const App = () => {
           setIsSettingsOpen(false);
         }}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onToggleDarkMode={toggleDarkMode}
+        isSolarMode={isSolarMode}
+        onToggleSolarMode={toggleSolarMode}
       />
 
       <NotificationsModal

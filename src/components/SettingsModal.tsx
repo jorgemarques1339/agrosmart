@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, User, Save, Info, Moon, Sun, Monitor } from 'lucide-react';
 
@@ -9,6 +10,8 @@ interface SettingsModalProps {
   onSaveName: (name: string) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
+  isSolarMode: boolean;
+  onToggleSolarMode: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -19,6 +22,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveName,
   isDarkMode,
   onToggleDarkMode,
+  isSolarMode,
+  onToggleSolarMode
 }) => {
   const [tempName, setTempName] = useState(currentName);
 
@@ -66,12 +71,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Corpo com Scroll */}
         <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
           
-          {/* Secção: Aparência (Dark Mode) */}
-          <section>
+          {/* Secção: Aparência */}
+          <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Aparência</h3>
+            
+            {/* Toggle Dark Mode */}
             <div 
-              className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
-              onClick={onToggleDarkMode}
+              className={`bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform shadow-sm ${isSolarMode ? 'opacity-50 pointer-events-none' : ''}`}
+              onClick={!isSolarMode ? onToggleDarkMode : undefined}
             >
               <div className="flex items-center gap-3">
                 <div className={`p-3 rounded-full ${isDarkMode ? 'bg-indigo-900/30 text-indigo-400' : 'bg-amber-100 text-amber-600'}`}>
@@ -86,6 +93,27 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               {/* Toggle Switch Visual */}
               <div className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 ${isDarkMode ? 'bg-agro-green' : 'bg-gray-200'}`}>
                 <div className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${isDarkMode ? 'translate-x-6' : 'translate-x-0'}`} />
+              </div>
+            </div>
+
+            {/* Toggle Solar Mode */}
+            <div 
+              className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
+              onClick={onToggleSolarMode}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-full ${isSolarMode ? 'bg-black text-yellow-400' : 'bg-yellow-50 text-yellow-600'}`}>
+                  <Sun size={20} fill={isSolarMode ? "currentColor" : "none"} />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900 dark:text-white">Modo Solar</p>
+                  <p className="text-xs text-gray-500">Alto contraste para exterior</p>
+                </div>
+              </div>
+
+              {/* Toggle Switch Visual */}
+              <div className={`w-14 h-8 rounded-full p-1 transition-colors duration-300 ${isSolarMode ? 'bg-black' : 'bg-gray-200'}`}>
+                <div className={`w-6 h-6 rounded-full bg-white shadow-md transform transition-transform duration-300 ${isSolarMode ? 'translate-x-6' : 'translate-x-0'}`} />
               </div>
             </div>
           </section>
@@ -125,7 +153,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div>
                 <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">AgroSmart Enterprise</h4>
                 <p className="text-xs text-blue-700 dark:text-blue-300/70 mt-1 leading-relaxed">
-                  Versão 1.2.0 (Build 240)<br/>
+                  Versão 1.3.0 (Solar Update)<br/>
                   Arquitetura Offline-First ativa. Os dados são guardados localmente no seu dispositivo.
                 </p>
               </div>

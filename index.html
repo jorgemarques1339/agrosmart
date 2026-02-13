@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-PT">
   <head>
@@ -50,6 +51,70 @@
       html.dark body {
         background-color: #0A0A0A;
       }
+
+      /* --- SOLAR MODE (HIGH CONTRAST) --- */
+      html.solar body {
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+      }
+
+      /* Reset visual noise for Solar Mode */
+      html.solar * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+      }
+
+      /* Enforce borders and bold text */
+      html.solar .bg-white, 
+      html.solar .bg-gray-50, 
+      html.solar .bg-gray-100 {
+        background-color: #FFFFFF !important;
+        border: 2px solid #000000 !important;
+        color: #000000 !important;
+      }
+      
+      /* Enhance Typography visibility */
+      html.solar h1, html.solar h2, html.solar h3, html.solar h4, html.solar p, html.solar span, html.solar div {
+        font-weight: 700 !important; /* Bold everything */
+        letter-spacing: 0.5px;
+      }
+      
+      html.solar .text-gray-400, 
+      html.solar .text-gray-500, 
+      html.solar .text-gray-600 {
+        color: #000000 !important;
+      }
+
+      /* High Impact Buttons */
+      html.solar .bg-agro-green {
+        background-color: #000000 !important;
+        color: #FFFF00 !important; /* Yellow text on Black button */
+        border: 2px solid #000000 !important;
+      }
+
+      /* Inputs High Contrast */
+      html.solar input, html.solar select {
+        background-color: #FFFFFF !important;
+        border: 3px solid #000000 !important;
+        color: #000000 !important;
+        font-weight: 900 !important;
+      }
+
+      /* Icons thickness */
+      html.solar svg {
+        stroke-width: 3px !important;
+        stroke: #000000 !important;
+      }
+      
+      /* Specific override for white text elements to be black in solar mode if background flips */
+      html.solar .text-white {
+        color: #000000 !important;
+      }
+      html.solar .bg-agro-green .text-white {
+        color: #FFFF00 !important; /* Exception for primary buttons */
+      }
+
     </style>
     <script>
       tailwind.config = {

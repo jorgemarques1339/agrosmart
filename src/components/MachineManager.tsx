@@ -4,10 +4,11 @@ import {
   Tractor, Wrench, Fuel, Calendar, Clock, AlertTriangle, 
   CheckCircle2, Plus, X, Gauge, Truck, Activity, Droplets, Save
 } from 'lucide-react';
-import { Machine, MaintenanceLog } from '../types';
+import { Machine, MaintenanceLog, StockItem } from '../types';
 
 interface MachineManagerProps {
   machines: Machine[];
+  stocks?: StockItem[];
   onUpdateHours: (id: string, hours: number) => void;
   onAddLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
   onAddMachine: (machine: Omit<Machine, 'id' | 'logs'>) => void;
@@ -16,6 +17,7 @@ interface MachineManagerProps {
 
 const MachineManager: React.FC<MachineManagerProps> = ({ 
   machines, 
+  stocks = [],
   onUpdateHours, 
   onAddLog,
   onAddMachine,
@@ -42,6 +44,17 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   const [logCost, setLogCost] = useState('');
   const [logLiters, setLogLiters] = useState('');
 
+  // Fuel Integration Logic
+  const fuelStockAvailable = useMemo(() => {
+    return stocks
+      .filter(s => s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo') || s.name.toLowerCase().includes('diesel'))
+      .reduce((acc, s) => acc + s.quantity, 0);
+  }, [stocks]);
+
+  const isFuelInsufficient = useMemo(() => {
+    return logType === 'fuel' && parseFloat(logLiters || '0') > fuelStockAvailable;
+  }, [logType, logLiters, fuelStockAvailable]);
+
   useEffect(() => {
     if (onModalChange) {
       onModalChange(!!selectedMachine || isAddModalOpen);
@@ -52,7 +65,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     setSelectedMachine(machine);
     setModalType(type);
     setNewHours(machine.engineHours.toString());
-    setLogType('fuel');
+    setLogType(type === 'hours' ? 'other' : 'fuel'); // Defalut to fuel for maintenance
     setLogDesc('');
     setLogCost('');
     setLogLiters('');
@@ -74,6 +87,10 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   const handleAddLog = () => {
     if (selectedMachine) {
       const liters = parseFloat(logLiters);
+      
+      // Basic validation for fuel
+      if (logType === 'fuel' && (isNaN(liters) || liters <= 0)) return;
+
       const description = logType === 'fuel' 
         ? `Abastecimento: ${logLiters}L. ${logDesc}` 
         : logDesc;
@@ -122,11 +139,15 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     const progress = Math.min((hoursSinceService / m.serviceInterval) * 100, 100);
     const isOverdue = hoursSinceService > m.serviceInterval;
     
+    // Predictive: Warning if less than 50 hours remaining
+    const hoursRemaining = m.serviceInterval - hoursSinceService;
+    const isApproaching = hoursRemaining > 0 && hoursRemaining <= 50;
+    
     // Inspeção a menos de 15 dias (conforme requisito)
     const daysUntilInspection = Math.ceil((new Date(m.nextInspectionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const isInspectionDue = daysUntilInspection <= 15;
 
-    return { hoursSinceService, progress, isOverdue, isInspectionDue, daysUntilInspection };
+    return { hoursSinceService, progress, isOverdue, isApproaching, isInspectionDue, daysUntilInspection };
   };
 
   // Dashboard Metrics
@@ -135,7 +156,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     const active = machines.filter(m => m.status === 'active').length;
     const maintenanceDue = machines.filter(m => {
        const h = calculateHealth(m);
-       return h.isOverdue || h.isInspectionDue;
+       return h.isOverdue || h.isInspectionDue || h.isApproaching;
     }).length;
     
     return { total, active, maintenanceDue };
@@ -427,6 +448,11 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                         <Droplets size={10} /> Mudar Óleo
                       </span>
                     )}
+                    {health.isApproaching && !needsOilChange && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded-full">
+                         <Clock size={10} /> Brevemente
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -560,7 +586,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                 </div>
 
                 {logType === 'fuel' && (
-                  <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl border border-gray-100 dark:border-neutral-700">
+                  <div className={`bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl border transition-all ${isFuelInsufficient ? 'border-red-400 bg-red-50 dark:bg-red-900/10' : 'border-gray-100 dark:border-neutral-700'}`}>
                     <label className="text-xs font-bold uppercase text-gray-400 ml-2">Litros de Combustível</label>
                     <div className="relative mt-2">
                       <input 
@@ -573,9 +599,21 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                       />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">L</span>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-2 ml-2 flex items-center gap-1">
-                      <AlertTriangle size={10} /> Será descontado do Stock
-                    </p>
+                    
+                    {/* Fuel Integration Feedback */}
+                    <div className="mt-3 flex items-center justify-between px-2">
+                       <span className="text-[10px] text-gray-400 flex items-center gap-1">
+                          <AlertTriangle size={10} /> Será descontado do Stock
+                       </span>
+                       <span className={`text-[10px] font-bold ${isFuelInsufficient ? 'text-red-500' : 'text-green-600'}`}>
+                          Disponível: {fuelStockAvailable} L
+                       </span>
+                    </div>
+                    {isFuelInsufficient && (
+                       <p className="text-xs text-red-500 font-bold mt-2 text-center animate-pulse">
+                          Atenção: Stock insuficiente!
+                       </p>
+                    )}
                   </div>
                 )}
 

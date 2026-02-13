@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { 
   FileText, Download, Calendar, Filter, 
   CheckCircle2, Printer, X, Droplets, Sprout, 
-  AlertTriangle, Loader2, ChevronRight, Search
+  AlertTriangle, Loader2, ChevronRight, Search, ShieldCheck
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -38,7 +38,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // --- Processamento de Dados Reais ---
+  // --- Processamento de Dados Reais (Compliance DGAV) ---
   const reportData = useMemo(() => {
     const allLogs: EnrichedLog[] = [];
 
@@ -50,29 +50,30 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
         // Filtro de Data (Mês)
         if (!log.date.startsWith(selectedMonth)) return;
 
-        // Lógica de Extração de Dados Reais
+        // Lógica de Extração de Dados para Compliance
         let product = log.description;
         let dose = '-';
         let totalQty = '-';
 
-        // Detetar se é uma aplicação de produto (via Stock)
+        // Detetar se é uma aplicação de produto (via Stock ou Manual)
+        // Se tiver quantidade, assumimos que é uma aplicação calculável
         if (log.quantity !== undefined && log.unit) {
-          // Limpar prefixos comuns para obter o nome do produto
+          // Limpar prefixos comuns para obter o nome limpo do produto/fitofármaco
           product = log.description.replace('Aplicação: ', '').replace('Aplicação ', '');
           
           totalQty = `${log.quantity} ${log.unit}`;
           
           // Cálculo da Dose / Hectare (Crítico para DGAV)
           if (field.areaHa > 0) {
-            const doseValue = (log.quantity / field.areaHa).toFixed(2);
+            // Arredondar a 3 casas decimais para precisão
+            const doseValue = (log.quantity / field.areaHa).toFixed(3);
             dose = `${doseValue} ${log.unit}/ha`;
           }
         } 
         // Tratamento para Colheitas
         else if (log.type === 'harvest') {
           product = 'Colheita';
-          // Se não houver qtd registada, usa estimativa
-          dose = log.description; 
+          dose = log.description; // Na colheita, a descrição costuma ter notas de rendimento
         }
 
         allLogs.push({
@@ -88,11 +89,11 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
       });
     });
 
-    // Ordenar cronologicamente
+    // Ordenar cronologicamente (Mais antigo primeiro, formato de registo)
     return allLogs.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [fields, selectedFieldId, selectedMonth, operatorName]);
 
-  // --- Geração de PDF (Compliance DGAV) ---
+  // --- Geração de PDF (Layout Oficial) ---
   const generatePDF = () => {
     if (reportData.length === 0) return;
     
@@ -100,76 +101,132 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
 
     setTimeout(() => {
       const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
       
       // 1. Cabeçalho Institucional
-      doc.setFontSize(18);
-      doc.setTextColor(62, 104, 55); // Agro Green
-      doc.text("Caderno de Campo - Registo de Operações", 14, 20);
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold');
+      doc.text("REGISTO DE OPERAÇÕES CULTURAIS", pageWidth / 2, 20, { align: 'center' });
       
       doc.setFontSize(10);
-      doc.setTextColor(60);
-      doc.text(`Operador: ${operatorName}`, 14, 28);
-      doc.text(`Período: ${selectedMonth}`, 14, 33);
-      doc.text(`Data Emissão: ${new Date().toLocaleDateString('pt-PT')}`, 14, 38);
+      doc.setFont('helvetica', 'normal');
+      doc.text("Conformidade: DGAV / Produção Integrada", pageWidth / 2, 26, { align: 'center' });
 
-      // 2. Configuração da Tabela
+      // 2. Dados do Operador e Período (Box)
+      doc.setDrawColor(200);
+      doc.setFillColor(250, 250, 250);
+      doc.rect(14, 35, pageWidth - 28, 25, 'FD');
+
+      doc.setFontSize(9);
+      doc.setTextColor(80);
+      doc.text("IDENTIFICAÇÃO DO AGRICULTOR / OPERADOR", 18, 42);
+      
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(operatorName.toUpperCase(), 18, 48);
+
+      doc.setFontSize(9);
+      doc.setTextColor(80);
+      doc.setFont('helvetica', 'normal');
+      doc.text("PERÍODO DE REGISTO", 120, 42);
+      doc.text("DATA DE EMISSÃO", 170, 42);
+
+      doc.setFontSize(11);
+      doc.setTextColor(0);
+      doc.setFont('helvetica', 'bold');
+      doc.text(selectedMonth, 120, 48);
+      doc.text(new Date().toLocaleDateString('pt-PT'), 170, 48);
+
+      // 3. Configuração da Tabela Oficial
       const tableColumn = [
         "Data", 
         "Parcela / Cultura", 
         "Operação", 
-        "Produto Comercial", 
+        "Produto / Justificação", 
+        "Área (ha)",
         "Total Usado", 
         "Dose (ha)"
       ];
       
       const tableRows = reportData.map(log => [
         log.date,
-        `${log.fieldName}\n(${log.fieldCrop} - ${log.fieldArea}ha)`,
+        `${log.fieldName}\n${log.fieldCrop}`,
         log.type === 'treatment' ? 'Tratamento' : log.type === 'harvest' ? 'Colheita' : 'Outros',
         log.product,
+        log.fieldArea.toFixed(2),
         log.totalQty,
         log.dose
       ]);
 
-      // 3. Gerar Tabela
+      // 4. Gerar Tabela
       autoTable(doc, {
-        startY: 45,
+        startY: 70,
         head: [tableColumn],
         body: tableRows,
-        theme: 'grid',
+        theme: 'plain', // Tema limpo para impressão oficial
         headStyles: { 
-          fillColor: [62, 104, 55], 
-          textColor: 255,
+          fillColor: [240, 240, 240], 
+          textColor: 0,
           fontStyle: 'bold',
           fontSize: 8,
-          halign: 'center'
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 3,
-          textColor: 50,
+          lineWidth: 0.1,
+          lineColor: 200,
+          halign: 'center',
           valign: 'middle'
         },
+        bodyStyles: {
+          fontSize: 8,
+          cellPadding: 3,
+          textColor: 0,
+          valign: 'middle',
+          lineWidth: 0.1,
+          lineColor: 230
+        },
         columnStyles: {
-          0: { cellWidth: 20 }, // Data
-          1: { cellWidth: 40 }, // Parcela
-          5: { cellWidth: 25, halign: 'center', fontStyle: 'bold' } // Dose
+          0: { cellWidth: 22 }, // Data
+          1: { cellWidth: 35 }, // Parcela
+          2: { cellWidth: 20 }, // Operação
+          3: { cellWidth: 'auto' }, // Produto (Expandível)
+          4: { cellWidth: 15, halign: 'center' }, // Área
+          5: { cellWidth: 20, halign: 'right' }, // Total
+          6: { cellWidth: 20, halign: 'right', fontStyle: 'bold' } // Dose
         },
         alternateRowStyles: {
-          fillColor: [245, 247, 245]
+          fillColor: [252, 252, 252]
         }
       });
 
-      // 4. Rodapé
+      // 5. Rodapé com Assinatura
       const finalY = (doc as any).lastAutoTable.finalY || 150;
-      doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text("Documento gerado via AgroSmart Enterprise. Válido para conformidade.", 14, 285);
+      
+      // Verificar se cabe na página, senão adicionar nova
+      let signY = finalY + 40;
+      if (signY > 270) {
+        doc.addPage();
+        signY = 40;
+      }
 
-      if (finalY < 250) {
-        doc.setDrawColor(200);
-        doc.line(130, finalY + 30, 190, finalY + 30);
-        doc.text("Assinatura do Técnico", 130, finalY + 35);
+      doc.setFontSize(8);
+      doc.setTextColor(100);
+      doc.text("Declaro que as informações registadas correspondem à verdade e respeitam os intervalos de segurança.", 14, signY - 15);
+
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.5);
+      doc.line(120, signY, 190, signY); // Linha assinatura
+      
+      doc.setFontSize(9);
+      doc.setTextColor(0);
+      doc.text("Assinatura do Técnico Responsável", 120, signY + 5);
+
+      // Metadados Rodapé Página
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for(let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setTextColor(150);
+        doc.text(`AgroSmart Enterprise v1.3 - Exportação Oficial DGAV - Pág ${i}/${pageCount}`, pageWidth / 2, 290, { align: 'center' });
       }
 
       doc.save(`Caderno_Campo_${selectedMonth}.pdf`);
@@ -177,7 +234,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
       setIsGenerating(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
+    }, 1200);
   };
 
   if (!isOpen) return null;
@@ -192,11 +249,13 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-agro-green/10 rounded-2xl text-agro-green">
-              <FileText size={24} />
+              <ShieldCheck size={24} />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-none">Caderno de Campo</h2>
-              <p className="text-xs text-gray-500 font-medium mt-1">Registo Oficial & Exportação DGAV</p>
+              <p className="text-xs text-gray-500 font-medium mt-1 flex items-center gap-1">
+                 Conformidade DGAV <CheckCircle2 size={10} className="text-agro-green" />
+              </p>
             </div>
           </div>
           <button 
@@ -212,7 +271,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
           
           {/* Seletor de Mês */}
           <div className="flex-1">
-             <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Período</label>
+             <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Período de Inspeção</label>
              <div className="relative">
                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                <input 
@@ -258,12 +317,12 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
           ) : (
             <div className="space-y-3">
               {/* Header da Tabela (Apenas Desktop) */}
-              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold uppercase text-gray-400 tracking-wider">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold uppercase text-gray-400 tracking-wider border-b border-gray-200 dark:border-neutral-800 pb-2 mb-2">
                 <div className="col-span-2">Data</div>
-                <div className="col-span-3">Parcela / Cultura</div>
+                <div className="col-span-3">Parcela</div>
                 <div className="col-span-2">Operação</div>
                 <div className="col-span-3">Produto</div>
-                <div className="col-span-2 text-right">Dose / Total</div>
+                <div className="col-span-2 text-right">Dose Aplicada</div>
               </div>
 
               {/* Rows */}
@@ -316,8 +375,8 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                        {log.product}
                      </p>
                      {log.type === 'treatment' && log.dose !== '-' && (
-                       <span className="text-[10px] text-agro-green font-bold flex items-center gap-1">
-                          <CheckCircle2 size={10} /> Stock Deduzido
+                       <span className="text-[10px] text-green-600 font-bold flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 size={10} /> Registado
                        </span>
                      )}
                    </div>
@@ -332,7 +391,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                           </span>
                         )}
                         <span className="text-[10px] text-gray-400 block mt-0.5">
-                          Total: {log.totalQty}
+                          Qtd Total: {log.totalQty}
                         </span>
                       </div>
                    </div>
@@ -349,7 +408,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                <Printer className="text-gray-400" size={20} />
                <div>
                  <p className="text-[10px] font-bold text-gray-400 uppercase">Estado</p>
-                 <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Pronto para Exportar</p>
+                 <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Pronto para Assinar</p>
                </div>
             </div>
 
@@ -372,7 +431,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
               ) : showSuccess ? (
                 <>
                   <CheckCircle2 size={20} className="animate-scale-up" />
-                  <span>Sucesso!</span>
+                  <span>PDF Criado!</span>
                 </>
               ) : (
                 <>

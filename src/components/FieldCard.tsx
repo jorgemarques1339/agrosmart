@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { 
   Droplets, Thermometer, Brain, Sprout, ChevronDown, 
   MapPin, Loader2, Activity, Wifi, Plus, Trash2, Calendar,
-  Package, ShoppingBag, ArrowRight
+  Package, ShoppingBag, ArrowRight, Mic, MicOff, StopCircle
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
@@ -26,10 +26,14 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
   // Journal Modes
   const [journalMode, setJournalMode] = useState<'note' | 'stock'>('note');
   const [newLogText, setNewLogText] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
   
   // Stock Usage Form
   const [selectedStockId, setSelectedStockId] = useState('');
   const [stockQty, setStockQty] = useState('');
+
+  // Voice Recognition Ref
+  const recognitionRef = useRef<any>(null);
 
   // Simular latência de hardware
   const handleIoTToggle = (e: React.MouseEvent) => {
@@ -39,6 +43,51 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
       onToggleIrrigation(field.id, !field.irrigationStatus);
       setIsLoadingIoT(false);
     }, 1200);
+  };
+
+  // --- Voice Logic ---
+  const toggleRecording = () => {
+    if (isRecording) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      
+      if (!SpeechRecognition) {
+        alert("O seu navegador não suporta reconhecimento de voz.");
+        return;
+      }
+
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'pt-PT';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        // Capitalize first letter
+        const formatted = transcript.charAt(0).toUpperCase() + transcript.slice(1);
+        setNewLogText(prev => prev ? `${prev} ${formatted}` : formatted);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("Speech error", event);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    }
   };
 
   const handleAddLogSubmit = () => {
@@ -258,17 +307,33 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
 
               {/* Input Zone */}
               {journalMode === 'note' ? (
-                <div className="flex gap-2">
-                  <input 
-                    type="text" 
-                    value={newLogText}
-                    onChange={(e) => setNewLogText(e.target.value)}
-                    placeholder="Nova observação..."
-                    className="flex-1 bg-gray-100 dark:bg-neutral-800 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-agro-green dark:text-white transition-shadow"
-                  />
+                <div className="flex gap-2 relative">
+                  <div className="relative flex-1">
+                    <input 
+                      type="text" 
+                      value={newLogText}
+                      onChange={(e) => setNewLogText(e.target.value)}
+                      placeholder={isRecording ? "A ouvir..." : "Nova observação..."}
+                      className={`w-full bg-gray-100 dark:bg-neutral-800 rounded-2xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-agro-green dark:text-white transition-shadow ${isRecording ? 'ring-2 ring-red-400 bg-red-50 dark:bg-red-900/10' : ''}`}
+                    />
+                    
+                    {/* Botão de Voz */}
+                    <button 
+                      onClick={toggleRecording}
+                      className={`absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-full transition-all ${
+                        isRecording 
+                          ? 'bg-red-500 text-white animate-pulse' 
+                          : 'text-gray-400 hover:text-agro-green hover:bg-gray-200 dark:hover:bg-neutral-700'
+                      }`}
+                    >
+                      {isRecording ? <StopCircle size={18} /> : <Mic size={18} />}
+                    </button>
+                  </div>
+
                   <button 
                     onClick={handleAddLogSubmit}
-                    className="bg-gray-800 text-white p-3 rounded-2xl active:scale-90 transition-transform shadow-lg"
+                    disabled={isRecording}
+                    className="bg-gray-800 text-white p-3 rounded-2xl active:scale-90 transition-transform shadow-lg disabled:opacity-50"
                   >
                     <Plus size={20} />
                   </button>

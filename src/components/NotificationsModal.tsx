@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import { 
   X, Bell, AlertTriangle, CloudRain, 
   Package, Droplets, CheckCircle, ArrowRight,
-  Thermometer, Activity, Tractor, Wrench
+  Thermometer, Activity, Tractor, Wrench, Clock
 } from 'lucide-react';
 import { Animal, Field, StockItem, WeatherForecast, Machine } from '../types';
 
@@ -120,16 +120,30 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
     // 5. Verificação de Máquinas
     if (Array.isArray(machines)) {
       machines.forEach(machine => {
-        // Revisão
+        // Cálculo de Horas
         const hoursSince = machine.engineHours - machine.lastServiceHours;
-        if (hoursSince > machine.serviceInterval) {
+        const hoursRemaining = machine.serviceInterval - hoursSince;
+
+        // Alerta de Atraso (Crítico)
+        if (hoursRemaining < 0) {
           alerts.push({
-            id: `machine-service-${machine.id}`,
-            type: 'warning',
-            title: `Revisão: ${machine.name}`,
-            message: `Atrasado ${hoursSince - machine.serviceInterval} horas da manutenção programada.`,
+            id: `machine-service-overdue-${machine.id}`,
+            type: 'critical',
+            title: `Revisão Atrasada: ${machine.name}`,
+            message: `Ultrapassado por ${Math.abs(hoursRemaining)} horas! Risco de avaria.`,
             targetTab: 'machines',
             icon: Wrench
+          });
+        }
+        // Alerta Preditivo (Aviso) - Menos de 50h
+        else if (hoursRemaining <= 50) {
+          alerts.push({
+            id: `machine-service-soon-${machine.id}`,
+            type: 'warning',
+            title: `Manutenção Breve: ${machine.name}`,
+            message: `Muda de óleo recomendada em ${hoursRemaining} horas.`,
+            targetTab: 'machines',
+            icon: Clock
           });
         }
 
