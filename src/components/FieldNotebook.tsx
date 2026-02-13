@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
   FileText, Download, Calendar, Filter, 
@@ -15,13 +16,14 @@ interface FieldNotebookProps {
   operatorName: string;
 }
 
-// Extensão da interface de log para suportar detalhes do relatório
-// Em produção, estes campos viriam do backend. Aqui simulamos com base na descrição.
+// Interface extendida para o relatório
 interface EnrichedLog extends FieldLog {
   fieldName: string;
   fieldArea: number;
-  product?: string;
-  dose?: string;
+  fieldCrop: string;
+  product: string;
+  totalQty: string;
+  dose: string;
   operator: string;
 }
 
@@ -36,39 +38,50 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // --- Processamento de Dados ---
-  // Transforma os logs simples em registos detalhados para o relatório
+  // --- Processamento de Dados Reais ---
   const reportData = useMemo(() => {
     const allLogs: EnrichedLog[] = [];
 
     fields.forEach(field => {
+      // Filtro de Campo
       if (selectedFieldId !== 'all' && field.id !== selectedFieldId) return;
 
       field.logs.forEach(log => {
-        // Filtrar por mês
+        // Filtro de Data (Mês)
         if (!log.date.startsWith(selectedMonth)) return;
 
-        // Simulação de parser de descrição para extrair produto/dose
-        // Ex: "Aplicação de fungicida sistémico" -> Produto: Fungicida Sist., Dose: 2.5 L/ha
-        let product = '-';
+        // Lógica de Extração de Dados Reais
+        let product = log.description;
         let dose = '-';
+        let totalQty = '-';
 
-        if (log.type === 'treatment') {
-          product = 'Fungicida Cuprocol';
-          dose = '2.5 L/ha';
-        } else if (log.type === 'harvest') {
-          product = 'Colheita Manual';
-          dose = `${field.yieldPerHa} Ton (Est.)`;
-        } else if (field.irrigationStatus) { // Assume rega se houver log
-           product = 'Água de Furo';
-           dose = '45 m3/ha';
+        // Detetar se é uma aplicação de produto (via Stock)
+        if (log.quantity !== undefined && log.unit) {
+          // Limpar prefixos comuns para obter o nome do produto
+          product = log.description.replace('Aplicação: ', '').replace('Aplicação ', '');
+          
+          totalQty = `${log.quantity} ${log.unit}`;
+          
+          // Cálculo da Dose / Hectare (Crítico para DGAV)
+          if (field.areaHa > 0) {
+            const doseValue = (log.quantity / field.areaHa).toFixed(2);
+            dose = `${doseValue} ${log.unit}/ha`;
+          }
+        } 
+        // Tratamento para Colheitas
+        else if (log.type === 'harvest') {
+          product = 'Colheita';
+          // Se não houver qtd registada, usa estimativa
+          dose = log.description; 
         }
 
         allLogs.push({
           ...log,
           fieldName: field.name,
           fieldArea: field.areaHa,
-          product: log.description.length > 20 ? log.description.substring(0, 20) + '...' : log.description, // Simplificação
+          fieldCrop: field.crop,
+          product: product,
+          totalQty: totalQty,
           dose: dose,
           operator: operatorName
         });
@@ -85,45 +98,42 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
     
     setIsGenerating(true);
 
-    // Pequeno delay para permitir a renderização da UI de loading
     setTimeout(() => {
       const doc = new jsPDF();
       
       // 1. Cabeçalho Institucional
       doc.setFontSize(18);
       doc.setTextColor(62, 104, 55); // Agro Green
-      doc.text("Caderno de Campo - Registo de Intervenções", 14, 20);
+      doc.text("Caderno de Campo - Registo de Operações", 14, 20);
       
       doc.setFontSize(10);
-      doc.setTextColor(100);
-      doc.text(`Operador Responsável: ${operatorName}`, 14, 28);
+      doc.setTextColor(60);
+      doc.text(`Operador: ${operatorName}`, 14, 28);
       doc.text(`Período: ${selectedMonth}`, 14, 33);
-      doc.text(`Data de Emissão: ${new Date().toLocaleDateString('pt-PT')}`, 14, 38);
-
-      // Linha separadora
-      doc.setDrawColor(62, 104, 55);
-      doc.setLineWidth(0.5);
-      doc.line(14, 42, 196, 42);
+      doc.text(`Data Emissão: ${new Date().toLocaleDateString('pt-PT')}`, 14, 38);
 
       // 2. Configuração da Tabela
-      const tableColumn = ["Data", "Parcela (ha)", "Operação", "Produto / Descrição", "Dose", "Operador"];
-      const tableRows: any[] = [];
-
-      reportData.forEach(log => {
-        const rowData = [
-          log.date,
-          `${log.fieldName} (${log.fieldArea}ha)`,
-          log.type === 'treatment' ? 'Fitossanitário' : log.type === 'harvest' ? 'Colheita' : 'Outros',
-          log.description, // Usar descrição completa no PDF
-          log.dose || '-',
-          log.operator
-        ];
-        tableRows.push(rowData);
-      });
+      const tableColumn = [
+        "Data", 
+        "Parcela / Cultura", 
+        "Operação", 
+        "Produto Comercial", 
+        "Total Usado", 
+        "Dose (ha)"
+      ];
+      
+      const tableRows = reportData.map(log => [
+        log.date,
+        `${log.fieldName}\n(${log.fieldCrop} - ${log.fieldArea}ha)`,
+        log.type === 'treatment' ? 'Tratamento' : log.type === 'harvest' ? 'Colheita' : 'Outros',
+        log.product,
+        log.totalQty,
+        log.dose
+      ]);
 
       // 3. Gerar Tabela
       autoTable(doc, {
-        startY: 48,
+        startY: 45,
         head: [tableColumn],
         body: tableRows,
         theme: 'grid',
@@ -131,40 +141,43 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
           fillColor: [62, 104, 55], 
           textColor: 255,
           fontStyle: 'bold',
-          fontSize: 9
+          fontSize: 8,
+          halign: 'center'
         },
         styles: {
           fontSize: 8,
           cellPadding: 3,
-          textColor: 50
+          textColor: 50,
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 20 }, // Data
+          1: { cellWidth: 40 }, // Parcela
+          5: { cellWidth: 25, halign: 'center', fontStyle: 'bold' } // Dose
         },
         alternateRowStyles: {
           fillColor: [245, 247, 245]
         }
       });
 
-      // 4. Rodapé e Assinatura
+      // 4. Rodapé
       const finalY = (doc as any).lastAutoTable.finalY || 150;
-      
       doc.setFontSize(8);
       doc.setTextColor(150);
-      doc.text("Documento processado digitalmente pela plataforma AgroSmart Enterprise.", 14, 285);
-      doc.text("Válido para conformidade DGAV quando acompanhado de faturas comprovativas.", 14, 289);
+      doc.text("Documento gerado via AgroSmart Enterprise. Válido para conformidade.", 14, 285);
 
-      // Espaço de Assinatura
       if (finalY < 250) {
         doc.setDrawColor(200);
-        doc.line(130, finalY + 40, 190, finalY + 40);
-        doc.text("Assinatura do Técnico", 130, finalY + 45);
+        doc.line(130, finalY + 30, 190, finalY + 30);
+        doc.text("Assinatura do Técnico", 130, finalY + 35);
       }
 
-      // 5. Download
       doc.save(`Caderno_Campo_${selectedMonth}.pdf`);
       
       setIsGenerating(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1500);
+    }, 1000);
   };
 
   if (!isOpen) return null;
@@ -173,7 +186,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
     <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-md animate-fade-in">
       
       {/* Container Principal */}
-      <div className="bg-white dark:bg-neutral-900 w-full md:max-w-4xl h-[95vh] md:h-[85vh] md:rounded-[2rem] rounded-t-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up relative">
+      <div className="bg-white dark:bg-neutral-900 w-full md:max-w-5xl h-[95vh] md:h-[85vh] md:rounded-[2rem] rounded-t-[2.5rem] shadow-2xl overflow-hidden flex flex-col animate-slide-up relative">
         
         {/* --- Header Fixo --- */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-neutral-800 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-md sticky top-0 z-20">
@@ -247,10 +260,10 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
               {/* Header da Tabela (Apenas Desktop) */}
               <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-xs font-bold uppercase text-gray-400 tracking-wider">
                 <div className="col-span-2">Data</div>
-                <div className="col-span-3">Parcela</div>
-                <div className="col-span-2">Tipo</div>
-                <div className="col-span-3">Descrição / Produto</div>
-                <div className="col-span-2 text-right">Dose</div>
+                <div className="col-span-3">Parcela / Cultura</div>
+                <div className="col-span-2">Operação</div>
+                <div className="col-span-3">Produto</div>
+                <div className="col-span-2 text-right">Dose / Total</div>
               </div>
 
               {/* Rows */}
@@ -259,12 +272,11 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                   key={`${log.id}-${idx}`}
                   className="bg-white dark:bg-neutral-800 p-4 rounded-2xl border border-gray-100 dark:border-neutral-700 shadow-sm hover:shadow-md transition-shadow flex flex-col md:grid md:grid-cols-12 gap-3 md:gap-4 md:items-center"
                 >
-                   {/* Mobile Header Row */}
+                   {/* Data e Ícone Mobile */}
                    <div className="flex justify-between items-center md:col-span-2">
                      <span className="font-mono text-xs font-bold text-gray-500 bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded-md">
                        {log.date}
                      </span>
-                     {/* Ícone de Tipo (Visível em Mobile e Desktop) */}
                      <div className={`p-1.5 rounded-full ${
                        log.type === 'treatment' ? 'bg-orange-100 text-orange-600' :
                        log.type === 'harvest' ? 'bg-green-100 text-green-600' :
@@ -279,7 +291,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                    {/* Parcela */}
                    <div className="md:col-span-3">
                      <h4 className="font-bold text-gray-900 dark:text-white text-sm">{log.fieldName}</h4>
-                     <p className="text-[10px] text-gray-400">{log.fieldArea} hectares</p>
+                     <p className="text-[10px] text-gray-400">{log.fieldCrop} • {log.fieldArea} ha</p>
                    </div>
 
                    {/* Tipo (Desktop) */}
@@ -294,28 +306,35 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                           <Droplets size={14} />}
                        </div>
                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300 capitalize">
-                         {log.type === 'treatment' ? 'Fitossanitário' : log.type}
+                         {log.type === 'treatment' ? 'Tratamento' : log.type === 'harvest' ? 'Colheita' : 'Outros'}
                        </span>
                    </div>
 
-                   {/* Descrição */}
+                   {/* Produto */}
                    <div className="md:col-span-3">
-                     <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-2 md:line-clamp-1">
-                       {log.description}
+                     <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                       {log.product}
                      </p>
-                     {log.type === 'treatment' && (
-                       <span className="text-[10px] text-orange-500 font-bold bg-orange-50 dark:bg-orange-900/20 px-1.5 rounded mt-1 inline-block">
-                         Período de Segurança Ativo
+                     {log.type === 'treatment' && log.dose !== '-' && (
+                       <span className="text-[10px] text-agro-green font-bold flex items-center gap-1">
+                          <CheckCircle2 size={10} /> Stock Deduzido
                        </span>
                      )}
                    </div>
 
-                   {/* Dose */}
+                   {/* Dose (Highlight) */}
                    <div className="md:col-span-2 md:text-right flex justify-between md:block border-t md:border-t-0 border-gray-100 dark:border-neutral-700 pt-2 md:pt-0 mt-1 md:mt-0">
-                      <span className="text-xs text-gray-400 font-bold md:hidden uppercase">Dose Aplicada</span>
-                      <span className="font-mono text-xs font-bold text-gray-900 dark:text-white">
-                        {log.dose}
-                      </span>
+                      <span className="text-xs text-gray-400 font-bold md:hidden uppercase">Dose</span>
+                      <div>
+                        {log.dose !== '-' && (
+                          <span className="font-mono text-sm font-black text-gray-900 dark:text-white block">
+                            {log.dose}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-gray-400 block mt-0.5">
+                          Total: {log.totalQty}
+                        </span>
+                      </div>
                    </div>
                 </div>
               ))}

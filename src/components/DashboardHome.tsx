@@ -1,16 +1,19 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Sun, CloudRain, Calendar, Check, Plus, Trash2, 
   ArrowRight, X, User, CloudLightning, Wind, Droplets, MapPin,
-  Settings, Bell, Sprout, Cloud, CloudSun
+  Settings, Bell, Sprout, Cloud, CloudSun,
+  Tractor, Fuel, Clock, Gauge, Save, AlertTriangle, Truck, Eye
 } from 'lucide-react';
-import { Task, WeatherForecast, Field } from '../types';
+import { Task, WeatherForecast, Field, Machine, MaintenanceLog } from '../types';
 
 interface DashboardHomeProps {
   userName: string;
   weather: WeatherForecast[];
   tasks: Task[];
   fields: Field[];
+  machines?: Machine[];
   onToggleTask: (id: string) => void;
   onAddTask: (title: string, type: 'task' | 'harvest', date?: string) => void;
   onDeleteTask: (id: string) => void;
@@ -18,6 +21,8 @@ interface DashboardHomeProps {
   onOpenSettings: () => void;
   onOpenNotifications: () => void;
   onModalChange?: (isOpen: boolean) => void;
+  onUpdateMachineHours?: (id: string, hours: number) => void;
+  onAddMachineLog?: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
   alertCount: number;
 }
 
@@ -26,6 +31,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   weather,
   tasks,
   fields,
+  machines = [],
   onToggleTask,
   onAddTask,
   onDeleteTask,
@@ -33,6 +39,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   onOpenSettings,
   onOpenNotifications,
   onModalChange,
+  onUpdateMachineHours,
+  onAddMachineLog,
   alertCount
 }) => {
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -40,12 +48,19 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
 
+  // Quick Action States
+  const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
+  const [quickAction, setQuickAction] = useState<'hours' | 'fuel' | null>(null);
+  const [hoursInput, setHoursInput] = useState('');
+  const [fuelLiters, setFuelLiters] = useState('');
+  const [fuelCost, setFuelCost] = useState('');
+
   // Notificar o pai quando o estado do modal muda
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(isWeatherModalOpen);
+      onModalChange(isWeatherModalOpen || !!selectedMachine);
     }
-  }, [isWeatherModalOpen, onModalChange]);
+  }, [isWeatherModalOpen, selectedMachine, onModalChange]);
 
   // --- 1. Lógica de Tempo e Saudação ---
   const today = new Date();
@@ -59,7 +74,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   }, []);
 
   // Dados do tempo atual (assumindo o primeiro do array como 'hoje')
-  const currentWeather = weather[0] || { temp: 20, condition: 'sunny', day: 'Hoje' };
+  const currentWeather = weather[0] || { temp: 0, condition: 'cloudy', day: 'Carregando...', windSpeed: 0, humidity: 0 };
   const isRaining = currentWeather.condition === 'rain' || currentWeather.condition === 'storm';
 
   // Helper para ícones do tempo
@@ -117,6 +132,40 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     setIsAddingTask(false);
   };
 
+  const handleOpenQuickAction = (machine: Machine, type: 'hours' | 'fuel') => {
+    setSelectedMachine(machine);
+    setQuickAction(type);
+    if (type === 'hours') {
+      setHoursInput(machine.engineHours.toString());
+    } else {
+      setFuelLiters('');
+      setFuelCost('');
+    }
+  };
+
+  const handleConfirmQuickAction = () => {
+    if (!selectedMachine) return;
+    
+    if (quickAction === 'hours' && onUpdateMachineHours) {
+      onUpdateMachineHours(selectedMachine.id, parseFloat(hoursInput));
+    } else if (quickAction === 'fuel' && onAddMachineLog) {
+      const liters = parseFloat(fuelLiters);
+      const cost = parseFloat(fuelCost) || 0;
+      
+      onAddMachineLog(selectedMachine.id, {
+        date: new Date().toISOString().split('T')[0],
+        type: 'fuel',
+        description: `Abastecimento Rápido: ${liters}L`,
+        cost: cost,
+        engineHoursAtLog: selectedMachine.engineHours,
+        quantity: liters
+      });
+    }
+
+    setSelectedMachine(null);
+    setQuickAction(null);
+  };
+
   // Ordenar tarefas: Pendentes primeiro, depois concluídas
   const sortedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
@@ -126,6 +175,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
   }, [tasks]);
+
+  // Filtrar Frota Ativa
+  const activeFleet = useMemo(() => {
+    return machines.filter(m => m.status === 'active');
+  }, [machines]);
 
   return (
     <div className="space-y-6 pb-24 animate-fade-in pt-4">
@@ -190,13 +244,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
               <div>
                 <div className="flex items-center gap-1 opacity-90 mb-0.5">
                   <MapPin size={12} />
-                  <span className="text-[10px] font-bold tracking-widest uppercase">Laundos, PT</span>
+                  <span className="text-[10px] font-bold tracking-widest uppercase">Localização Atual</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-4xl font-black tracking-tighter leading-none">{currentWeather.temp}°</span>
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold leading-none">{isRaining ? 'Chuvoso' : 'Céu Limpo'}</span>
-                    <span className="text-[10px] opacity-80 mt-0.5">Toque para previsão</span>
+                    <span className="text-xs font-bold leading-none capitalize">{currentWeather.description || getWeatherLabel(currentWeather.condition)}</span>
+                    <span className="text-[10px] opacity-80 mt-0.5 flex items-center gap-1"><Eye size={10} /> Monitorização Ativa</span>
                   </div>
                 </div>
               </div>
@@ -208,27 +262,27 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                </div>
             </div>
 
-            {/* Bottom Row: Compact Details Grid */}
+            {/* Bottom Row: Compact Details Grid - REAL DATA */}
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-black/10 backdrop-blur-sm rounded-xl p-2 flex items-center justify-center gap-2 border border-white/5">
                 <Wind size={14} className="opacity-80" />
                 <div className="flex flex-col leading-none">
-                    <span className="text-xs font-bold">14</span>
+                    <span className="text-xs font-bold">{currentWeather.windSpeed || '--'}</span>
                     <span className="text-[8px] opacity-60 uppercase">km/h</span>
                 </div>
               </div>
               <div className="bg-black/10 backdrop-blur-sm rounded-xl p-2 flex items-center justify-center gap-2 border border-white/5">
                 <Droplets size={14} className="opacity-80" />
                 <div className="flex flex-col leading-none">
-                    <span className="text-xs font-bold">45%</span>
+                    <span className="text-xs font-bold">{currentWeather.humidity || '--'}%</span>
                     <span className="text-[8px] opacity-60 uppercase">Hum.</span>
                 </div>
               </div>
               <div className="bg-black/10 backdrop-blur-sm rounded-xl p-2 flex items-center justify-center gap-2 border border-white/5">
                 <CloudLightning size={14} className="opacity-80" />
                 <div className="flex flex-col leading-none">
-                    <span className="text-xs font-bold">3</span>
-                    <span className="text-[8px] opacity-60 uppercase">UV</span>
+                    <span className="text-xs font-bold">Auto</span>
+                    <span className="text-[8px] opacity-60 uppercase">Vigilante</span>
                 </div>
               </div>
             </div>
@@ -236,6 +290,93 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         </div>
       </div>
+
+      {/* --- Secção: Frota Rápida (Otimizada Mobile/Tablet) --- */}
+      {activeFleet.length > 0 && (
+        <div className="px-2">
+          <div className="flex items-center justify-between px-2 mb-3">
+             <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <Tractor size={16} className="text-agro-green" />
+                Frota Ativa
+             </h3>
+             <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{activeFleet.length} Veículos</span>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide snap-x px-2">
+             {activeFleet.map(machine => {
+                const hoursSinceService = machine.engineHours - machine.lastServiceHours;
+                const isMaintenanceDue = hoursSinceService > machine.serviceInterval;
+
+                return (
+                  <div 
+                    key={machine.id}
+                    className={`min-w-[18rem] md:min-w-[22rem] bg-white dark:bg-neutral-900 rounded-[2.2rem] p-5 shadow-sm border snap-center transition-all ${
+                      isMaintenanceDue 
+                        ? 'border-red-200 dark:border-red-900/50 shadow-red-500/10' 
+                        : 'border-gray-100 dark:border-neutral-800'
+                    }`}
+                  >
+                    {/* Header: Icon, Name, Hours */}
+                    <div className="flex items-start justify-between mb-4">
+                       <div className="flex items-center gap-3">
+                          <div className={`p-3 rounded-2xl ${isMaintenanceDue ? 'bg-red-50 text-red-500' : 'bg-gray-100 dark:bg-neutral-800 text-gray-500'}`}>
+                             {machine.type === 'vehicle' ? <Truck size={22} /> : <Tractor size={22} />}
+                          </div>
+                          <div>
+                             <h4 className="text-base font-black text-gray-900 dark:text-white leading-none">{machine.name}</h4>
+                             <p className="text-xs text-gray-400 font-bold mt-1 uppercase tracking-wider">{machine.engineHours}h Registadas</p>
+                          </div>
+                       </div>
+                       {isMaintenanceDue && (
+                         <div className="p-1.5 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full animate-pulse">
+                           <AlertTriangle size={16} />
+                         </div>
+                       )}
+                    </div>
+
+                    {/* Fuel Indicator (Visual Context for Refuel) */}
+                    <div className="mb-5 bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-2xl border border-gray-100 dark:border-neutral-800/50">
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1">
+                               <Fuel size={10} /> Combustível
+                            </span>
+                            <span className={`text-[10px] font-bold ${machine.fuelLevel < 20 ? 'text-red-500' : 'text-gray-500'}`}>
+                                {machine.fuelLevel}%
+                            </span>
+                        </div>
+                        <div className="h-2 w-full bg-gray-200 dark:bg-neutral-700 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${
+                                machine.fuelLevel < 20 ? 'bg-red-500' : 'bg-orange-400'
+                              }`} 
+                              style={{ width: `${machine.fuelLevel}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                    
+                    {/* Big Action Buttons */}
+                    <div className="grid grid-cols-2 gap-3">
+                       <button 
+                         onClick={() => handleOpenQuickAction(machine, 'hours')}
+                         className="flex flex-col items-center justify-center gap-1 bg-gray-50 dark:bg-neutral-800 py-4 rounded-2xl active:scale-95 transition-all border border-gray-100 dark:border-neutral-700 hover:bg-gray-100 dark:hover:bg-neutral-700"
+                       >
+                          <Clock size={20} className="text-gray-400" />
+                          <span className="text-xs font-bold text-gray-700 dark:text-gray-200">Horas</span>
+                       </button>
+                       <button 
+                         onClick={() => handleOpenQuickAction(machine, 'fuel')}
+                         className="flex flex-col items-center justify-center gap-1 bg-green-50 dark:bg-green-900/10 py-4 rounded-2xl active:scale-95 transition-all border border-green-100 dark:border-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/20"
+                       >
+                          <Fuel size={20} className="text-green-600 dark:text-green-500" />
+                          <span className="text-xs font-bold text-green-700 dark:text-green-400">Abastecer</span>
+                       </button>
+                    </div>
+                  </div>
+                );
+             })}
+          </div>
+        </div>
+      )}
 
       {/* --- Secção 2: AgroCalendário --- */}
       <div>
@@ -437,7 +578,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                     </div>
                     <div>
                       <p className="font-bold text-gray-900 dark:text-white text-lg">{forecast.day}</p>
-                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{getWeatherLabel(forecast.condition)}</p>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">{forecast.description || getWeatherLabel(forecast.condition)}</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -446,6 +587,96 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- QUICK ACTION MODAL --- */}
+      {selectedMachine && quickAction && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMachine(null)}>
+          <div 
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-bold dark:text-white">
+                  {quickAction === 'hours' ? 'Atualizar Horómetro' : 'Abastecimento Rápido'}
+                </h3>
+                <p className="text-xs text-gray-500 font-bold uppercase">{selectedMachine.name}</p>
+              </div>
+              <button onClick={() => setSelectedMachine(null)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            {quickAction === 'hours' ? (
+              <div className="space-y-6">
+                 <div className="flex items-center gap-4 bg-gray-50 dark:bg-neutral-800 p-4 rounded-[2rem]">
+                   <button 
+                      onClick={() => setHoursInput((parseFloat(hoursInput || '0') - 1).toString())}
+                      className="w-16 h-16 bg-white dark:bg-neutral-700 rounded-2xl shadow-sm flex items-center justify-center text-gray-600 active:scale-90 transition-transform"
+                   >
+                     <span className="text-2xl font-bold">-</span>
+                   </button>
+                   <div className="flex-1 text-center">
+                     <input 
+                        type="number"
+                        className="bg-transparent text-center text-4xl font-black text-gray-900 dark:text-white outline-none w-full"
+                        value={hoursInput}
+                        onChange={(e) => setHoursInput(e.target.value)}
+                     />
+                     <span className="text-xs font-bold text-gray-400 uppercase">Horas Totais</span>
+                   </div>
+                   <button 
+                      onClick={() => setHoursInput((parseFloat(hoursInput || '0') + 1).toString())}
+                      className="w-16 h-16 bg-agro-green rounded-2xl shadow-lg shadow-agro-green/30 flex items-center justify-center text-white active:scale-90 transition-transform"
+                   >
+                     <span className="text-2xl font-bold">+</span>
+                   </button>
+                 </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                 <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl border border-gray-100 dark:border-neutral-700">
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2">Litros</label>
+                    <div className="relative mt-2">
+                      <input 
+                        type="number" 
+                        value={fuelLiters}
+                        onChange={(e) => setFuelLiters(e.target.value)}
+                        className="w-full p-4 bg-white dark:bg-neutral-700 rounded-2xl text-3xl font-black dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                        placeholder="0"
+                        autoFocus
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xl">L</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2">Custo Total (€) <span className="text-[10px] font-normal opacity-60">(Opcional)</span></label>
+                    <input 
+                      type="number" 
+                      value={fuelCost}
+                      onChange={(e) => setFuelCost(e.target.value)}
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 text-lg font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  
+                  <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-2xl text-xs text-orange-700 dark:text-orange-300">
+                    <AlertTriangle size={16} />
+                    <span>O valor será descontado do stock de gasóleo.</span>
+                  </div>
+              </div>
+            )}
+
+            <button 
+              onClick={handleConfirmQuickAction}
+              className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-lg active:scale-95 transition-transform mt-6"
+            >
+              Confirmar
+            </button>
           </div>
         </div>
       )}

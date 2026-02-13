@@ -364,7 +364,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
          {/* Card 2: Alertas de Manutenção */}
          <div className={`rounded-[2rem] p-4 text-white shadow-lg relative overflow-hidden transition-colors ${
             metrics.maintenanceDue > 0 
-              ? 'bg-gradient-to-br from-red-600 to-red-700' 
+              ? 'bg-gradient-to-br from-red-600 to-red-700 animate-pulse' 
               : 'bg-gradient-to-br from-agro-green to-green-600'
          }`}>
             <div className="relative z-10">
@@ -395,7 +395,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
               key={machine.id}
               className={`bg-white dark:bg-neutral-900 rounded-[2.5rem] p-1 shadow-sm border transition-all duration-300 ${
                 health.isOverdue || health.isInspectionDue 
-                  ? 'border-red-500/50 shadow-red-500/10' 
+                  ? 'border-red-500 shadow-red-500/20 ring-1 ring-red-500' 
                   : 'border-gray-100 dark:border-neutral-800'
               }`}
             >
@@ -476,7 +476,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                   className="py-4 rounded-br-[2rem] rounded-tl-xl bg-agro-green text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-green-800 transition-colors shadow-inner"
                 >
                   <Fuel size={18} />
-                  Abastecer / Manut.
+                  Abastecer
                 </button>
               </div>
             </div>

@@ -3,6 +3,10 @@ export interface WeatherForecast {
   day: string;
   temp: number;
   condition: 'sunny' | 'cloudy' | 'rain' | 'storm';
+  description?: string; // Descrição detalhada (ex: "Céu limpo")
+  windSpeed?: number; // km/h
+  humidity?: number; // %
+  uv?: number;
 }
 
 export interface Task {
@@ -38,6 +42,9 @@ export interface FieldLog {
   date: string;
   type: 'observation' | 'treatment' | 'harvest';
   description: string;
+  cost?: number; // Custo associado à operação
+  quantity?: number; // Quantidade de produto utilizado
+  unit?: string;
 }
 
 export interface FieldHistory {

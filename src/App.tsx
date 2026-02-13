@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Home, Leaf, ScanLine, Package, PieChart, 
@@ -44,6 +45,8 @@ const CROP_TYPES = [
   { label: 'Hortícola', emoji: '🥬' },
   { label: 'Fruta', emoji: '🍎' },
 ];
+
+const WEATHER_API_KEY = "c7f76605724ecafb54933077ede4166a";
 
 // --- Componentes ---
 
@@ -144,15 +147,19 @@ const AnimalView = ({ animals, addProduction }: { animals: Animal[], addProducti
 // 4. Visualização Cultivo
 const CultivationView = ({ 
   fields, 
+  stocks,
   toggleIrrigation, 
   onAddLog,
+  onUseStock,
   onAddField,
   onModalChange,
   operatorName
 }: { 
   fields: Field[], 
+  stocks: StockItem[],
   toggleIrrigation: (id: string, s: boolean) => void,
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>) => void,
+  onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void,
   onAddField: (field: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => void,
   onModalChange?: (isOpen: boolean) => void,
   operatorName: string
@@ -224,8 +231,10 @@ const CultivationView = ({
           <FieldCard 
             key={field.id}
             field={field}
+            stocks={stocks}
             onToggleIrrigation={toggleIrrigation}
             onAddLog={onAddLog}
+            onUseStock={onUseStock}
           />
         ))}
       </div>
@@ -336,7 +345,15 @@ const App = () => {
   const [isTabBarVisible, setIsTabBarVisible] = useState(true);
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
   
-  // Dark Mode State
+  // Real Weather State
+  const [weatherData, setWeatherData] = useState<WeatherForecast[]>(INITIAL_WEATHER);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [alertActive, setAlertActive] = useState<string | null>(null);
+
+  // Audio Ref for Alarm
+  const alarmAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // --- DARK MODE ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('agro_theme') === 'dark' || 
@@ -380,7 +397,133 @@ const App = () => {
     localStorage.setItem('agro_username', userName);
   }, [userName]);
 
-  // MQTT Logic
+  // --- WEATHER & ALERTS INTEGRATION ---
+  
+  // Initialize Alarm Audio
+  useEffect(() => {
+    // Simple beep/siren sound (base64 for offline capability)
+    // Este é um som de alerta simples e contínuo
+    const sirenUrl = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"; // Placeholder curto
+    // Usaremos um objeto Audio real, mas para demo vou simular o disparo
+    alarmAudioRef.current = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+    alarmAudioRef.current.loop = true;
+  }, []);
+
+  const triggerAlert = useCallback((type: 'frost' | 'wind') => {
+    // 1. Vibration
+    if (navigator.vibrate) {
+      navigator.vibrate([1000, 500, 1000]); // Vibrate pattern
+    }
+
+    // 2. Sound (Only if interaction allowed or already playing)
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.play().catch(e => console.log("Audio play prevented by browser policy", e));
+    }
+
+    setAlertActive(type === 'frost' ? '❄️ Alerta de Geada! Temperatura Crítica.' : '💨 Alerta de Vento Forte!');
+  }, []);
+
+  const stopAlert = () => {
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.pause();
+      alarmAudioRef.current.currentTime = 0;
+    }
+    setAlertActive(null);
+  };
+
+  const fetchWeather = async (lat: number, lon: number) => {
+    setWeatherLoading(true);
+    try {
+      // 1. Current Weather
+      const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
+      const currentData = await currentRes.json();
+
+      // 2. Forecast (5 Days / 3 Hour)
+      const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
+      const forecastData = await forecastRes.json();
+
+      if (currentData && forecastData.list) {
+        // --- ALERT CHECK LOGIC ---
+        // Frost Check (< 2 C)
+        if (currentData.main.temp < 2) {
+          triggerAlert('frost');
+        } 
+        // Wind Check (> 30 km/h) -> API returns m/s. 30km/h ~= 8.33 m/s
+        else if (currentData.wind.speed > 8.33) {
+          triggerAlert('wind');
+        } else {
+          // If safe, verify if we should stop an existing alert
+          // (Simple version: manual stop only via UI usually, but here we reset if safe)
+          // stopAlert(); // Optional: Auto-stop
+        }
+
+        // Map API data to App Types
+        const mapCondition = (id: number): 'sunny' | 'cloudy' | 'rain' | 'storm' => {
+          if (id >= 200 && id < 600) return 'rain';
+          if (id >= 600 && id < 700) return 'storm'; // Snow maps to storm icon for visual urgency
+          if (id >= 801) return 'cloudy';
+          return 'sunny';
+        };
+
+        const today: WeatherForecast = {
+          day: 'Agora',
+          temp: Math.round(currentData.main.temp),
+          condition: mapCondition(currentData.weather[0].id),
+          description: currentData.weather[0].description,
+          windSpeed: Math.round(currentData.wind.speed * 3.6), // m/s to km/h
+          humidity: currentData.main.humidity
+        };
+
+        // Filter forecast to get 1 entry per day (approx noon)
+        const daily: WeatherForecast[] = forecastData.list
+          .filter((item: any) => item.dt_txt.includes('12:00:00'))
+          .slice(0, 4)
+          .map((item: any) => ({
+            day: new Date(item.dt * 1000).toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', ''),
+            temp: Math.round(item.main.temp),
+            condition: mapCondition(item.weather[0].id),
+            description: item.weather[0].description
+          }));
+
+        setWeatherData([today, ...daily]);
+      }
+    } catch (error) {
+      console.error("Weather fetch failed", error);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Initial Fetch & Geo
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          fetchWeather(position.coords.latitude, position.coords.longitude);
+        },
+        (err) => {
+          console.error("Geo error", err);
+          // Fallback location (Laundos)
+          fetchWeather(41.442, -8.723); 
+        }
+      );
+    } else {
+      fetchWeather(41.442, -8.723);
+    }
+
+    // --- CRITICAL MONITORING LOOP ---
+    // Check weather every 15 minutes (900000ms) to save battery but keep safe
+    const interval = setInterval(() => {
+       if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((p) => fetchWeather(p.coords.latitude, p.coords.longitude));
+       }
+    }, 900000); 
+
+    return () => clearInterval(interval);
+  }, []);
+
+
+  // MQTT Logic (Existing)
   useEffect(() => {
     const client = mqtt.connect(MQTT_BROKER);
     
@@ -416,7 +559,7 @@ const App = () => {
   const alertCount = useMemo(() => {
     let count = 0;
     // Weather
-    if (INITIAL_WEATHER[0]?.condition === 'rain' || INITIAL_WEATHER[0]?.condition === 'storm') count++;
+    if (weatherData[0]?.condition === 'rain' || weatherData[0]?.condition === 'storm' || alertActive) count++;
     // Animals
     count += state.animals.filter(a => a.status === 'sick').length;
     // Fields
@@ -426,7 +569,7 @@ const App = () => {
     // Machines
     count += (state.machines || []).filter(m => (m.engineHours - m.lastServiceHours) > m.serviceInterval).length;
     return count;
-  }, [state]);
+  }, [state, weatherData, alertActive]);
 
   // Actions
   const toggleTask = (id: string) => {
@@ -549,6 +692,56 @@ const App = () => {
     }));
   };
 
+  // --- NEW INTEGRATION LOGIC: Stock -> Field -> Finance ---
+  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {
+    // 1. Encontrar o Stock
+    const stockItem = state.stocks.find(s => s.id === stockId);
+    if(!stockItem) return;
+
+    // 2. Calcular Custo Total (Valorização do stock usado)
+    const totalCost = stockItem.pricePerUnit * quantity;
+
+    // 3. Atualizar Stock (Decrementar)
+    const newStocks = state.stocks.map(s => 
+      s.id === stockId ? { ...s, quantity: Math.max(0, s.quantity - quantity) } : s
+    );
+
+    // 4. Adicionar Log ao Campo (com custo e quantidade)
+    const field = state.fields.find(f => f.id === fieldId);
+    const newLog: FieldLog = {
+      id: Date.now().toString(),
+      date,
+      type: 'treatment', // Assumimos tratamento por defeito para uso de stock
+      description: `Aplicação: ${stockItem.name}`,
+      cost: totalCost,
+      quantity: quantity,
+      unit: stockItem.unit
+    };
+    
+    const newFields = state.fields.map(f => 
+      f.id === fieldId ? { ...f, logs: [...(f.logs || []), newLog] } : f
+    );
+
+    // 5. Adicionar Transação Financeira (Despesa Alocada)
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date,
+      type: 'expense',
+      amount: totalCost,
+      category: 'Campo', // Categoria genérica para alocação de custos de campo
+      description: `Aplicação ${field ? field.name : 'Campo'}: ${stockItem.name} (${quantity}${stockItem.unit})`
+    };
+
+    // Atualizar Estado Global de uma só vez
+    setState(prev => ({
+      ...prev,
+      stocks: newStocks,
+      fields: newFields,
+      transactions: [newTransaction, ...prev.transactions]
+    }));
+  };
+
+
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
     const newTx: Transaction = { ...transaction, id: Date.now().toString() };
     setState(prev => ({
@@ -581,13 +774,15 @@ const App = () => {
     }
 
     // Deduct Fuel from Stock
+    // Esta lógica garante que se o agricultor disser que abasteceu, isso sai do inventário
     if (log.type === 'fuel' && log.quantity) {
        const qtyToDeduct = log.quantity;
        setState(prev => ({
          ...prev,
          stocks: prev.stocks.map(s => {
-           // Procura por items de combustível ou com nome gasóleo
-           if (s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo')) {
+           // Procura inteligente por items de combustível
+           // Verifica categoria 'Combustível' OU nomes comuns como 'gasóleo', 'diesel'
+           if (s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo') || s.name.toLowerCase().includes('diesel')) {
              return { ...s, quantity: Math.max(0, s.quantity - qtyToDeduct) };
            }
            return s;
@@ -639,15 +834,31 @@ const App = () => {
     // Contentor Principal: Altura fixa na viewport (100dvh) para evitar scroll do body
     <div className="h-[100dvh] w-full flex flex-col bg-[#FDFDF5] dark:bg-[#0A0A0A] overflow-hidden font-sans text-gray-800 dark:text-gray-100 selection:bg-agro-green selection:text-white">
       
+      {/* ALERTA CRÍTICO FULLSCREEN */}
+      {alertActive && (
+        <div className="fixed inset-0 z-[200] bg-red-600 animate-pulse flex flex-col items-center justify-center text-white p-8 text-center">
+          <AlertTriangle size={80} className="mb-4 animate-bounce" />
+          <h1 className="text-4xl font-black mb-2">ALERTA METEOROLÓGICO</h1>
+          <p className="text-2xl font-bold mb-8">{alertActive}</p>
+          <button 
+            onClick={stopAlert}
+            className="px-8 py-4 bg-white text-red-600 rounded-full font-black text-xl shadow-xl active:scale-95"
+          >
+            CONFIRMAR E PARAR ALARME
+          </button>
+        </div>
+      )}
+
       {/* Área de Conteúdo: Ocupa o espaço restante e permite scroll interno */}
       {/* pb-36 adicionado para garantir que o conteúdo final não fica escondido atrás da barra flutuante */}
       <main className="flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pt-2 pb-36">
         {activeTab === 'dashboard' && (
           <DashboardHome 
             userName={userName}
-            weather={INITIAL_WEATHER}
+            weather={weatherData} // Passing REAL Data
             tasks={state.tasks}
             fields={state.fields}
+            machines={state.machines || []} 
             onToggleTask={toggleTask}
             onAddTask={addTask}
             onDeleteTask={deleteTask}
@@ -655,15 +866,19 @@ const App = () => {
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onModalChange={handleChildModalChange}
+            onUpdateMachineHours={updateMachineHours} 
+            onAddMachineLog={addMachineLog} 
             alertCount={alertCount}
           />
         )}
         {activeTab === 'animal' && <AnimalView animals={state.animals} addProduction={addProduction} />}
         {activeTab === 'cultivation' && (
           <CultivationView 
-            fields={state.fields} 
+            fields={state.fields}
+            stocks={state.stocks} 
             toggleIrrigation={toggleIrrigation}
             onAddLog={handleAddLog}
+            onUseStock={handleUseStockOnField}
             onAddField={addField}
             onModalChange={handleChildModalChange}
             operatorName={userName}
@@ -717,7 +932,7 @@ const App = () => {
       <NotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
-        weather={INITIAL_WEATHER}
+        weather={weatherData} // Passing REAL Data
         animals={state.animals}
         fields={state.fields}
         stocks={state.stocks}
