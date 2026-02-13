@@ -2,26 +2,37 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Heart, ShieldCheck, Activity, TrendingUp, History, 
-  Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight
+  Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight,
+  Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar
 } from 'lucide-react';
-import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { Animal } from '../types';
 
-interface AnimalCardProps {
-  animal: Animal;
-  onReset: () => void;
-  onAddProduction: (id: string, value: number, type: 'milk' | 'weight') => void;
-}
-
-const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProduction }) => {
+// --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
+const AnimalProfile = ({ 
+  animal, 
+  onReset, 
+  onAddProduction,
+  onUpdateAnimal,
+  onScheduleTask
+}: { 
+  animal: Animal, 
+  onReset: () => void, 
+  onAddProduction: (id: string, value: number, type: 'milk' | 'weight') => void,
+  onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void,
+  onScheduleTask?: (title: string, type: 'task', date: string) => void
+}) => {
   const [showProductionModal, setShowProductionModal] = useState(false);
+  const [showVetModal, setShowVetModal] = useState(false);
+  
+  // Vet Modal State
+  const [vetNote, setVetNote] = useState('');
+  const [vaccineDate, setVaccineDate] = useState('');
+
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
   const [productionValue, setProductionValue] = useState<number>(0);
-  
-  // View Mode: 'production' chart or 'finance' analysis
   const [chartMode, setChartMode] = useState<'production' | 'finance'>('production');
 
-  // Filtrar dados do gráfico baseado no tipo mais comum ou último registo
   const chartData = useMemo(() => {
     const milkCount = animal.productionHistory.filter(r => r.type === 'milk').length;
     const weightCount = animal.productionHistory.filter(r => r.type === 'weight').length;
@@ -32,86 +43,82 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
       .slice(-7);
   }, [animal.productionHistory]);
 
-  // --- Financial Logic for Animals ---
   const animalFinance = useMemo(() => {
-    // Preços de Mercado (Mock)
-    const PRICE_MILK = 0.45; // €/L
-    const PRICE_MEAT = 2.80; // €/kg (peso vivo)
-    
-    // Custos Estimados (Mock)
-    const COST_FEED_DAY = 3.50; // €/dia alimentação
-    const COST_VET_BASE = 50; // Custo base veterinário anual
+    const PRICE_MILK = 0.45; 
+    const PRICE_MEAT = 2.80; 
+    const COST_FEED_DAY = 3.50; 
 
-    // Receita Total
     const revenue = animal.productionHistory.reduce((acc, rec) => {
       const value = rec.type === 'milk' ? rec.value * PRICE_MILK : 0; 
-      // Nota: Peso é valor de stock, não cashflow imediato, mas conta para valorização
-      // Para simplificar "Lucro" visual, assumimos valorização do peso ganho
       return acc + value;
     }, 0);
 
-    // Adicionar valorização de peso (se houver registos de peso)
     const weightGainValue = animal.productionHistory
        .filter(r => r.type === 'weight')
        .reduce((acc, r, idx, arr) => {
-          // Diferença para o anterior (valorização)
           if (idx === 0) return 0;
           const gain = r.value - arr[idx-1].value;
           return acc + (gain > 0 ? gain * PRICE_MEAT : 0);
        }, 0);
 
     const totalRevenue = revenue + weightGainValue;
-
-    // Despesa Estimada (Dias de vida * custo + extra se doente)
-    // Simplificação: Custo baseado no número de registos x 5 dias (simulando intervalo)
     const estimatedDays = animal.productionHistory.length * 7; 
     let expenses = estimatedDays * COST_FEED_DAY;
-    
-    if (animal.status === 'sick') expenses += 150; // Custo tratamento extra
+    if (animal.status === 'sick') expenses += 150; 
 
     const profit = totalRevenue - expenses;
 
-    // Data for Graph
-    const financeGraph = [
-      { name: 'Start', profit: 0 },
-      { name: 'Current', profit: profit }
-    ];
-
-    return { totalRevenue, expenses, profit, financeGraph };
+    return { totalRevenue, expenses, profit };
   }, [animal]);
 
-  // Reset value when modal opens or type changes
   useEffect(() => {
     if (showProductionModal) {
-      // Valores por defeito inteligentes para facilitar o ajuste
       setProductionValue(productionType === 'milk' ? 25 : animal.weight || 500);
     }
   }, [showProductionModal, productionType, animal.weight]);
 
-  const handleSave = () => {
+  const handleSaveProduction = () => {
     if (productionValue <= 0) return;
     onAddProduction(animal.id, productionValue, productionType);
     setShowProductionModal(false);
   };
 
+  const handleSaveVetNote = () => {
+    if (!vetNote.trim()) return;
+
+    // 1. Atualizar Nota do Animal
+    if (onUpdateAnimal) {
+      onUpdateAnimal(animal.id, { 
+        notes: vetNote,
+        // Opcional: Atualizar status se for vacinação?
+        // status: vaccineDate ? 'healthy' : animal.status
+      });
+    }
+
+    // 2. Agendar Vacinação na Oriva-Agenda (Task)
+    if (vaccineDate && onScheduleTask) {
+      onScheduleTask(`Vacinação: ${animal.name}`, 'task', vaccineDate);
+    }
+
+    setShowVetModal(false);
+    setVetNote('');
+    setVaccineDate('');
+  };
+
   const adjustValue = (delta: number) => {
     setProductionValue(prev => {
       const newVal = prev + delta;
-      return Math.max(0, parseFloat(newVal.toFixed(1))); // Evitar negativos e erros de float
+      return Math.max(0, parseFloat(newVal.toFixed(1)));
     });
   };
 
-  // Configurações baseadas no tipo
   const config = productionType === 'milk' 
     ? { step: 0.5, max: 60, unit: 'L', label: 'Litros' } 
     : { step: 1, max: 1200, unit: 'kg', label: 'Kg' };
 
   return (
     <div className="animate-slide-up relative pb-20">
-      
-      {/* Header do Card */}
       <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
-        {/* Background Decorativo */}
         <Heart className="absolute -top-6 -right-6 text-red-50 dark:text-red-900/10 w-48 h-48 opacity-50" fill="currentColor" />
         
         <div className="relative z-10">
@@ -134,7 +141,6 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             {animal.breed} • {animal.age}
           </p>
 
-          {/* Biometria */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl">
               <div className="flex items-center gap-2 text-gray-400 mb-1">
@@ -150,7 +156,6 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             </div>
           </div>
 
-          {/* Secção de Gráficos (Alternável) */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
@@ -207,23 +212,13 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
                             <Coins size={24} />
                          </div>
                       </div>
-                      
-                      {/* Mini Bar Breakdown */}
                       <div className="space-y-2">
                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={12}/> Receita Gerada</span>
+                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={12}/> Receita</span>
                             <span className="font-bold text-gray-900 dark:text-white">{animalFinance.totalRevenue.toFixed(0)}€</span>
                          </div>
                          <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
                             <div className="bg-green-500 h-full rounded-full" style={{width: '100%'}}></div>
-                         </div>
-
-                         <div className="flex justify-between items-center text-xs mt-2">
-                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowDownRight size={12}/> Custo Estimado</span>
-                            <span className="font-bold text-gray-900 dark:text-white">{animalFinance.expenses.toFixed(0)}€</span>
-                         </div>
-                         <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
-                            <div className="bg-red-500 h-full rounded-full" style={{width: `${Math.min((animalFinance.expenses / animalFinance.totalRevenue) * 100, 100)}%`}}></div>
                          </div>
                       </div>
                   </div>
@@ -231,16 +226,29 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             </div>
           </div>
 
-          {/* Notas */}
           {animal.notes && (
             <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-2xl border border-yellow-100 dark:border-yellow-900/30 mb-6">
-              <h4 className="text-xs font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1">Nota Veterinária</h4>
+              <h4 className="text-xs font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1 flex items-center gap-2">
+                 <ClipboardList size={14} /> Nota Veterinária
+              </h4>
               <p className="text-sm text-yellow-800 dark:text-yellow-200/80 italic">"{animal.notes}"</p>
             </div>
           )}
 
-          {/* Botões de Ação - Layout Horizontal */}
-          <div className="flex gap-3 mt-4">
+          {/* New Veterinary Note Button - Centered Above */}
+          <div className="mb-3">
+             <button 
+               onClick={() => {
+                 setVetNote(animal.notes || '');
+                 setShowVetModal(true);
+               }}
+               className="w-full py-3 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-[1.5rem] font-bold shadow-sm border border-orange-200 dark:border-orange-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+             >
+                <ClipboardList size={20} /> Nota Veterinária
+             </button>
+          </div>
+
+          <div className="flex gap-3">
             <button 
               onClick={() => setShowProductionModal(true)}
               className="flex-1 py-4 bg-agro-green hover:bg-green-700 text-white rounded-[2rem] font-bold shadow-lg shadow-agro-green/40 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -257,11 +265,10 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
               <Scan size={24} />
             </button>
           </div>
-
         </div>
       </div>
 
-      {/* Modal Bottom Sheet: Registar Produção */}
+      {/* Production Modal */}
       {showProductionModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowProductionModal(false)}>
           <div 
@@ -275,14 +282,11 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
               </button>
             </div>
 
-            {/* Selector de Tipo */}
             <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
               <button 
                 onClick={() => setProductionType('milk')}
                 className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                  productionType === 'milk' 
-                    ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' 
-                    : 'text-gray-400'
+                  productionType === 'milk' ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'
                 }`}
               >
                 <Milk size={18} /> Leite
@@ -290,72 +294,410 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
               <button 
                 onClick={() => setProductionType('weight')}
                 className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                  productionType === 'weight' 
-                    ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' 
-                    : 'text-gray-400'
+                  productionType === 'weight' ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-gray-400'
                 }`}
               >
                 <Beef size={18} /> Peso
               </button>
             </div>
 
-            {/* CONTROLOS TÁTEIS GRANDES */}
             <div className="mb-8">
               <div className="flex items-center justify-between gap-4 mb-4">
-                {/* Botão Menos */}
-                <button 
-                  onClick={() => adjustValue(-config.step)}
-                  className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"
-                >
-                  <Minus size={32} strokeWidth={3} />
-                </button>
-
-                {/* Valor Central */}
+                <button onClick={() => adjustValue(-config.step)} className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"><Minus size={32} strokeWidth={3} /></button>
                 <div className="flex-1 text-center">
-                  <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">
-                    {productionValue}
-                  </div>
+                  <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{productionValue}</div>
                   <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
                 </div>
-
-                {/* Botão Mais */}
-                <button 
-                  onClick={() => adjustValue(config.step)}
-                  className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"
-                >
-                  <Plus size={32} strokeWidth={3} />
-                </button>
+                <button onClick={() => adjustValue(config.step)} className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"><Plus size={32} strokeWidth={3} /></button>
               </div>
-
-              {/* Slider Tátil */}
               <div className="px-2">
-                <input 
-                  type="range" 
-                  min="0" 
-                  max={config.max} 
-                  step={config.step}
-                  value={productionValue}
-                  onChange={(e) => setProductionValue(parseFloat(e.target.value))}
-                  className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y"
-                />
-                <div className="flex justify-between text-xs font-bold text-gray-400 mt-2 px-1">
-                  <span>0 {config.unit}</span>
-                  <span>{config.max / 2} {config.unit}</span>
-                  <span>{config.max} {config.unit}</span>
-                </div>
+                <input type="range" min="0" max={config.max} step={config.step} value={productionValue} onChange={(e) => setProductionValue(parseFloat(e.target.value))} className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y" />
               </div>
             </div>
 
-            <button 
-              onClick={handleSave}
-              className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform"
-            >
-              Confirmar
-            </button>
+            <button onClick={handleSaveProduction} className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform">Confirmar</button>
           </div>
         </div>
       )}
 
+      {/* Vet Note Modal */}
+      {showVetModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowVetModal(false)}>
+           <div 
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                 <ClipboardList size={24} className="text-orange-500" /> Nota Veterinária
+              </h3>
+              <button onClick={() => setShowVetModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+               <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Observações / Diagnóstico</label>
+                  <textarea 
+                    autoFocus
+                    value={vetNote}
+                    onChange={(e) => setVetNote(e.target.value)}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[100px] resize-none"
+                    placeholder="Ex: Animal apresenta ligeira claudicação..."
+                  />
+               </div>
+
+               <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block flex items-center gap-1">
+                     <Syringe size={14} /> Agendar Vacinação (Opcional)
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="date"
+                      value={vaccineDate}
+                      onChange={(e) => setVaccineDate(e.target.value)}
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[3.5rem]"
+                    />
+                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+                  </div>
+                  {vaccineDate && (
+                     <p className="text-[10px] text-orange-500 font-bold mt-2 ml-2 flex items-center gap-1">
+                        <Calendar size={10} /> Será adicionado à Agenda
+                     </p>
+                  )}
+               </div>
+
+               <button 
+                 onClick={handleSaveVetNote}
+                 disabled={!vetNote}
+                 className={`w-full py-5 rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${
+                    !vetNote ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white'
+                 }`}
+               >
+                 <Save size={20} />
+                 Guardar Registo
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Main Export: AnimalCard Manager (Handles Scan, Add, and Profile) ---
+interface AnimalCardManagerProps {
+  animals?: Animal[];
+  animal?: Animal; // Optional direct animal prop for direct view
+  onAddAnimal?: (animal: Omit<Animal, 'id'>) => void;
+  onAddProduction?: (id: string, value: number, type: 'milk' | 'weight') => void;
+  onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void;
+  onScheduleTask?: (title: string, type: 'task', date: string) => void;
+  onReset?: () => void;
+}
+
+const AnimalCard: React.FC<AnimalCardManagerProps> = ({ 
+  animals = [], 
+  animal: propAnimal, 
+  onAddAnimal, 
+  onAddProduction,
+  onUpdateAnimal,
+  onScheduleTask,
+  onReset: propOnReset
+}) => {
+  const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag'>('scanning');
+  const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);
+  
+  // Form State
+  const [tagForm, setTagForm] = useState({
+    name: '',
+    tagId: '',
+    breed: '',
+    age: '',
+    weight: '',
+    notes: ''
+  });
+  const [isScanningTag, setIsScanningTag] = useState(false);
+
+  // If a specific animal is passed via props, use it and show profile immediately
+  useEffect(() => {
+    if (propAnimal) {
+      setFoundAnimal(propAnimal);
+      setViewState('profile');
+    }
+  }, [propAnimal]);
+
+  const activeAnimal = foundAnimal || propAnimal;
+
+  // --- Handlers ---
+  const startScan = () => {
+    setViewState('loading');
+    setTimeout(() => {
+      // Simulate finding an animal
+      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
+      setFoundAnimal(randomAnimal);
+      setViewState('profile');
+    }, 2500);
+  };
+
+  const handleReset = () => {
+    setFoundAnimal(null);
+    setViewState('scanning');
+    if (propOnReset) propOnReset();
+  };
+
+  const startNfcScanForForm = () => {
+    setIsScanningTag(true);
+    setTimeout(() => {
+      setTagForm(prev => ({ ...prev, tagId: `PT-${Math.floor(Math.random() * 89999) + 10000}` }));
+      setIsScanningTag(false);
+    }, 2000);
+  };
+
+  const handleSaveTag = () => {
+    if (tagForm.name && tagForm.tagId && tagForm.breed && onAddAnimal) {
+      onAddAnimal({
+        tagId: tagForm.tagId,
+        name: tagForm.name,
+        breed: tagForm.breed,
+        birthDate: new Date().toISOString().split('T')[0],
+        age: tagForm.age ? `${tagForm.age} Anos` : 'N/A',
+        weight: parseFloat(tagForm.weight) || 0,
+        status: 'healthy',
+        lastCheckup: new Date().toISOString().split('T')[0],
+        notes: tagForm.notes,
+        productionHistory: []
+      });
+      // Reset
+      setTagForm({ name: '', tagId: '', breed: '', age: '', weight: '', notes: '' });
+      setViewState('scanning');
+    }
+  };
+
+  // --- Renders ---
+
+  // 1. FORMULÁRIO "ADICIONAR NOVA TAG"
+  if (viewState === 'add_tag') {
+    return (
+      <div className="h-full flex flex-col bg-white dark:bg-neutral-900 animate-slide-up p-6 overflow-y-auto rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white">Nova Tag</h2>
+            <p className="text-sm text-gray-500">Registo de Animal</p>
+          </div>
+          <button 
+            onClick={() => setViewState('scanning')}
+            className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full"
+          >
+            <X size={24} className="dark:text-white" />
+          </button>
+        </div>
+
+        <div className="space-y-6 pb-20">
+           {/* Nome / Descrição */}
+           <div>
+             <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Descrição / Nome</label>
+             <input 
+               value={tagForm.name}
+               onChange={e => setTagForm({...tagForm, name: e.target.value})}
+               className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+               placeholder="Ex: Malhada 01"
+             />
+           </div>
+
+           {/* NFC Scan Button Area */}
+           <div>
+             <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Identificação Eletrónica</label>
+             <div className={`p-1 rounded-2xl border-2 transition-all ${tagForm.tagId ? 'border-green-500 bg-green-50 dark:bg-green-900/10' : 'border-dashed border-gray-300 dark:border-neutral-700'}`}>
+                {tagForm.tagId ? (
+                  <div className="flex items-center justify-between p-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-600">
+                        <Tag size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase">Tag Lida</p>
+                        <p className="text-lg font-black text-green-700 dark:text-green-400">{tagForm.tagId}</p>
+                      </div>
+                    </div>
+                    <button onClick={startNfcScanForForm} className="p-2 text-gray-400 hover:text-gray-600">
+                      <RefreshCw size={18} />
+                    </button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={startNfcScanForForm}
+                    disabled={isScanningTag}
+                    className="w-full py-6 flex flex-col items-center justify-center gap-2 text-gray-400 hover:bg-gray-50 dark:hover:bg-neutral-800 rounded-xl transition-colors"
+                  >
+                    {isScanningTag ? (
+                      <>
+                        <Loader2 size={24} className="animate-spin text-agro-green" />
+                        <span className="text-sm font-bold text-agro-green">Aproximar Tag...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Signal size={24} />
+                        <span className="text-sm font-bold">Toque para Ler NFC</span>
+                      </>
+                    )}
+                  </button>
+                )}
+             </div>
+           </div>
+
+           {/* Tipo e Idade Row */}
+           <div className="grid grid-cols-2 gap-4">
+             <div>
+               <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Tipo de Animal</label>
+               <input 
+                 value={tagForm.breed}
+                 onChange={e => setTagForm({...tagForm, breed: e.target.value})}
+                 className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                 placeholder="Ex: Vaca"
+               />
+             </div>
+             <div>
+               <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Idade (Anos)</label>
+               <input 
+                 type="number"
+                 value={tagForm.age}
+                 onChange={e => setTagForm({...tagForm, age: e.target.value})}
+                 className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                 placeholder="0"
+               />
+             </div>
+           </div>
+
+           {/* Peso e Nota */}
+           <div className="grid grid-cols-2 gap-4">
+              <div>
+                 <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Peso (Kg)</label>
+                 <input 
+                   type="number"
+                   value={tagForm.weight}
+                   onChange={e => setTagForm({...tagForm, weight: e.target.value})}
+                   className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                   placeholder="0"
+                 />
+              </div>
+              <div>
+                 <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Nota (Opcional)</label>
+                 <input 
+                   value={tagForm.notes}
+                   onChange={e => setTagForm({...tagForm, notes: e.target.value})}
+                   className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                   placeholder="..."
+                 />
+              </div>
+           </div>
+
+           <button 
+             onClick={handleSaveTag}
+             disabled={!tagForm.name || !tagForm.tagId || !tagForm.breed}
+             className={`w-full py-5 rounded-[1.5rem] font-bold text-xl shadow-lg flex items-center justify-center gap-2 mt-4 transition-all ${
+               !tagForm.name || !tagForm.tagId || !tagForm.breed
+                 ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed'
+                 : 'bg-agro-green text-white active:scale-95 shadow-agro-green/30'
+             }`}
+           >
+             <Save size={24} />
+             Guardar Animal
+           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. MODO PERFIL (Se animal encontrado)
+  if (activeAnimal && viewState === 'profile') {
+    return (
+      <AnimalProfile 
+        animal={activeAnimal} 
+        onReset={handleReset} 
+        onAddProduction={onAddProduction || (() => {})} 
+        onUpdateAnimal={onUpdateAnimal}
+        onScheduleTask={onScheduleTask}
+      />
+    );
+  }
+
+  // 3. MODO SCANNING (Default)
+  return (
+    <div className="h-full flex flex-col relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#0A0A0A] dark:to-[#111] animate-fade-in">
+        
+        {/* Background Elements */}
+        <div className="absolute top-0 left-0 right-0 h-1/2 bg-agro-green/5 rounded-b-[4rem] z-0"></div>
+        <div className="absolute -top-20 -left-20 w-64 h-64 bg-agro-green/10 rounded-full blur-3xl"></div>
+        
+        <div className="relative z-10 flex flex-col items-center justify-center h-[75vh] px-6">
+          
+          {/* Main NFC Scanner Visual */}
+          <div className="relative mb-12" onClick={viewState === 'scanning' ? startScan : undefined}>
+             
+             {/* Pulsing Rings (Only in Scanning) */}
+             {viewState === 'scanning' && (
+               <>
+                 <div className="absolute inset-0 bg-agro-green/20 rounded-full animate-ping opacity-75"></div>
+                 <div className="absolute -inset-4 bg-agro-green/10 rounded-full animate-pulse opacity-50 delay-100"></div>
+                 <div className="absolute -inset-8 bg-agro-green/5 rounded-full animate-pulse-slow opacity-30 delay-200"></div>
+               </>
+             )}
+
+             {/* The "Ear Tag" Metaphor Card */}
+             <div className={`relative w-48 h-48 bg-gradient-to-br from-[#ffffff] to-[#f0fdf4] dark:from-[#262626] dark:to-[#1a1a1a] rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-neutral-700 flex flex-col items-center justify-center transition-all duration-500 cursor-pointer ${
+               viewState === 'loading' ? 'scale-95 shadow-inner border-agro-green' : 'hover:scale-105 hover:shadow-agro-green/20'
+             }`}>
+                
+                {/* Hole of the Tag */}
+                <div className="absolute top-4 w-4 h-4 bg-gray-200 dark:bg-neutral-800 rounded-full shadow-inner border border-black/5"></div>
+
+                {viewState === 'loading' ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 size={48} className="text-agro-green animate-spin" />
+                    <span className="text-xs font-bold text-agro-green animate-pulse">Lendo Tag...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Signal size={48} className="text-agro-green mb-2 opacity-80" />
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Oriva NFC</span>
+                  </>
+                )}
+             </div>
+
+             {/* Smartphone Icon Overlay (Hint) */}
+             {viewState === 'scanning' && (
+                <div className="absolute -bottom-4 -right-4 bg-white dark:bg-neutral-800 p-3 rounded-2xl shadow-lg border border-gray-100 dark:border-neutral-700 animate-bounce">
+                   <Smartphone size={24} className="text-gray-600 dark:text-gray-300" />
+                </div>
+             )}
+          </div>
+
+          {/* Text Instructions */}
+          <div className="text-center space-y-3 max-w-xs mx-auto">
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white leading-tight">
+              {viewState === 'loading' ? 'A Sincronizar...' : 'Identificação'}
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium leading-relaxed">
+              {viewState === 'loading' 
+                ? 'A obter dados biométricos e histórico produtivo da cloud.' 
+                : 'Aproxime o seu telemóvel do brinco eletrónico do animal para ler.'}
+            </p>
+          </div>
+
+          {/* Add Tag Button (Primary Action) */}
+          {viewState === 'scanning' && (
+            <button 
+              onClick={() => setViewState('add_tag')}
+              className="mt-10 py-3 px-6 rounded-xl bg-agro-green text-white border border-transparent font-bold uppercase tracking-wider shadow-lg shadow-agro-green/20 active:scale-95 transition-all flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Adicionar Nova Tag
+            </button>
+          )}
+
+        </div>
     </div>
   );
 };

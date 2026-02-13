@@ -187,9 +187,19 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-neutral-800 bg-white/50 dark:bg-black/20 backdrop-blur-md sticky top-0 z-10">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <Bell className="text-gray-900 dark:text-white" size={24} />
-              {notifications.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#FDFDF5] dark:border-[#0A0A0A]"></span>
+              {notifications.length > 0 ? (
+                <>
+                  {/* Heartbeat Effect */}
+                  <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
+                  {/* Red Icon Container */}
+                  <div className="relative p-2.5 bg-red-500 text-white rounded-full shadow-lg shadow-red-500/50">
+                     <Bell size={24} fill="currentColor" />
+                  </div>
+                </>
+              ) : (
+                <div className="p-2">
+                  <Bell className="text-gray-900 dark:text-white" size={24} />
+                </div>
               )}
             </div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Centro de Alertas</h2>

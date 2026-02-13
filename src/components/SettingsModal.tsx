@@ -145,7 +145,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Corpo com Scroll */}
         <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
           
-          {/* Secção: Aparência */}
+          {/* 1. Secção: Perfil */}
+          <section>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Perfil</h3>
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
+                  <User size={18} />
+                </div>
+                <input 
+                  type="text" 
+                  value={tempName}
+                  onChange={(e) => setTempName(e.target.value)}
+                  className="w-full pl-11 pr-4 py-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-l-[1.5rem] rounded-r-lg text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-agro-green focus:outline-none transition-all"
+                  placeholder="Seu nome"
+                />
+              </div>
+              <button 
+                onClick={handleSave}
+                disabled={tempName === currentName}
+                className={`px-5 rounded-r-[1.5rem] rounded-l-lg font-bold text-white transition-all flex items-center justify-center shadow-lg shadow-agro-green/20 ${tempName === currentName ? 'bg-gray-300 dark:bg-neutral-700 cursor-not-allowed' : 'bg-agro-green active:scale-95'}`}
+              >
+                <Save size={20} />
+              </button>
+            </div>
+          </section>
+
+          {/* 2. Secção: Aparência */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Aparência</h3>
             
@@ -192,7 +218,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* Secção: Segurança & Backup */}
+          {/* 3. Secção: Segurança & Backup */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Shield size={14} /> Segurança de Dados
@@ -229,32 +255,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                  accept=".json"
                  className="hidden" 
                />
-            </div>
-          </section>
-
-          {/* Secção: Perfil */}
-          <section>
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Perfil</h3>
-            <div className="flex gap-2">
-              <div className="flex-1 relative">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-                  <User size={18} />
-                </div>
-                <input 
-                  type="text" 
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  className="w-full pl-11 pr-4 py-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-l-[1.5rem] rounded-r-lg text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-agro-green focus:outline-none transition-all"
-                  placeholder="Seu nome"
-                />
-              </div>
-              <button 
-                onClick={handleSave}
-                disabled={tempName === currentName}
-                className={`px-5 rounded-r-[1.5rem] rounded-l-lg font-bold text-white transition-all flex items-center justify-center shadow-lg shadow-agro-green/20 ${tempName === currentName ? 'bg-gray-300 dark:bg-neutral-700 cursor-not-allowed' : 'bg-agro-green active:scale-95'}`}
-              >
-                <Save size={20} />
-              </button>
             </div>
           </section>
 

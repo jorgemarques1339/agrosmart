@@ -6,7 +6,7 @@ import {
   Navigation, Tractor, AlertTriangle, CloudRain, Thermometer,
   Wind, MapPin, Brain, Scan, Camera, Sprout, CheckCircle, AlertCircle,
   X, ChevronRight, Activity, Loader2, Save, FileText, Wifi, WifiOff, RefreshCw, CloudOff,
-  Radio, Cpu, CheckCircle2
+  Radio, Cpu, CheckCircle2, Smartphone, Tag, Signal
 } from 'lucide-react';
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-leaflet';
@@ -239,59 +239,6 @@ const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: strin
       </div>
     </div>
   );
-};
-
-// 3. Visualização Animal
-const AnimalView = ({ animals, addProduction }: { animals: Animal[], addProduction: (id: string, value: number, type: 'milk' | 'weight') => void }) => {
-  const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile'>('scanning');
-  const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);
-
-  const startScan = () => {
-    setViewState('loading');
-    setTimeout(() => {
-      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-      setFoundAnimal(randomAnimal);
-      setViewState('profile');
-    }, 2000);
-  };
-
-  const handleReset = () => {
-    setFoundAnimal(null);
-    setViewState('scanning');
-  };
-
-  if (viewState === 'scanning' || viewState === 'loading') {
-    return (
-      <div className="h-full flex flex-col items-center justify-center relative overflow-hidden rounded-[2.5rem] bg-white dark:bg-neutral-900 shadow-2xl animate-fade-in min-h-[60vh]">
-        <div className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-           <div className={`w-64 h-64 border border-agro-green/30 rounded-full ${viewState === 'scanning' ? 'animate-ping' : ''} absolute`}></div>
-           <div className={`w-96 h-96 border border-agro-green/20 rounded-full ${viewState === 'scanning' ? 'animate-ping' : ''} animation-delay-500 absolute`}></div>
-        </div>
-        <div className="relative z-10 flex flex-col items-center text-center p-6">
-          <div className="w-32 h-32 bg-gray-50 dark:bg-neutral-800/80 backdrop-blur-sm rounded-full flex items-center justify-center mb-10 border border-gray-100 dark:border-neutral-700 shadow-xl relative">
-             {viewState === 'loading' ? (
-               <Loader2 className="text-agro-green w-12 h-12 animate-spin" />
-             ) : (
-               <button onClick={startScan} className="w-24 h-24 bg-agro-green rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(62,104,55,0.6)] active:scale-95 transition-transform">
-                 <Scan className="text-white w-10 h-10" />
-               </button>
-             )}
-          </div>
-          <h2 className="text-3xl font-black italic text-gray-900 dark:text-white mb-2">
-            {viewState === 'loading' ? 'A Sincronizar...' : 'Identificação'}
-          </h2>
-          <p className="text-gray-500 dark:text-gray-400 max-w-[200px]">
-            {viewState === 'loading' ? 'A obter dados biométricos da cloud.' : 'Aproxime o seu dispositivo da Tag NFC do animal.'}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (foundAnimal && viewState === 'profile') {
-    return <AnimalCard animal={foundAnimal} onReset={handleReset} onAddProduction={addProduction} />;
-  }
-  return null;
 };
 
 // 4. Visualização Cultivo
@@ -955,6 +902,15 @@ const App = () => {
     }));
   };
 
+  // Add Action for Animal Updates (Notes, etc)
+  const updateAnimal = (id: string, updates: Partial<Animal>) => {
+    trackOfflineAction();
+    setState(prev => ({
+      ...prev,
+      animals: prev.animals.map(a => a.id === id ? { ...a, ...updates } : a)
+    }));
+  };
+
   const addProduction = (animalId: string, value: number, type: 'milk' | 'weight') => {
     trackOfflineAction();
     const date = new Date().toISOString().split('T')[0];
@@ -1060,6 +1016,19 @@ const App = () => {
     setState(prev => ({
       ...prev,
       transactions: [newTx, ...prev.transactions]
+    }));
+  };
+
+  // Add Animal Action
+  const addAnimal = (animalData: Omit<Animal, 'id'>) => {
+    trackOfflineAction();
+    const newAnimal: Animal = {
+      ...animalData,
+      id: Date.now().toString(),
+    };
+    setState(prev => ({
+      ...prev,
+      animals: [...prev.animals, newAnimal]
     }));
   };
 
@@ -1250,7 +1219,15 @@ const App = () => {
             stocks={state.stocks} // Pass stocks for task resource linking
           />
         )}
-        {activeTab === 'animal' && <AnimalView animals={state.animals} addProduction={addProduction} />}
+        {activeTab === 'animal' && (
+          <AnimalCard 
+            animals={state.animals} 
+            onAddProduction={addProduction} 
+            onAddAnimal={addAnimal}
+            onUpdateAnimal={updateAnimal} 
+            onScheduleTask={addTask}
+          />
+        )}
         {activeTab === 'cultivation' && (
           <CultivationView 
             fields={state.fields}

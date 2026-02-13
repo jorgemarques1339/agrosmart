@@ -2,7 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, Droplets, Sprout, Syringe, ArrowDown, ArrowUp, 
-  Edit2, Plus, X, Save, Info, AlertTriangle, Search, Fuel, Minus
+  Edit2, Plus, X, Save, Info, AlertTriangle, Search, Fuel, Minus,
+  CheckCircle2
 } from 'lucide-react';
 import { StockItem } from '../types';
 
@@ -161,31 +162,55 @@ const StockManager: React.FC<StockManagerProps> = ({
             <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">Armazém</h2>
             <p className="text-sm text-gray-500 font-medium tracking-wide">Inventário Mobile</p>
           </div>
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="bg-agro-green text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-transform"
-          >
-            <Plus size={24} />
-          </button>
+          <div className="flex flex-col items-center gap-1">
+            <button 
+              onClick={() => setIsAddModalOpen(true)}
+              className="w-12 h-12 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+            >
+              <Plus size={24} />
+            </button>
+            <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo Item</span>
+          </div>
         </div>
 
+        {/* Dashboard Cards (Updated to Premium Style) */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-white dark:bg-neutral-900 p-4 rounded-[2rem] border border-gray-100 dark:border-neutral-800 shadow-sm">
-            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Total Itens</p>
-            <div className="flex items-end gap-2">
-              <span className="text-2xl font-black text-gray-800 dark:text-white">{metrics.totalItems}</span>
-              <span className="text-xs text-gray-400 mb-1">sku</span>
+          
+          {/* Card 1: Total Itens */}
+          <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-neutral-800 dark:to-neutral-900 rounded-[2rem] p-4 text-white shadow-lg relative overflow-hidden">
+            <div className="relative z-10">
+               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Itens</p>
+               <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black">{metrics.totalItems}</span>
+                  <span className="text-sm opacity-60">sku</span>
+               </div>
+               <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-1 rounded-full w-fit">
+                  <Package size={10} /> {metrics.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, notation: 'compact' })}
+               </div>
             </div>
+            <Package className="absolute -right-4 -bottom-4 text-white/5 w-24 h-24 rotate-12" />
           </div>
-          <div className="bg-white dark:bg-neutral-900 p-4 rounded-[2rem] border border-gray-100 dark:border-neutral-800 shadow-sm relative overflow-hidden">
-            {metrics.lowStock > 0 && <div className="absolute right-0 top-0 p-2"><div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div></div>}
-            <p className="text-xs text-gray-400 font-bold uppercase mb-1">Alertas</p>
-            <div className="flex items-end gap-2">
-              <span className={`text-2xl font-black ${metrics.lowStock > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                {metrics.lowStock}
-              </span>
-              <span className="text-xs text-gray-400 mb-1">críticos</span>
+
+          {/* Card 2: Alertas */}
+          <div className={`rounded-[2rem] p-4 text-white shadow-lg relative overflow-hidden transition-colors ${
+            metrics.lowStock > 0 
+              ? 'bg-gradient-to-br from-red-600 to-red-700 animate-pulse' 
+              : 'bg-gradient-to-br from-agro-green to-green-600'
+          }`}>
+            <div className="relative z-10">
+               <p className="text-xs font-bold text-white/80 uppercase tracking-wider mb-1">
+                 {metrics.lowStock > 0 ? 'Stock Crítico' : 'Stock Seguro'}
+               </p>
+               <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-black">{metrics.lowStock}</span>
+                  <span className="text-sm opacity-80">alertas</span>
+               </div>
+               <div className="mt-2 flex items-center gap-1 text-[10px] font-bold bg-white/20 px-2 py-1 rounded-full w-fit">
+                  {metrics.lowStock > 0 ? <AlertTriangle size={10} /> : <CheckCircle2 size={10} />}
+                  {metrics.lowStock > 0 ? 'Repor Stock' : 'Tudo OK'}
+               </div>
             </div>
+            <AlertTriangle className="absolute -right-4 -bottom-4 text-white/10 w-24 h-24 rotate-12" />
           </div>
         </div>
       </div>

@@ -350,19 +350,22 @@ const MachineManager: React.FC<MachineManagerProps> = ({
       {/* 1. Header & Title */}
       <div className="flex justify-between items-end px-2">
         <div>
-          <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">Gestão de<br/>Frota</h2>
+          <h2 className="text-2xl font-black italic text-gray-900 dark:text-white leading-none">Gestão de<br/>Frota</h2>
           <p className="text-sm text-gray-500 font-medium tracking-wide mt-2 flex items-center gap-1">
              <Tractor size={14} /> Máquinas & Equipamentos
           </p>
         </div>
         
         {/* Add Button */}
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="w-14 h-14 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
-        >
-          <Plus size={28} strokeWidth={2.5} />
-        </button>
+        <div className="flex flex-col items-center gap-1">
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="w-12 h-12 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+          >
+            <Plus size={24} strokeWidth={2.5} />
+          </button>
+          <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Nova Máquina</span>
+        </div>
       </div>
 
       {/* 2. Dashboard Summary Cards */}
