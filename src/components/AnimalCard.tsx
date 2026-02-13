@@ -118,16 +118,16 @@ const AnimalProfile = ({
 
   return (
     <div className="animate-slide-up relative pb-20">
-      <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
+      <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-5 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
         <Heart className="absolute -top-6 -right-6 text-red-50 dark:text-red-900/10 w-48 h-48 opacity-50" fill="currentColor" />
         
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-2">
             <div>
-               <p className="text-sm font-mono text-gray-400 font-bold tracking-wider mb-1">{animal.tagId}</p>
-               <h2 className="text-4xl font-black italic text-gray-900 dark:text-white">{animal.name}</h2>
+               <p className="text-xs font-mono text-gray-400 font-bold tracking-wider mb-0.5">{animal.tagId}</p>
+               <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">{animal.name}</h2>
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-bold border ${
+            <div className={`px-2 py-1 rounded-full text-[10px] font-bold border ${
               animal.status === 'healthy' 
                 ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' 
                 : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
@@ -136,46 +136,47 @@ const AnimalProfile = ({
             </div>
           </div>
 
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 flex items-center gap-2">
-            <ShieldCheck size={14} className="text-agro-green" /> 
+          <p className="text-gray-500 dark:text-gray-400 text-xs mb-4 flex items-center gap-2">
+            <ShieldCheck size={12} className="text-agro-green" /> 
             {animal.breed} • {animal.age}
           </p>
 
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl">
-              <div className="flex items-center gap-2 text-gray-400 mb-1">
-                <Beef size={16} /> <span className="text-xs font-bold uppercase">Peso Atual</span>
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+              <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                <Beef size={14} /> <span className="text-[10px] font-bold uppercase">Peso Atual</span>
               </div>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{animal.weight} <span className="text-sm font-normal text-gray-400">kg</span></p>
+              <p className="text-xl font-bold text-gray-800 dark:text-white">{animal.weight} <span className="text-xs font-normal text-gray-400">kg</span></p>
             </div>
-            <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-3xl">
-               <div className="flex items-center gap-2 text-gray-400 mb-1">
-                <History size={16} /> <span className="text-xs font-bold uppercase">Checkup</span>
+            <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+               <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+                <History size={14} /> <span className="text-[10px] font-bold uppercase">Checkup</span>
               </div>
-              <p className="text-lg font-bold text-gray-800 dark:text-white">{animal.lastCheckup}</p>
+              <p className="text-base font-bold text-gray-800 dark:text-white truncate">{animal.lastCheckup}</p>
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
               <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
                  <button 
                    onClick={() => setChartMode('production')}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartMode === 'production' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+                   className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'production' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
                  >
                    Produção
                  </button>
                  <button 
                    onClick={() => setChartMode('finance')}
-                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartMode === 'finance' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+                   className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'finance' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
                  >
                    Lucro (€)
                  </button>
               </div>
-              <span className="text-xs text-gray-400 font-bold">{chartMode === 'production' ? '7 Dias' : 'Acumulado'}</span>
+              <span className="text-[10px] text-gray-400 font-bold">{chartMode === 'production' ? '7 Dias' : 'Acumulado'}</span>
             </div>
 
-            <div className="h-48 w-full bg-gradient-to-b from-gray-50 to-white dark:from-neutral-800/50 dark:to-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 p-2 relative overflow-hidden">
+            {/* Reduzido para h-32 (128px) */}
+            <div className="h-32 w-full bg-gradient-to-b from-gray-50 to-white dark:from-neutral-800/50 dark:to-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 p-2 relative overflow-hidden">
                {chartMode === 'production' ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartData}>
@@ -186,7 +187,7 @@ const AnimalProfile = ({
                         </linearGradient>
                       </defs>
                       <Tooltip 
-                        contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)' }}
+                        contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
                         itemStyle={{ color: '#3E6837', fontWeight: 'bold' }}
                       />
                       <Area 
@@ -195,26 +196,26 @@ const AnimalProfile = ({
                         stroke="#3E6837" 
                         fillOpacity={1} 
                         fill="url(#colorProd)" 
-                        strokeWidth={3} 
+                        strokeWidth={2} 
                       />
                     </AreaChart>
                   </ResponsiveContainer>
                ) : (
                   <div className="h-full flex flex-col justify-center px-4 animate-fade-in">
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-2">
                          <div>
-                            <p className="text-xs text-gray-400 font-bold uppercase">Resultado Líquido</p>
-                            <h3 className={`text-3xl font-black ${animalFinance.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">Resultado Líquido</p>
+                            <h3 className={`text-2xl font-black ${animalFinance.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                               {animalFinance.profit >= 0 ? '+' : ''}{animalFinance.profit.toFixed(0)}€
                             </h3>
                          </div>
-                         <div className={`p-3 rounded-full ${animalFinance.profit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
-                            <Coins size={24} />
+                         <div className={`p-2 rounded-full ${animalFinance.profit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
+                            <Coins size={20} />
                          </div>
                       </div>
-                      <div className="space-y-2">
-                         <div className="flex justify-between items-center text-xs">
-                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={12}/> Receita</span>
+                      <div className="space-y-1.5">
+                         <div className="flex justify-between items-center text-[10px]">
+                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={10}/> Receita</span>
                             <span className="font-bold text-gray-900 dark:text-white">{animalFinance.totalRevenue.toFixed(0)}€</span>
                          </div>
                          <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
@@ -227,11 +228,11 @@ const AnimalProfile = ({
           </div>
 
           {animal.notes && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/10 p-4 rounded-2xl border border-yellow-100 dark:border-yellow-900/30 mb-6">
-              <h4 className="text-xs font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1 flex items-center gap-2">
-                 <ClipboardList size={14} /> Nota Veterinária
+            <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-2xl border border-yellow-100 dark:border-yellow-900/30 mb-4">
+              <h4 className="text-[10px] font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1 flex items-center gap-2">
+                 <ClipboardList size={12} /> Nota Veterinária
               </h4>
-              <p className="text-sm text-yellow-800 dark:text-yellow-200/80 italic">"{animal.notes}"</p>
+              <p className="text-xs text-yellow-800 dark:text-yellow-200/80 italic line-clamp-2">"{animal.notes}"</p>
             </div>
           )}
 
