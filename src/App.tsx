@@ -11,7 +11,7 @@ import { MapContainer, TileLayer, Polygon, Marker, Popup, useMap } from 'react-l
 import mqtt from 'mqtt';
 import L from 'leaflet';
 
-import { AppState, Animal, Field, StockItem, Task, Transaction, WeatherForecast, FieldLog } from './types';
+import { AppState, Animal, Field, StockItem, Task, Transaction, WeatherForecast, FieldLog, Machine, MaintenanceLog } from './types';
 import { INITIAL_WEATHER, MQTT_BROKER, MQTT_TOPIC_PREFIX, MOCK_STATE, STORAGE_KEY } from './constants';
 import { loadState, saveState } from './services/storageService';
 import SettingsModal from './components/SettingsModal';
@@ -22,6 +22,7 @@ import FieldCard from './components/FieldCard';
 import FinanceManager from './components/FinanceManager';
 import DashboardHome from './components/DashboardHome';
 import FieldNotebook from './components/FieldNotebook';
+import MachineManager from './components/MachineManager';
 
 // --- Corrigir Ícones do Leaflet ---
 // @ts-ignore
@@ -53,6 +54,7 @@ const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: strin
     { id: 'dashboard', icon: Home, label: 'Início' },
     { id: 'animal', icon: ScanLine, label: 'Animal' },
     { id: 'cultivation', icon: Leaf, label: 'Cultivo' },
+    { id: 'machines', icon: Tractor, label: 'Máquinas' },
     { id: 'stocks', icon: Package, label: 'Stocks' },
     { id: 'accounts', icon: PieChart, label: 'Contas' },
   ];
@@ -60,9 +62,9 @@ const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: strin
   return (
     // Container fixo flutuante (Bottom 6 = 1.5rem acima da borda)
     // Z-Index 100 para garantir prioridade sobre conteúdo
-    <div className="fixed bottom-6 left-4 right-4 z-[100] pointer-events-none animate-slide-up">
-      <div className="mx-auto max-w-md pointer-events-auto">
-        <nav className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-white/20 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] h-[5.5rem] flex items-center justify-around px-2 transition-all duration-300">
+    <div className="fixed bottom-6 left-2 right-2 z-[100] pointer-events-none animate-slide-up">
+      <div className="mx-auto max-w-lg pointer-events-auto">
+        <nav className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-white/20 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] h-[5.5rem] flex items-center justify-between px-2 overflow-x-auto scrollbar-hide">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -70,15 +72,13 @@ const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: strin
               <button
                 key={tab.id}
                 onClick={() => setTab(tab.id)}
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-75 ${
+                className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-75 shrink-0 ${
                   isActive 
                     ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 translate-y-[-4px]' 
                     : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-neutral-800'
                 }`}
               >
                 <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
-                {/* Indicador visual opcional para estado ativo (ponto) */}
-                {isActive && <div className="absolute -bottom-2 w-1 h-1 bg-agro-green rounded-full hidden"></div>}
               </button>
             );
           })}
@@ -423,6 +423,8 @@ const App = () => {
     count += state.fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
     // Stocks
     count += state.stocks.filter(s => s.quantity <= s.minStock).length;
+    // Machines
+    count += (state.machines || []).filter(m => (m.engineHours - m.lastServiceHours) > m.serviceInterval).length;
     return count;
   }, [state]);
 
@@ -555,6 +557,77 @@ const App = () => {
     }));
   };
 
+  // Machine Actions
+  const updateMachineHours = (id: string, hours: number) => {
+    setState(prev => ({
+      ...prev,
+      machines: (prev.machines || []).map(m => m.id === id ? { ...m, engineHours: hours } : m)
+    }));
+  };
+
+  const addMachineLog = (machineId: string, log: Omit<MaintenanceLog, 'id'>) => {
+    const newLog: MaintenanceLog = { ...log, id: Date.now().toString() };
+    
+    // Auto generate expense
+    if (log.cost > 0) {
+      const machine = state.machines?.find(m => m.id === machineId);
+      addTransaction({
+        date: log.date,
+        type: 'expense',
+        amount: log.cost,
+        category: log.type === 'fuel' ? 'Combustível' : 'Manutenção',
+        description: `${machine?.name || 'Máquina'}: ${log.description}`
+      });
+    }
+
+    // Deduct Fuel from Stock
+    if (log.type === 'fuel' && log.quantity) {
+       const qtyToDeduct = log.quantity;
+       setState(prev => ({
+         ...prev,
+         stocks: prev.stocks.map(s => {
+           // Procura por items de combustível ou com nome gasóleo
+           if (s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo')) {
+             return { ...s, quantity: Math.max(0, s.quantity - qtyToDeduct) };
+           }
+           return s;
+         })
+       }));
+    }
+
+    setState(prev => ({
+      ...prev,
+      machines: (prev.machines || []).map(m => {
+        if (m.id === machineId) {
+          const updates: Partial<Machine> = { logs: [...m.logs, newLog] };
+          // If oil change, update last service hours
+          if (log.type === 'oil_change') {
+             updates.lastServiceHours = m.engineHours;
+          }
+          return { ...m, ...updates };
+        }
+        return m;
+      })
+    }));
+  };
+
+  const addMachine = (machineData: Omit<Machine, 'id' | 'logs'>) => {
+    const newMachine: Machine = {
+      ...machineData,
+      id: Date.now().toString(),
+      logs: [],
+      // Initialize with provided values or safe defaults
+      lastServiceHours: machineData.engineHours, 
+      fuelLevel: 100,
+      status: 'active'
+    };
+    
+    setState(prev => ({
+      ...prev,
+      machines: [...(prev.machines || []), newMachine]
+    }));
+  };
+
   const handleResetData = () => {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem('agro_username');
@@ -594,6 +667,15 @@ const App = () => {
             onAddField={addField}
             onModalChange={handleChildModalChange}
             operatorName={userName}
+          />
+        )}
+        {activeTab === 'machines' && (
+          <MachineManager 
+             machines={state.machines || []}
+             onUpdateHours={updateMachineHours}
+             onAddLog={addMachineLog}
+             onAddMachine={addMachine}
+             onModalChange={handleChildModalChange}
           />
         )}
         {activeTab === 'stocks' && (
@@ -639,6 +721,7 @@ const App = () => {
         animals={state.animals}
         fields={state.fields}
         stocks={state.stocks}
+        machines={state.machines || []}
         onNavigate={setActiveTab}
       />
     </div>

@@ -1,3 +1,4 @@
+
 export interface WeatherForecast {
   day: string;
   temp: number;
@@ -83,10 +84,38 @@ export interface Transaction {
   category: string;
 }
 
+export interface MaintenanceLog {
+  id: string;
+  date: string;
+  type: 'fuel' | 'oil_change' | 'repair' | 'inspection' | 'other';
+  description: string;
+  cost: number;
+  engineHoursAtLog: number;
+  quantity?: number; // Liters of fuel or parts count
+}
+
+export interface Machine {
+  id: string;
+  name: string;
+  brand: string;
+  model: string;
+  plate: string;
+  type: 'tractor' | 'harvester' | 'vehicle' | 'implement';
+  engineHours: number; // Horas atuais
+  lastServiceHours: number; // Horas na ultima revisão
+  serviceInterval: number; // Intervalo de revisão (ex: 500h)
+  nextInspectionDate: string; // Data da inspeção obrigatória
+  status: 'active' | 'maintenance' | 'broken';
+  fuelLevel: number; // 0-100%
+  image?: string;
+  logs: MaintenanceLog[];
+}
+
 export interface AppState {
   tasks: Task[];
   animals: Animal[];
   fields: Field[];
   stocks: StockItem[];
   transactions: Transaction[];
+  machines: Machine[];
 }

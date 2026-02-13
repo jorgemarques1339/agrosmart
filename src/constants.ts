@@ -1,4 +1,5 @@
-import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast } from './types';
+
+import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine } from './types';
 
 export const INITIAL_WEATHER: WeatherForecast[] = [
   { day: 'Seg', temp: 22, condition: 'sunny' },
@@ -126,6 +127,40 @@ export const MOCK_STATE: AppState = {
   transactions: [
     { id: 't1', date: '2023-10-01', type: 'expense', amount: 450, category: 'Manutenção', description: 'Reparação Trator' },
     { id: 't2', date: '2023-10-15', type: 'income', amount: 3200, category: 'Vendas', description: 'Venda Leitão' },
+  ],
+  machines: [
+    {
+      id: 'm1',
+      name: 'Trator Principal',
+      brand: 'John Deere',
+      model: '6120M',
+      plate: '92-VX-12',
+      type: 'tractor',
+      engineHours: 4230,
+      lastServiceHours: 4000,
+      serviceInterval: 500,
+      nextInspectionDate: '2024-05-15',
+      status: 'active',
+      fuelLevel: 65,
+      logs: [
+        { id: 'l1', date: '2023-08-10', type: 'oil_change', description: 'Revisão das 4000h (Óleo + Filtros)', cost: 450, engineHoursAtLog: 4000 }
+      ]
+    },
+    {
+      id: 'm2',
+      name: 'Carrinha da Quinta',
+      brand: 'Toyota',
+      model: 'Hilux',
+      plate: 'AA-00-BB',
+      type: 'vehicle',
+      engineHours: 150000, // Km no caso de veiculos
+      lastServiceHours: 145000,
+      serviceInterval: 10000,
+      nextInspectionDate: '2023-11-01', // Próxima data
+      status: 'active',
+      fuelLevel: 40,
+      logs: []
+    }
   ]
 };
 

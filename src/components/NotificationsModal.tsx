@@ -1,10 +1,11 @@
+
 import React, { useMemo } from 'react';
 import { 
   X, Bell, AlertTriangle, CloudRain, 
   Package, Droplets, CheckCircle, ArrowRight,
-  Thermometer, Activity
+  Thermometer, Activity, Tractor, Wrench
 } from 'lucide-react';
-import { Animal, Field, StockItem, WeatherForecast } from '../types';
+import { Animal, Field, StockItem, WeatherForecast, Machine } from '../types';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface NotificationsModalProps {
   animals: Animal[];
   fields: Field[];
   stocks: StockItem[];
+  machines?: Machine[];
   onNavigate: (tabId: string) => void;
 }
 
@@ -34,6 +36,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
   animals,
   fields,
   stocks,
+  machines = [],
   onNavigate
 }) => {
   
@@ -114,8 +117,39 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
       });
     }
 
+    // 5. Verificação de Máquinas
+    if (Array.isArray(machines)) {
+      machines.forEach(machine => {
+        // Revisão
+        const hoursSince = machine.engineHours - machine.lastServiceHours;
+        if (hoursSince > machine.serviceInterval) {
+          alerts.push({
+            id: `machine-service-${machine.id}`,
+            type: 'warning',
+            title: `Revisão: ${machine.name}`,
+            message: `Atrasado ${hoursSince - machine.serviceInterval} horas da manutenção programada.`,
+            targetTab: 'machines',
+            icon: Wrench
+          });
+        }
+
+        // Inspeção (Data)
+        const daysUntilInspection = Math.ceil((new Date(machine.nextInspectionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        if (daysUntilInspection < 30) {
+          alerts.push({
+            id: `machine-inspection-${machine.id}`,
+            type: daysUntilInspection < 0 ? 'critical' : 'warning',
+            title: `Inspeção: ${machine.name}`,
+            message: daysUntilInspection < 0 ? 'Inspeção obrigatória expirada!' : `Inspeção obrigatória em ${daysUntilInspection} dias.`,
+            targetTab: 'machines',
+            icon: Tractor
+          });
+        }
+      });
+    }
+
     return alerts;
-  }, [weather, animals, fields, stocks]);
+  }, [weather, animals, fields, stocks, machines]);
 
   if (!isOpen) return null;
 
