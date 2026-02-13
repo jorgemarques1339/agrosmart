@@ -3,9 +3,10 @@ import React, { useState, useMemo, useRef } from 'react';
 import { 
   Droplets, Thermometer, Brain, Sprout, ChevronDown, 
   MapPin, Loader2, Activity, Wifi, Plus, Trash2, Calendar,
-  Package, ShoppingBag, ArrowRight, Mic, MicOff, StopCircle
+  Package, ShoppingBag, ArrowRight, Mic, MicOff, StopCircle,
+  Coins, TrendingUp, TrendingDown, Wallet
 } from 'lucide-react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
 import { Field, FieldLog, StockItem } from '../types';
 import PestDetection from './PestDetection';
@@ -20,7 +21,7 @@ interface FieldCardProps {
 
 const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrigation, onAddLog, onUseStock }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'ai'>('sensors');
+  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'finance' | 'ai'>('sensors');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   
   // Journal Modes
@@ -44,6 +45,36 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
       setIsLoadingIoT(false);
     }, 1200);
   };
+
+  // --- Financial Logic ---
+  const financialData = useMemo(() => {
+    // 1. Calcular Custos Reais (Baseado nos logs)
+    const totalExpenses = field.logs?.reduce((acc, log) => acc + (log.cost || 0), 0) || 0;
+
+    // 2. Calcular Receita Estimada (Mock Price per crop type)
+    // Em produção real, isto viria de uma tabela de preços de mercado
+    const getMarketPrice = (crop: string) => {
+      if (crop.includes('Uva')) return 1200; // €/ton
+      if (crop.includes('Milho')) return 280; // €/ton
+      if (crop.includes('Trigo')) return 350; // €/ton
+      if (crop.includes('Olival')) return 800; // €/ton
+      return 400; // default
+    };
+
+    const marketPrice = getMarketPrice(field.crop);
+    const estimatedProduction = field.areaHa * field.yieldPerHa; // Toneladas
+    const estimatedRevenue = estimatedProduction * marketPrice;
+
+    const netMargin = estimatedRevenue - totalExpenses;
+    const roi = totalExpenses > 0 ? ((netMargin / totalExpenses) * 100).toFixed(1) : '∞';
+
+    const chartData = [
+      { name: 'Custos', value: totalExpenses, color: '#ef4444' }, // Red
+      { name: 'Receita', value: estimatedRevenue, color: '#3E6837' } // Green
+    ];
+
+    return { totalExpenses, estimatedRevenue, netMargin, roi, chartData, marketPrice };
+  }, [field]);
 
   // --- Voice Logic ---
   const toggleRecording = () => {
@@ -204,18 +235,18 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
         <div className="px-5 pb-8 animate-fade-in border-t border-gray-100 dark:border-neutral-800">
           
           {/* Tabs Navegação */}
-          <div className="flex p-1 bg-gray-100 dark:bg-neutral-800 rounded-2xl my-6">
-             {(['sensors', 'journal', 'ai'] as const).map(tab => (
+          <div className="flex p-1 bg-gray-100 dark:bg-neutral-800 rounded-2xl my-6 overflow-x-auto scrollbar-hide">
+             {(['sensors', 'journal', 'finance', 'ai'] as const).map(tab => (
                <button 
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
+                className={`flex-1 min-w-[80px] py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all ${
                   activeTab === tab 
                     ? 'bg-white dark:bg-neutral-700 shadow-sm text-agro-green dark:text-white' 
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 }`}
               >
-                {tab === 'ai' ? 'AI ✨' : tab === 'sensors' ? 'Sensores' : 'Diário'}
+                {tab === 'ai' ? 'AI ✨' : tab === 'finance' ? 'Lucro' : tab === 'sensors' ? 'Sensores' : 'Diário'}
               </button>
              ))}
           </div>
@@ -441,6 +472,70 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, stocks = [], onToggleIrrig
                 )}
               </div>
             </div>
+          )}
+
+          {/* TAB: FINANCEIRO (Lucro Individual) */}
+          {activeTab === 'finance' && (
+             <div className="space-y-6 animate-slide-up">
+               
+               {/* Card de Rentabilidade */}
+               <div className={`rounded-[2.2rem] p-6 text-white shadow-xl relative overflow-hidden ${
+                 financialData.netMargin >= 0 
+                   ? 'bg-gradient-to-br from-[#3E6837] to-[#2A4825] shadow-green-900/20' 
+                   : 'bg-gradient-to-br from-red-600 to-red-800 shadow-red-900/20'
+               }`}>
+                  <div className="relative z-10 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 text-white/80 mb-2">
+                           <Coins size={16} />
+                           <p className="text-xs font-bold uppercase tracking-wider">Lucro Estimado (Campanha)</p>
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                            <h2 className="text-4xl font-black">{financialData.netMargin.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}</h2>
+                        </div>
+                        <div className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold bg-white/20 px-2 py-1 rounded-lg backdrop-blur-md">
+                           {financialData.netMargin >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                           ROI: {financialData.roi}%
+                        </div>
+                    </div>
+                    
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 w-full md:w-auto">
+                      <div className="flex justify-between md:gap-6 items-center text-sm">
+                        <span className="opacity-80">Preço/Ton Est:</span>
+                        <span className="font-bold">{financialData.marketPrice}€</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Decorator */}
+                  <Wallet className="absolute -right-6 -bottom-6 w-36 h-36 opacity-10 rotate-12" />
+               </div>
+
+               {/* Gráfico de Barras: Custos vs Receita */}
+               <div className="bg-gray-50 dark:bg-neutral-800/50 p-6 rounded-[2.2rem]">
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Análise Financeira</h4>
+                  <div className="h-40 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart layout="vertical" data={financialData.chartData} barSize={32}>
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="name" type="category" width={60} axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#9ca3af', fontWeight: 700}} />
+                        <Tooltip 
+                          cursor={{fill: 'transparent'}}
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                        />
+                        <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                          {financialData.chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-[10px] text-gray-400 text-center mt-2 italic">
+                    *Custos baseados nos registos do caderno de campo.
+                  </p>
+               </div>
+             </div>
           )}
 
           {/* TAB: AI */}

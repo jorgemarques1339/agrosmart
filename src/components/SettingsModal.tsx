@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Trash2, User, Save, Info, Moon, Sun, Monitor } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Trash2, User, Save, Info, Moon, Sun, Monitor, Download, Upload, Shield, CheckCircle } from 'lucide-react';
+import { STORAGE_KEY } from '../constants';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleSolarMode
 }) => {
   const [tempName, setTempName] = useState(currentName);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sincronizar o estado local quando o modal abre ou o nome muda externamente
   useEffect(() => {
@@ -43,6 +45,78 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleResetConfirm = () => {
     if (window.confirm("Tem a certeza absoluta? Todos os dados, animais e campos serão apagados irreversivelmente.")) {
       onResetData();
+    }
+  };
+
+  // --- BACKUP LOGIC ---
+  const handleExportBackup = () => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEY);
+      if (!data) {
+        alert("Não existem dados para exportar.");
+        return;
+      }
+
+      // Criar Blob e Link de Download
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      // Nome do ficheiro com data: agro_backup_2023-10-27.json
+      const dateStr = new Date().toISOString().split('T')[0];
+      link.href = url;
+      link.download = `agrosmart_backup_${dateStr}.json`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Erro ao exportar backup:", error);
+      alert("Erro ao criar ficheiro de backup.");
+    }
+  };
+
+  const handleImportClick = () => {
+    // Disparar o input de ficheiro oculto
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (window.confirm("ATENÇÃO: Importar um backup irá SUBSTITUIR todos os dados atuais deste dispositivo. Deseja continuar?")) {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const content = e.target?.result as string;
+          // Validação simples JSON
+          const parsed = JSON.parse(content);
+          
+          if (parsed && typeof parsed === 'object') {
+            // Guardar no LocalStorage
+            localStorage.setItem(STORAGE_KEY, content);
+            alert("Backup restaurado com sucesso! A aplicação irá reiniciar.");
+            window.location.reload();
+          } else {
+            throw new Error("Formato inválido");
+          }
+        } catch (error) {
+          console.error("Erro ao importar:", error);
+          alert("Ficheiro inválido ou corrompido. Certifique-se que é um ficheiro .json gerado pela AgroSmart.");
+        }
+      };
+
+      reader.readAsText(file);
+    }
+    
+    // Reset input para permitir selecionar o mesmo ficheiro novamente se falhar
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
@@ -118,6 +192,46 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
+          {/* Secção: Segurança & Backup */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <Shield size={14} /> Segurança de Dados
+            </h3>
+            
+            <div className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 shadow-sm space-y-3">
+               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                 Os seus dados estão guardados apenas neste dispositivo. Faça backups regulares para não perder a sua informação.
+               </p>
+               
+               <div className="grid grid-cols-2 gap-3">
+                 <button 
+                   onClick={handleExportBackup}
+                   className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-2xl active:scale-95 transition-all hover:bg-green-100 dark:hover:bg-green-900/20"
+                 >
+                   <Download size={24} className="text-green-600 dark:text-green-400 mb-1" />
+                   <span className="text-xs font-bold text-green-700 dark:text-green-300">Guardar Ficheiro</span>
+                 </button>
+
+                 <button 
+                   onClick={handleImportClick}
+                   className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl active:scale-95 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                 >
+                   <Upload size={24} className="text-blue-600 dark:text-blue-400 mb-1" />
+                   <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Restaurar Dados</span>
+                 </button>
+               </div>
+               
+               {/* Hidden File Input */}
+               <input 
+                 type="file" 
+                 ref={fileInputRef}
+                 onChange={handleFileChange}
+                 accept=".json"
+                 className="hidden" 
+               />
+            </div>
+          </section>
+
           {/* Secção: Perfil */}
           <section>
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Perfil</h3>
@@ -153,7 +267,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div>
                 <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">AgroSmart Enterprise</h4>
                 <p className="text-xs text-blue-700 dark:text-blue-300/70 mt-1 leading-relaxed">
-                  Versão 1.3.0 (Solar Update)<br/>
+                  Versão 1.3.1 (Security Update)<br/>
                   Arquitetura Offline-First ativa. Os dados são guardados localmente no seu dispositivo.
                 </p>
               </div>

@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Heart, ShieldCheck, Activity, TrendingUp, History, 
-  Plus, X, Milk, Beef, Scan, Loader2, Minus 
+  Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Animal } from '../types';
@@ -16,6 +17,9 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
   const [productionValue, setProductionValue] = useState<number>(0);
+  
+  // View Mode: 'production' chart or 'finance' analysis
+  const [chartMode, setChartMode] = useState<'production' | 'finance'>('production');
 
   // Filtrar dados do gráfico baseado no tipo mais comum ou último registo
   const chartData = useMemo(() => {
@@ -27,6 +31,54 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
       .filter(r => r.type === activeType)
       .slice(-7);
   }, [animal.productionHistory]);
+
+  // --- Financial Logic for Animals ---
+  const animalFinance = useMemo(() => {
+    // Preços de Mercado (Mock)
+    const PRICE_MILK = 0.45; // €/L
+    const PRICE_MEAT = 2.80; // €/kg (peso vivo)
+    
+    // Custos Estimados (Mock)
+    const COST_FEED_DAY = 3.50; // €/dia alimentação
+    const COST_VET_BASE = 50; // Custo base veterinário anual
+
+    // Receita Total
+    const revenue = animal.productionHistory.reduce((acc, rec) => {
+      const value = rec.type === 'milk' ? rec.value * PRICE_MILK : 0; 
+      // Nota: Peso é valor de stock, não cashflow imediato, mas conta para valorização
+      // Para simplificar "Lucro" visual, assumimos valorização do peso ganho
+      return acc + value;
+    }, 0);
+
+    // Adicionar valorização de peso (se houver registos de peso)
+    const weightGainValue = animal.productionHistory
+       .filter(r => r.type === 'weight')
+       .reduce((acc, r, idx, arr) => {
+          // Diferença para o anterior (valorização)
+          if (idx === 0) return 0;
+          const gain = r.value - arr[idx-1].value;
+          return acc + (gain > 0 ? gain * PRICE_MEAT : 0);
+       }, 0);
+
+    const totalRevenue = revenue + weightGainValue;
+
+    // Despesa Estimada (Dias de vida * custo + extra se doente)
+    // Simplificação: Custo baseado no número de registos x 5 dias (simulando intervalo)
+    const estimatedDays = animal.productionHistory.length * 7; 
+    let expenses = estimatedDays * COST_FEED_DAY;
+    
+    if (animal.status === 'sick') expenses += 150; // Custo tratamento extra
+
+    const profit = totalRevenue - expenses;
+
+    // Data for Graph
+    const financeGraph = [
+      { name: 'Start', profit: 0 },
+      { name: 'Current', profit: profit }
+    ];
+
+    return { totalRevenue, expenses, profit, financeGraph };
+  }, [animal]);
 
   // Reset value when modal opens or type changes
   useEffect(() => {
@@ -98,38 +150,84 @@ const AnimalCard: React.FC<AnimalCardProps> = ({ animal, onReset, onAddProductio
             </div>
           </div>
 
-          {/* Gráfico */}
+          {/* Secção de Gráficos (Alternável) */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <TrendingUp size={18} className="text-agro-green" />
-                Rendimento
-              </h3>
-              <span className="text-xs text-gray-400">Últimos 7 registos</span>
+              <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
+                 <button 
+                   onClick={() => setChartMode('production')}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartMode === 'production' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+                 >
+                   Produção
+                 </button>
+                 <button 
+                   onClick={() => setChartMode('finance')}
+                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartMode === 'finance' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+                 >
+                   Lucro (€)
+                 </button>
+              </div>
+              <span className="text-xs text-gray-400 font-bold">{chartMode === 'production' ? '7 Dias' : 'Acumulado'}</span>
             </div>
-            <div className="h-48 w-full bg-gradient-to-b from-green-50/50 to-transparent dark:from-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20 p-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3E6837" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3E6837" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)' }}
-                    itemStyle={{ color: '#3E6837', fontWeight: 'bold' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#3E6837" 
-                    fillOpacity={1} 
-                    fill="url(#colorProd)" 
-                    strokeWidth={3} 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+
+            <div className="h-48 w-full bg-gradient-to-b from-gray-50 to-white dark:from-neutral-800/50 dark:to-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 p-2 relative overflow-hidden">
+               {chartMode === 'production' ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <defs>
+                        <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3E6837" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#3E6837" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)' }}
+                        itemStyle={{ color: '#3E6837', fontWeight: 'bold' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#3E6837" 
+                        fillOpacity={1} 
+                        fill="url(#colorProd)" 
+                        strokeWidth={3} 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+               ) : (
+                  <div className="h-full flex flex-col justify-center px-4 animate-fade-in">
+                      <div className="flex items-center justify-between mb-4">
+                         <div>
+                            <p className="text-xs text-gray-400 font-bold uppercase">Resultado Líquido</p>
+                            <h3 className={`text-3xl font-black ${animalFinance.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                              {animalFinance.profit >= 0 ? '+' : ''}{animalFinance.profit.toFixed(0)}€
+                            </h3>
+                         </div>
+                         <div className={`p-3 rounded-full ${animalFinance.profit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
+                            <Coins size={24} />
+                         </div>
+                      </div>
+                      
+                      {/* Mini Bar Breakdown */}
+                      <div className="space-y-2">
+                         <div className="flex justify-between items-center text-xs">
+                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={12}/> Receita Gerada</span>
+                            <span className="font-bold text-gray-900 dark:text-white">{animalFinance.totalRevenue.toFixed(0)}€</span>
+                         </div>
+                         <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-green-500 h-full rounded-full" style={{width: '100%'}}></div>
+                         </div>
+
+                         <div className="flex justify-between items-center text-xs mt-2">
+                            <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowDownRight size={12}/> Custo Estimado</span>
+                            <span className="font-bold text-gray-900 dark:text-white">{animalFinance.expenses.toFixed(0)}€</span>
+                         </div>
+                         <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                            <div className="bg-red-500 h-full rounded-full" style={{width: `${Math.min((animalFinance.expenses / animalFinance.totalRevenue) * 100, 100)}%`}}></div>
+                         </div>
+                      </div>
+                  </div>
+               )}
             </div>
           </div>
 

@@ -667,23 +667,98 @@ const App = () => {
     return count;
   }, [state, weatherData, alertActive]);
 
-  // Actions with Offline Tracking
-  const toggleTask = (id: string) => {
+  // --- NEW INTEGRATION LOGIC: Stock -> Field -> Finance ---
+  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {
     trackOfflineAction();
+    // 1. Encontrar o Stock
+    const stockItem = state.stocks.find(s => s.id === stockId);
+    if(!stockItem) return;
+
+    // 2. Calcular Custo Total (Valorização do stock usado)
+    const totalCost = stockItem.pricePerUnit * quantity;
+
+    // 3. Atualizar Stock (Decrementar)
+    const newStocks = state.stocks.map(s => 
+      s.id === stockId ? { ...s, quantity: Math.max(0, s.quantity - quantity) } : s
+    );
+
+    // 4. Adicionar Log ao Campo (com custo e quantidade)
+    const field = state.fields.find(f => f.id === fieldId);
+    const newLog: FieldLog = {
+      id: Date.now().toString(),
+      date,
+      type: 'treatment', // Assumimos tratamento por defeito para uso de stock
+      description: `Aplicação: ${stockItem.name}`,
+      cost: totalCost,
+      quantity: quantity,
+      unit: stockItem.unit
+    };
+    
+    const newFields = state.fields.map(f => 
+      f.id === fieldId ? { ...f, logs: [...(f.logs || []), newLog] } : f
+    );
+
+    // 5. Adicionar Transação Financeira (Despesa Alocada)
+    const newTransaction: Transaction = {
+      id: Date.now().toString(),
+      date,
+      type: 'expense',
+      amount: totalCost,
+      category: 'Campo', // Categoria genérica para alocação de custos de campo
+      description: `Aplicação ${field ? field.name : 'Campo'}: ${stockItem.name} (${quantity}${stockItem.unit})`
+    };
+
+    // Atualizar Estado Global de uma só vez
     setState(prev => ({
       ...prev,
-      tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+      stocks: newStocks,
+      fields: newFields,
+      transactions: [newTransaction, ...prev.transactions]
     }));
   };
 
-  const addTask = (title: string, type: 'task' | 'harvest', date?: string) => {
+  // Actions with Offline Tracking
+  const toggleTask = (id: string) => {
+    trackOfflineAction();
+    const task = state.tasks.find(t => t.id === id);
+    if (!task) return;
+
+    // LOGIC: If completing a task with linked resources that hasn't been deducted yet
+    if (!task.completed && task.relatedFieldId && task.relatedStockId && task.plannedQuantity && !task.resourceDeducted) {
+       // Execute the business logic for stock and fields
+       handleUseStockOnField(
+          task.relatedFieldId, 
+          task.relatedStockId, 
+          task.plannedQuantity, 
+          new Date().toISOString().split('T')[0]
+       );
+       
+       // Update task state (mark as completed AND deducted)
+       setState(prev => ({
+          ...prev,
+          tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: true, resourceDeducted: true } : t)
+       }));
+    } else {
+       // Standard toggle for normal tasks or unchecking
+       setState(prev => ({
+         ...prev,
+         tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+       }));
+    }
+  };
+
+  const addTask = (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number) => {
     trackOfflineAction();
     const newTask: Task = {
       id: Date.now().toString(),
       title,
       type,
       date: date || new Date().toISOString().split('T')[0],
-      completed: false
+      completed: false,
+      relatedFieldId,
+      relatedStockId,
+      plannedQuantity,
+      resourceDeducted: false
     };
     setState(prev => ({
       ...prev,
@@ -797,57 +872,6 @@ const App = () => {
       )
     }));
   };
-
-  // --- NEW INTEGRATION LOGIC: Stock -> Field -> Finance ---
-  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {
-    trackOfflineAction();
-    // 1. Encontrar o Stock
-    const stockItem = state.stocks.find(s => s.id === stockId);
-    if(!stockItem) return;
-
-    // 2. Calcular Custo Total (Valorização do stock usado)
-    const totalCost = stockItem.pricePerUnit * quantity;
-
-    // 3. Atualizar Stock (Decrementar)
-    const newStocks = state.stocks.map(s => 
-      s.id === stockId ? { ...s, quantity: Math.max(0, s.quantity - quantity) } : s
-    );
-
-    // 4. Adicionar Log ao Campo (com custo e quantidade)
-    const field = state.fields.find(f => f.id === fieldId);
-    const newLog: FieldLog = {
-      id: Date.now().toString(),
-      date,
-      type: 'treatment', // Assumimos tratamento por defeito para uso de stock
-      description: `Aplicação: ${stockItem.name}`,
-      cost: totalCost,
-      quantity: quantity,
-      unit: stockItem.unit
-    };
-    
-    const newFields = state.fields.map(f => 
-      f.id === fieldId ? { ...f, logs: [...(f.logs || []), newLog] } : f
-    );
-
-    // 5. Adicionar Transação Financeira (Despesa Alocada)
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      date,
-      type: 'expense',
-      amount: totalCost,
-      category: 'Campo', // Categoria genérica para alocação de custos de campo
-      description: `Aplicação ${field ? field.name : 'Campo'}: ${stockItem.name} (${quantity}${stockItem.unit})`
-    };
-
-    // Atualizar Estado Global de uma só vez
-    setState(prev => ({
-      ...prev,
-      stocks: newStocks,
-      fields: newFields,
-      transactions: [newTransaction, ...prev.transactions]
-    }));
-  };
-
 
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
     trackOfflineAction();
@@ -1026,6 +1050,7 @@ const App = () => {
             onUpdateMachineHours={updateMachineHours} 
             onAddMachineLog={addMachineLog} 
             alertCount={alertCount}
+            stocks={state.stocks} // Pass stocks for task resource linking
           />
         )}
         {activeTab === 'animal' && <AnimalView animals={state.animals} addProduction={addProduction} />}

@@ -15,6 +15,11 @@ export interface Task {
   date: string; // ISO date
   type: 'task' | 'harvest';
   completed: boolean;
+  // Resource Linking (Optional)
+  relatedFieldId?: string; // Qual o campo alvo?
+  relatedStockId?: string; // Que produto vai ser usado?
+  plannedQuantity?: number; // Quanto vai ser usado?
+  resourceDeducted?: boolean; // Flag para saber se já descontou do stock
 }
 
 export interface ProductionRecord {
