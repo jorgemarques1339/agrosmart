@@ -341,7 +341,8 @@ const App = () => {
   const [state, setState] = useState<AppState>(loadState());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [userName, setUserName] = useState(() => localStorage.getItem('agro_username') || 'Sr. Silva');
+  // Using Oriva key
+  const [userName, setUserName] = useState(() => localStorage.getItem('oriva_username') || 'Sr. Silva');
   const [isTabBarVisible, setIsTabBarVisible] = useState(true);
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
   
@@ -362,8 +363,9 @@ const App = () => {
   // --- DARK MODE ---
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('agro_theme') === 'dark' || 
-        (!localStorage.getItem('agro_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      // Using Oriva key
+      return localStorage.getItem('oriva_theme') === 'dark' || 
+        (!localStorage.getItem('oriva_theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
     return false;
   });
@@ -371,7 +373,8 @@ const App = () => {
   // --- SOLAR MODE (HIGH CONTRAST) ---
   const [isSolarMode, setIsSolarMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('agro_solar') === 'true';
+      // Using Oriva key
+      return localStorage.getItem('oriva_solar') === 'true';
     }
     return false;
   });
@@ -448,10 +451,10 @@ const App = () => {
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('agro_theme', 'dark');
+      localStorage.setItem('oriva_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('agro_theme', 'light');
+      localStorage.setItem('oriva_theme', 'light');
     }
   }, [isDarkMode]);
 
@@ -459,10 +462,10 @@ const App = () => {
   useEffect(() => {
     if (isSolarMode) {
       document.documentElement.classList.add('solar');
-      localStorage.setItem('agro_solar', 'true');
+      localStorage.setItem('oriva_solar', 'true');
     } else {
       document.documentElement.classList.remove('solar');
-      localStorage.setItem('agro_solar', 'false');
+      localStorage.setItem('oriva_solar', 'false');
     }
   }, [isSolarMode]);
 
@@ -485,7 +488,7 @@ const App = () => {
 
   // Persist User Name
   useEffect(() => {
-    localStorage.setItem('agro_username', userName);
+    localStorage.setItem('oriva_username', userName);
   }, [userName]);
 
   // --- WEATHER & ALERTS INTEGRATION ---
@@ -625,11 +628,12 @@ const App = () => {
     
     client.on('connect', () => {
       console.log('Connected to MQTT Broker');
+      // Using Oriva prefix
       client.subscribe(`${MQTT_TOPIC_PREFIX}/+/humidity`);
     });
 
     client.on('message', (topic, message) => {
-      // Topic format: agrosmart/fields/{FIELD_ID}/humidity
+      // Topic format: oriva/fields/{FIELD_ID}/humidity
       const parts = topic.split('/');
       const fieldId = parts[2];
       const humidityVal = parseFloat(message.toString());
@@ -793,8 +797,8 @@ const App = () => {
       ...prev,
       fields: prev.fields.map(f => f.id === fieldId ? { ...f, irrigationStatus: status } : f)
     }));
-    // Publish to MQTT would go here in real app
-    console.log(`MQTT Pub: agrosmart/fields/${fieldId}/irrigation -> ${status}`);
+    // Publish to MQTT using ORIVA prefix
+    console.log(`MQTT Pub: ${MQTT_TOPIC_PREFIX}/${fieldId}/irrigation -> ${status}`);
   };
 
   // Add New Field
@@ -960,9 +964,9 @@ const App = () => {
 
   const handleResetData = () => {
     localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem('agro_username');
-    localStorage.removeItem('agro_theme');
-    localStorage.removeItem('agro_solar');
+    localStorage.removeItem('oriva_username');
+    localStorage.removeItem('oriva_theme');
+    localStorage.removeItem('oriva_solar');
     window.location.reload();
   };
 

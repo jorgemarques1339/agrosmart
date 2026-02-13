@@ -226,7 +226,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
         doc.setPage(i);
         doc.setFontSize(7);
         doc.setTextColor(150);
-        doc.text(`AgroSmart Enterprise v1.3 - Exportação Oficial DGAV - Pág ${i}/${pageCount}`, pageWidth / 2, 290, { align: 'center' });
+        doc.text(`Oriva Enterprise v1.4 - Exportação Oficial DGAV - Pág ${i}/${pageCount}`, pageWidth / 2, 290, { align: 'center' });
       }
 
       doc.save(`Caderno_Campo_${selectedMonth}.pdf`);

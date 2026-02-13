@@ -5,7 +5,7 @@ import {
   ArrowRight, X, User, CloudLightning, Wind, Droplets, MapPin,
   Settings, Bell, Sprout, Cloud, CloudSun,
   Tractor, Fuel, Clock, Gauge, Save, AlertTriangle, Truck, Eye, Package,
-  ChevronDown, ShoppingBag, Link as LinkIcon
+  ChevronDown, ShoppingBag, Link as LinkIcon, CheckCircle2, Circle
 } from 'lucide-react';
 import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem } from '../types';
 
@@ -74,6 +74,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   // --- 1. Lógica de Tempo e Saudação ---
   const today = new Date();
   
+  // Format Date for Greeting
   const formattedDate = useMemo(() => {
     return new Intl.DateTimeFormat('pt-PT', {
       weekday: 'long',
@@ -82,11 +83,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     }).format(today);
   }, []);
 
-  // Dados do tempo atual (assumindo o primeiro do array como 'hoje')
+  // Dados do tempo atual
   const currentWeather = weather[0] || { temp: 0, condition: 'cloudy', day: 'Carregando...', windSpeed: 0, humidity: 0 };
   const isRaining = currentWeather.condition === 'rain' || currentWeather.condition === 'storm';
 
-  // Helper para ícones do tempo
   const getWeatherIcon = (condition: string, size: number = 24, className: string = "") => {
     switch (condition) {
       case 'rain': return <CloudRain size={size} className={className} />;
@@ -115,9 +115,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       date.setDate(today.getDate() + i);
       const isoDate = date.toISOString().split('T')[0];
       
-      // Verificar se há tarefas ou colheitas para este dia
       const hasTask = tasks.some(t => t.date === isoDate && !t.completed);
-      const hasHarvest = fields.some(f => f.harvestWindow.includes(date.toLocaleString('pt-PT', { month: 'long' }))); // Lógica simplificada para demo
+      const hasHarvest = fields.some(f => f.harvestWindow.includes(date.toLocaleString('pt-PT', { month: 'long' }))); 
       
       days.push({
         dateObj: date,
@@ -136,7 +135,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   const handleAddNewTask = () => {
     if (!newTaskTitle.trim()) return;
     
-    // Convert qty to number if present
     const qty = plannedQty ? parseFloat(plannedQty) : undefined;
     
     onAddTask(
@@ -148,9 +146,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       qty
     );
     
-    // Reset Form
     setNewTaskTitle('');
-    setNewTaskDate(new Date().toISOString().split('T')[0]); // Reset para hoje
+    setNewTaskDate(new Date().toISOString().split('T')[0]);
     setShowResources(false);
     setSelectedFieldId('');
     setSelectedStockId('');
@@ -188,36 +185,36 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       });
     }
     
-    // Close modal
     setSelectedMachine(null);
     setQuickAction(null);
   };
 
-  // Helper para encontrar unidade do stock selecionado
   const selectedStockUnit = useMemo(() => {
     const s = stocks.find(i => i.id === selectedStockId);
     return s ? s.unit : '';
   }, [selectedStockId, stocks]);
 
+  const activeTasks = tasks.filter(t => !t.completed).length;
+
   return (
-    <div className="space-y-6 animate-fade-in pt-4 pb-20">
+    <div className="space-y-8 animate-fade-in pt-6 pb-24">
       
-      {/* 1. Header & Greeting */}
-      <div className="flex justify-between items-start px-2">
+      {/* 1. Header Fixo & Glass (Com Animação de Entrada) */}
+      <div className="flex justify-between items-center px-2 animate-slide-down">
         <div>
           <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">
-            Bom dia,<br/>{userName}
+            Olá, {userName.split(' ')[0]}
           </h2>
-          <p className="text-sm text-gray-500 font-medium tracking-wide mt-2 first-letter:uppercase">
+          <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">
             {formattedDate}
           </p>
         </div>
-        <div className="flex gap-3">
-          <button onClick={onOpenSettings} className="p-3 rounded-2xl bg-white dark:bg-neutral-800 text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-800 transition-colors">
-            <Settings size={22} />
+        <div className="flex gap-2">
+          <button onClick={onOpenSettings} className="w-10 h-10 rounded-full bg-white dark:bg-neutral-800 text-gray-400 hover:text-agro-green shadow-sm flex items-center justify-center transition-colors active:scale-90">
+            <Settings size={20} />
           </button>
-          <button onClick={onOpenNotifications} className="p-3 rounded-2xl bg-white dark:bg-neutral-800 text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-800 transition-colors relative">
-            <Bell size={22} />
+          <button onClick={onOpenNotifications} className="w-10 h-10 rounded-full bg-white dark:bg-neutral-800 text-gray-400 hover:text-agro-green shadow-sm flex items-center justify-center transition-colors relative active:scale-90">
+            <Bell size={20} />
             {alertCount > 0 && (
               <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-neutral-800 animate-pulse"></span>
             )}
@@ -225,170 +222,202 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 2. Weather Card (Hero) */}
+      {/* 2. Weather Hero Card (Modern Mesh Gradient) */}
       <div 
         onClick={() => setIsWeatherModalOpen(true)}
-        className={`relative overflow-hidden rounded-[2.5rem] p-6 shadow-xl transition-transform active:scale-[0.99] cursor-pointer ${
+        className={`relative overflow-hidden rounded-[2.5rem] p-6 shadow-2xl active:scale-[0.98] transition-transform cursor-pointer animate-slide-up delay-100 ${
           isRaining 
-            ? 'bg-gradient-to-br from-slate-700 to-slate-900 shadow-slate-900/30' 
-            : 'bg-gradient-to-br from-[#3E6837] to-[#2D4F00] shadow-agro-green/30'
+            ? 'bg-slate-900 shadow-slate-900/40' 
+            : 'bg-[#0f2612] shadow-agro-green/40'
         }`}
       >
-         <div className="relative z-10 flex justify-between items-center text-white">
-            <div>
-               <div className="flex items-center gap-2 opacity-90 mb-1">
-                 <MapPin size={14} />
-                 <span className="text-xs font-bold uppercase tracking-widest">Laundos, PT</span>
+         {/* --- Aurora / Mesh Background Effect --- */}
+         <div className="absolute inset-0 z-0">
+            {isRaining ? (
+              <>
+                <div className="absolute top-[-50%] right-[-20%] w-[80%] h-[120%] bg-indigo-900/40 rounded-full blur-[80px] animate-pulse-slow"></div>
+                <div className="absolute bottom-[-30%] left-[-20%] w-[80%] h-[80%] bg-slate-700/30 rounded-full blur-[60px]"></div>
+              </>
+            ) : (
+              <>
+                <div className="absolute top-[-50%] right-[-20%] w-[90%] h-[120%] bg-green-800/60 rounded-full blur-[80px] animate-pulse-slow"></div>
+                <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[80%] bg-emerald-600/30 rounded-full blur-[60px]"></div>
+                <div className="absolute top-[20%] left-[30%] w-[40%] h-[40%] bg-lime-500/10 rounded-full blur-[40px]"></div>
+              </>
+            )}
+         </div>
+
+         {/* Icon Decoration */}
+         <div className="absolute inset-0 z-0 opacity-10 mix-blend-overlay pointer-events-none">
+            {isRaining ? (
+               <CloudRain className="absolute -right-8 -bottom-8 w-56 h-56 rotate-12 text-white" />
+            ) : (
+               <Sun className="absolute -right-12 -top-12 w-64 h-64 text-yellow-300 animate-spin-slow" />
+            )}
+         </div>
+
+         {/* Content */}
+         <div className="relative z-10 text-white">
+            <div className="flex justify-between items-start">
+               <div>
+                  <div className="flex items-center gap-1.5 opacity-80 mb-2">
+                    <MapPin size={12} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Laundos, PT</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                     <span className="text-7xl font-black tracking-tighter drop-shadow-sm">{currentWeather.temp}°</span>
+                     <div className="flex flex-col">
+                       {getWeatherIcon(currentWeather.condition, 32, "drop-shadow-md")}
+                       <span className="text-sm font-bold mt-1 opacity-90 tracking-wide">{getWeatherLabel(currentWeather.condition)}</span>
+                     </div>
+                  </div>
                </div>
-               <div className="flex items-center gap-3">
-                  <span className="text-6xl font-black tracking-tighter">{currentWeather.temp}°</span>
-                  <div className="flex flex-col">
-                    {getWeatherIcon(currentWeather.condition, 32)}
-                    <span className="text-xs font-medium mt-1">{getWeatherLabel(currentWeather.condition)}</span>
+               
+               <div className="flex flex-col gap-2 mt-2">
+                  <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-sm">
+                    <Wind size={14} className="opacity-90" />
+                    <span className="text-xs font-bold">{currentWeather.windSpeed} km/h</span>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-sm">
+                    <Droplets size={14} className="opacity-90" />
+                    <span className="text-xs font-bold">{currentWeather.humidity}%</span>
                   </div>
                </div>
             </div>
-            
-            <div className="bg-white/20 backdrop-blur-md rounded-2xl p-4 flex flex-col gap-2 min-w-[100px]">
-               <div className="flex items-center gap-2">
-                 <Wind size={16} className="opacity-70" />
-                 <span className="text-sm font-bold">{currentWeather.windSpeed} km/h</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <Droplets size={16} className="opacity-70" />
-                 <span className="text-sm font-bold">{currentWeather.humidity}%</span>
-               </div>
-            </div>
          </div>
-
-         {/* Weather Decorator */}
-         {isRaining ? (
-           <CloudRain className="absolute -right-10 -bottom-10 text-white/10 w-64 h-64 rotate-12" />
-         ) : (
-           <Sun className="absolute -right-10 -bottom-10 text-yellow-400/20 w-64 h-64 rotate-12 animate-spin-slow" />
-         )}
       </div>
 
-      {/* 3. AgroCalendário (Horizontal Scroll) */}
-      <div>
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-2 flex items-center gap-2">
-          <Calendar size={18} className="text-gray-400" /> Agenda
-        </h3>
-        <div className="flex gap-3 overflow-x-auto pb-4 px-1 scrollbar-hide snap-x">
+      {/* 3. Status Summary Row (New - Staggered Entry) */}
+      <div className="grid grid-cols-2 gap-3 px-1 animate-slide-up delay-200">
+         <div className="bg-white dark:bg-neutral-900 p-4 rounded-[2rem] shadow-sm flex items-center gap-3 border border-gray-100 dark:border-neutral-800">
+            <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 flex items-center justify-center font-bold text-sm">
+               {activeTasks}
+            </div>
+            <div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase">Pendentes</p>
+               <p className="text-sm font-bold text-gray-900 dark:text-white">Tarefas</p>
+            </div>
+         </div>
+         <div className="bg-white dark:bg-neutral-900 p-4 rounded-[2rem] shadow-sm flex items-center gap-3 border border-gray-100 dark:border-neutral-800">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${alertCount > 0 ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
+               {alertCount}
+            </div>
+            <div>
+               <p className="text-[10px] font-bold text-gray-400 uppercase">Alertas</p>
+               <p className="text-sm font-bold text-gray-900 dark:text-white">Ativos</p>
+            </div>
+         </div>
+      </div>
+
+      {/* 4. Agenda Horizontal (Clean & Smooth) */}
+      <div className="animate-slide-up delay-200">
+        <div className="flex gap-3 overflow-x-auto px-1 pb-2 scrollbar-hide snap-x">
            {calendarDays.map((day, idx) => (
              <div 
                key={idx} 
-               className={`snap-start min-w-[72px] flex flex-col items-center p-3 rounded-2xl border transition-all ${
+               className={`snap-start min-w-[70px] flex flex-col items-center py-4 rounded-[1.5rem] transition-all duration-300 ${
                  day.isToday 
-                   ? 'bg-agro-green text-white border-agro-green shadow-lg shadow-agro-green/20 scale-105' 
-                   : 'bg-white dark:bg-neutral-900 text-gray-600 dark:text-gray-400 border-gray-100 dark:border-neutral-800'
+                   ? 'bg-gray-900 dark:bg-white text-white dark:text-black shadow-lg scale-105' 
+                   : 'bg-white dark:bg-neutral-900 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-neutral-800'
                }`}
              >
-                <span className="text-[10px] font-bold uppercase tracking-wider opacity-80">{day.dayName}</span>
-                <span className="text-2xl font-black my-1">{day.dayNumber}</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider mb-1">{day.dayName}</span>
+                <span className="text-xl font-black">{day.dayNumber}</span>
                 
                 {/* Dots Indicators */}
-                <div className="flex gap-1 h-1.5 mt-1">
-                  {day.hasTask && <div className={`w-1.5 h-1.5 rounded-full ${day.isToday ? 'bg-white' : 'bg-blue-400'}`}></div>}
-                  {day.hasHarvest && <div className={`w-1.5 h-1.5 rounded-full ${day.isToday ? 'bg-yellow-300' : 'bg-yellow-400'}`}></div>}
+                <div className="flex gap-1 h-1.5 mt-2">
+                  {day.hasTask && <div className={`w-1.5 h-1.5 rounded-full ${day.isToday ? 'bg-white' : 'bg-blue-500'}`}></div>}
+                  {day.hasHarvest && <div className={`w-1.5 h-1.5 rounded-full ${day.isToday ? 'bg-yellow-400' : 'bg-yellow-500'}`}></div>}
                 </div>
              </div>
            ))}
         </div>
       </div>
 
-      {/* 4. Tarefas e Atividades */}
-      <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
-        <div className="flex justify-between items-center mb-6">
-           <h3 className="text-lg font-bold text-gray-900 dark:text-white">Tarefas</h3>
+      {/* 5. Tarefas (Professional List) */}
+      <div className="animate-slide-up delay-300">
+        <div className="flex justify-between items-center mb-4 px-2">
+           <h3 className="text-xl font-bold text-gray-900 dark:text-white">Planeamento</h3>
            <button 
              onClick={() => setIsAddingTask(!isAddingTask)}
-             className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
-               isAddingTask ? 'bg-red-100 text-red-500' : 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300'
+             className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+               isAddingTask ? 'bg-red-100 text-red-500 rotate-45' : 'bg-gray-100 dark:bg-neutral-800 text-gray-900 dark:text-white'
              }`}
            >
-             {isAddingTask ? <X size={20} /> : <Plus size={20} />}
+             <Plus size={22} />
            </button>
         </div>
 
-        {/* Add Task Form (Inline) */}
+        {/* Add Task Form (Slide Down) */}
         {isAddingTask && (
-          <div className="mb-6 animate-slide-down bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-3xl border border-gray-100 dark:border-neutral-700">
+          <div className="mb-6 animate-slide-down bg-white dark:bg-neutral-900 p-5 rounded-[2rem] shadow-xl border border-gray-100 dark:border-neutral-800 relative z-20">
              <input 
                autoFocus
                type="text" 
-               placeholder="O que precisa de ser feito?"
-               className="w-full bg-transparent border-b-2 border-gray-200 dark:border-neutral-700 p-2 text-lg font-bold dark:text-white outline-none focus:border-agro-green placeholder:text-gray-400"
+               placeholder="Nova atividade..."
+               className="w-full bg-transparent border-b-2 border-gray-100 dark:border-neutral-800 p-2 text-lg font-bold dark:text-white outline-none focus:border-agro-green placeholder:text-gray-300"
                value={newTaskTitle}
                onChange={(e) => setNewTaskTitle(e.target.value)}
                onKeyDown={(e) => e.key === 'Enter' && handleAddNewTask()}
              />
              
-             {/* Extended Resources Toggle */}
+             {/* Resources Toggle */}
              <div className="mt-4">
                 <button 
                   onClick={() => setShowResources(!showResources)}
                   className={`text-xs font-bold uppercase flex items-center gap-1 mb-3 transition-colors ${showResources ? 'text-agro-green' : 'text-gray-400'}`}
                 >
-                  <LinkIcon size={12} /> {showResources ? 'Ocultar Recursos' : 'Associar Recursos (Stock/Campo)'}
+                  <LinkIcon size={12} /> {showResources ? 'Ocultar Recursos' : 'Associar Recursos'}
                 </button>
 
                 {showResources && (
-                  <div className="grid grid-cols-1 gap-3 animate-fade-in bg-white dark:bg-neutral-900 p-3 rounded-2xl border border-gray-100 dark:border-neutral-800">
-                     {/* Select Field */}
-                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-neutral-800 p-2 rounded-xl">
-                        <MapPin size={16} className="text-gray-400" />
-                        <select 
-                          className="bg-transparent w-full text-sm font-bold text-gray-700 dark:text-gray-200 outline-none"
-                          value={selectedFieldId}
-                          onChange={(e) => setSelectedFieldId(e.target.value)}
-                        >
-                          <option value="">Selecione Campo (Opcional)</option>
-                          {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                        </select>
-                     </div>
+                  <div className="grid grid-cols-1 gap-3 animate-fade-in bg-gray-50 dark:bg-neutral-800/50 p-3 rounded-2xl">
+                     <select 
+                       className="bg-white dark:bg-neutral-800 w-full p-3 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 outline-none"
+                       value={selectedFieldId}
+                       onChange={(e) => setSelectedFieldId(e.target.value)}
+                     >
+                       <option value="">Selecione Campo...</option>
+                       {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                     </select>
 
-                     {/* Select Stock */}
-                     <div className="flex items-center gap-2 bg-gray-100 dark:bg-neutral-800 p-2 rounded-xl">
-                        <Package size={16} className="text-gray-400" />
-                        <select 
-                          className="bg-transparent w-full text-sm font-bold text-gray-700 dark:text-gray-200 outline-none"
-                          value={selectedStockId}
-                          onChange={(e) => setSelectedStockId(e.target.value)}
-                        >
-                          <option value="">Selecione Produto (Opcional)</option>
-                          {stocks.map(s => <option key={s.id} value={s.id} disabled={s.quantity <= 0}>{s.name} ({s.quantity} {s.unit})</option>)}
-                        </select>
-                     </div>
+                     <select 
+                       className="bg-white dark:bg-neutral-800 w-full p-3 rounded-xl text-sm font-bold text-gray-600 dark:text-gray-300 outline-none"
+                       value={selectedStockId}
+                       onChange={(e) => setSelectedStockId(e.target.value)}
+                     >
+                       <option value="">Selecione Produto...</option>
+                       {stocks.map(s => <option key={s.id} value={s.id} disabled={s.quantity <= 0}>{s.name} ({s.quantity} {s.unit})</option>)}
+                     </select>
 
-                     {/* Quantity */}
                      {selectedStockId && (
-                       <div className="flex items-center gap-2 bg-gray-100 dark:bg-neutral-800 p-2 rounded-xl border border-agro-green/30">
-                          <ShoppingBag size={16} className="text-agro-green" />
+                       <div className="flex items-center gap-2 bg-white dark:bg-neutral-800 p-3 rounded-xl">
                           <input 
                             type="number"
-                            placeholder="Qtd a usar"
+                            placeholder="Qtd"
                             className="bg-transparent w-full text-sm font-bold text-gray-900 dark:text-white outline-none"
                             value={plannedQty}
                             onChange={(e) => setPlannedQty(e.target.value)}
                           />
-                          <span className="text-xs font-bold text-gray-400 px-2">{selectedStockUnit}</span>
+                          <span className="text-xs font-bold text-gray-400">{selectedStockUnit}</span>
                        </div>
                      )}
                   </div>
                 )}
              </div>
 
-             <div className="flex justify-between items-center mt-4">
-                <input 
-                  type="date" 
-                  className="bg-white dark:bg-neutral-800 rounded-xl px-3 py-2 text-xs font-bold text-gray-600 dark:text-gray-300 outline-none border border-gray-100 dark:border-neutral-700"
-                  value={newTaskDate}
-                  onChange={(e) => setNewTaskDate(e.target.value)}
-                />
+             <div className="flex justify-between items-center mt-6">
+                <div className="bg-gray-50 dark:bg-neutral-800 rounded-xl px-3 py-2">
+                  <input 
+                    type="date" 
+                    className="bg-transparent text-xs font-bold text-gray-600 dark:text-gray-300 outline-none"
+                    value={newTaskDate}
+                    onChange={(e) => setNewTaskDate(e.target.value)}
+                  />
+                </div>
                 <button 
                   onClick={handleAddNewTask}
-                  className="px-6 py-2 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/20 active:scale-95 transition-transform"
+                  className="px-6 py-2 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold shadow-lg active:scale-95 transition-transform"
                 >
                   Adicionar
                 </button>
@@ -396,47 +425,49 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           </div>
         )}
 
-        {/* Task List */}
+        {/* Task List (Cards) */}
         <div className="space-y-3">
            {tasks.filter(t => !t.completed).length === 0 && !isAddingTask && (
-             <div className="text-center py-8 opacity-50">
-               <Check className="mx-auto mb-2 text-gray-300" size={32} />
-               <p className="text-sm font-bold text-gray-400">Tudo feito por hoje!</p>
+             <div className="text-center py-10 opacity-40">
+               <CheckCircle2 className="mx-auto mb-3 text-gray-300" size={48} strokeWidth={1.5} />
+               <p className="text-sm font-bold text-gray-400">Tudo em dia!</p>
              </div>
            )}
 
-           {tasks.filter(t => !t.completed).map(task => {
-             // Find resource names for display
+           {tasks.filter(t => !t.completed).map((task, idx) => {
+             // Resource Data Lookup
              const linkedField = fields.find(f => f.id === task.relatedFieldId);
              const linkedStock = stocks.find(s => s.id === task.relatedStockId);
 
              return (
-               <div key={task.id} className="group flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-neutral-800/50 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-neutral-800 relative">
+               <div 
+                 key={task.id} 
+                 className="group bg-white dark:bg-neutral-900 p-4 rounded-[1.5rem] shadow-sm border border-gray-100 dark:border-neutral-800 flex items-center gap-4 active:scale-[0.99] transition-all animate-slide-up"
+                 style={{ animationDelay: `${idx * 0.1}s` }}
+               >
                   <button 
                     onClick={() => onToggleTask(task.id)}
-                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                      task.completed ? 'bg-agro-green border-agro-green' : 'border-gray-300 dark:border-neutral-600'
-                    }`}
+                    className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-neutral-600 flex items-center justify-center transition-all hover:border-agro-green active:bg-agro-green/20"
                   >
-                    {task.completed && <Check size={14} className="text-white" />}
+                    <Circle size={0} className="opacity-0" />
                   </button>
                   
-                  <div className="flex-1">
-                     <p className={`font-bold text-sm text-gray-800 dark:text-white ${task.completed ? 'line-through opacity-50' : ''}`}>
+                  <div className="flex-1 min-w-0">
+                     <p className="font-bold text-sm text-gray-800 dark:text-white truncate">
                        {task.title}
                      </p>
                      
-                     {/* Resource Badges */}
+                     {/* Smart Tags */}
                      {(linkedField || linkedStock) && (
-                       <div className="flex flex-wrap gap-2 mt-1.5">
+                       <div className="flex flex-wrap gap-2 mt-2">
                           {linkedField && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-gray-100 dark:bg-neutral-800 text-gray-500 px-2 py-1 rounded-md">
                                <MapPin size={8} /> {linkedField.name}
                             </span>
                           )}
                           {linkedStock && task.plannedQuantity && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-1.5 py-0.5 rounded">
-                               <Package size={8} /> {linkedStock.name}: {task.plannedQuantity}{linkedStock.unit}
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-1 rounded-md">
+                               <Package size={8} /> {task.plannedQuantity}{linkedStock.unit}
                             </span>
                           )}
                        </div>
@@ -445,9 +476,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   
                   <button 
                     onClick={() => onDeleteTask(task.id)}
-                    className="opacity-0 group-hover:opacity-100 text-red-400 p-2 hover:bg-red-50 rounded-lg transition-all"
+                    className="text-gray-300 hover:text-red-400 transition-colors p-2"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                </div>
              );
@@ -455,33 +486,33 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 5. Máquinas Rápidas (Slide Horizontal) */}
+      {/* 6. Máquinas Rápidas (Horizontal Scroll) */}
       {machines.length > 0 && (
-        <div className="mt-2">
-           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-2 flex items-center gap-2">
-             <Tractor size={18} className="text-gray-400" /> Acesso Rápido
-           </h3>
+        <div className="animate-slide-up delay-300">
+           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-2">Acesso Rápido</h3>
            <div className="flex gap-3 overflow-x-auto pb-4 px-1 scrollbar-hide">
-              {machines.slice(0, 3).map(machine => (
-                <div key={machine.id} className="min-w-[160px] bg-white dark:bg-neutral-900 p-4 rounded-[2rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex flex-col items-center text-center">
-                   <div className="w-12 h-12 bg-gray-50 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-2 text-gray-600 dark:text-gray-300">
+              {machines.slice(0, 4).map(machine => (
+                <div 
+                  key={machine.id} 
+                  className="min-w-[140px] bg-white dark:bg-neutral-900 p-4 rounded-[2rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex flex-col items-center text-center active:scale-95 transition-transform"
+                >
+                   <div className="w-12 h-12 bg-gray-50 dark:bg-neutral-800 rounded-2xl flex items-center justify-center mb-2 text-gray-600 dark:text-gray-300">
                       {machine.type === 'vehicle' ? <Truck size={24} /> : <Tractor size={24} />}
                    </div>
                    <p className="text-xs font-bold text-gray-900 dark:text-white line-clamp-1">{machine.name}</p>
-                   <p className="text-[10px] text-gray-400 mb-3">{machine.plate}</p>
                    
-                   <div className="flex gap-2 w-full">
+                   <div className="flex gap-1 w-full mt-3">
                       <button 
                         onClick={() => handleOpenQuickAction(machine, 'hours')}
-                        className="flex-1 py-2 bg-gray-100 dark:bg-neutral-800 rounded-xl text-gray-600 dark:text-gray-300 flex justify-center active:scale-90 transition-transform"
+                        className="flex-1 py-2 bg-gray-100 dark:bg-neutral-800 rounded-xl text-gray-500 hover:text-agro-green transition-colors"
                       >
-                         <Clock size={16} />
+                         <Clock size={16} className="mx-auto" />
                       </button>
                       <button 
                         onClick={() => handleOpenQuickAction(machine, 'fuel')}
-                        className="flex-1 py-2 bg-agro-green/10 text-agro-green rounded-xl flex justify-center active:scale-90 transition-transform"
+                        className="flex-1 py-2 bg-gray-100 dark:bg-neutral-800 rounded-xl text-gray-500 hover:text-agro-green transition-colors"
                       >
-                         <Fuel size={16} />
+                         <Fuel size={16} className="mx-auto" />
                       </button>
                    </div>
                 </div>
@@ -490,9 +521,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {/* 6. Quick Action Modal */}
+      {/* 7. Quick Action Modal */}
       {selectedMachine && quickAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-4" onClick={() => setSelectedMachine(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-6" onClick={() => setSelectedMachine(null)}>
            <div className="bg-white dark:bg-neutral-900 w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                 {quickAction === 'hours' ? 'Registar Horas' : 'Abastecimento'}
@@ -500,35 +531,36 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
               <p className="text-xs text-gray-400 uppercase font-bold mb-6">{selectedMachine.name}</p>
 
               {quickAction === 'hours' ? (
-                <div className="mb-6">
+                <div className="mb-6 bg-gray-50 dark:bg-neutral-800 p-4 rounded-[2rem]">
                    <input 
                      type="number"
                      autoFocus
                      value={hoursInput}
                      onChange={(e) => setHoursInput(e.target.value)}
-                     className="w-full text-center text-5xl font-black bg-transparent border-b-2 border-gray-200 dark:border-neutral-700 outline-none focus:border-agro-green text-gray-900 dark:text-white"
+                     className="w-full text-center text-5xl font-black bg-transparent outline-none text-gray-900 dark:text-white"
                    />
+                   <p className="text-center text-xs font-bold text-gray-400 mt-2 uppercase">Total Horas</p>
                 </div>
               ) : (
                 <div className="space-y-4 mb-6">
-                   <div>
+                   <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem]">
                      <label className="text-xs font-bold text-gray-400 uppercase ml-1">Litros</label>
                      <input 
                        type="number"
                        autoFocus
                        value={fuelLiters}
                        onChange={(e) => setFuelLiters(e.target.value)}
-                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl text-2xl font-black outline-none focus:ring-2 focus:ring-agro-green dark:text-white"
+                       className="w-full text-2xl font-black bg-transparent outline-none mt-1 text-gray-900 dark:text-white"
                        placeholder="0"
                      />
                    </div>
-                   <div>
+                   <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem]">
                      <label className="text-xs font-bold text-gray-400 uppercase ml-1">Custo Total (€)</label>
                      <input 
                        type="number"
                        value={fuelCost}
                        onChange={(e) => setFuelCost(e.target.value)}
-                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl text-xl font-bold outline-none focus:ring-2 focus:ring-agro-green dark:text-white"
+                       className="w-full text-xl font-bold bg-transparent outline-none mt-1 text-gray-900 dark:text-white"
                        placeholder="0.00"
                      />
                    </div>
@@ -537,7 +569,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
               <button 
                 onClick={handleConfirmQuickAction}
-                className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
+                className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-lg active:scale-95 transition-transform"
               >
                 Confirmar
               </button>
@@ -545,7 +577,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {/* 7. Weather Detail Modal */}
+      {/* 8. Weather Detail Modal */}
       {isWeatherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWeatherModalOpen(false)}>
           <div className="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
@@ -558,7 +590,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
              
              <div className="space-y-3">
                {weather.map((day, idx) => (
-                 <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl">
+                 <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
                     <div className="flex items-center gap-3">
                        <span className="w-10 font-bold text-gray-400">{day.day}</span>
                        {getWeatherIcon(day.condition, 20)}

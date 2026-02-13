@@ -164,6 +164,6 @@ export const MOCK_STATE: AppState = {
   ]
 };
 
-export const STORAGE_KEY = 'agrosmart_enterprise_v1';
+export const STORAGE_KEY = 'oriva_enterprise_v1';
 export const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt'; // Using public websocket broker
-export const MQTT_TOPIC_PREFIX = 'agrosmart/fields';
+export const MQTT_TOPIC_PREFIX = 'oriva/fields';

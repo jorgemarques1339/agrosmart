@@ -62,10 +62,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       
-      // Nome do ficheiro com data: agro_backup_2023-10-27.json
+      // Nome do ficheiro com data: oriva_backup_2023-10-27.json
       const dateStr = new Date().toISOString().split('T')[0];
       link.href = url;
-      link.download = `agrosmart_backup_${dateStr}.json`;
+      link.download = `oriva_backup_${dateStr}.json`;
       
       document.body.appendChild(link);
       link.click();
@@ -107,7 +107,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
           }
         } catch (error) {
           console.error("Erro ao importar:", error);
-          alert("Ficheiro inválido ou corrompido. Certifique-se que é um ficheiro .json gerado pela AgroSmart.");
+          alert("Ficheiro inválido ou corrompido. Certifique-se que é um ficheiro .json gerado pela Oriva.");
         }
       };
 
@@ -265,9 +265,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Info size={18} />
               </div>
               <div>
-                <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">AgroSmart Enterprise</h4>
+                <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">Oriva Enterprise</h4>
                 <p className="text-xs text-blue-700 dark:text-blue-300/70 mt-1 leading-relaxed">
-                  Versão 1.3.1 (Security Update)<br/>
+                  Versão 1.4.0 (Oriva Rebrand)<br/>
                   Arquitetura Offline-First ativa. Os dados são guardados localmente no seu dispositivo.
                 </p>
               </div>

@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="pt-PT">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>AgroSmart Enterprise</title>
+    <title>Oriva Enterprise</title>
     <script type="module" src="/src/main.tsx"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
@@ -22,7 +21,53 @@
         z-index: 0;
       }
 
-      /* Animation Utilities */
+      /* --- ANIMATION UTILITIES --- */
+      @keyframes fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.4s ease-out forwards;
+      }
+
+      @keyframes slide-up {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .animate-slide-up {
+        animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes slide-down {
+        from { transform: translateY(-20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .animate-slide-down {
+        animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes scale-up {
+        from { transform: scale(0.95); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .animate-scale-up {
+        animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+
+      @keyframes pulse-slow {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+      }
+      .animate-pulse-slow {
+        animation: pulse-slow 3s ease-in-out infinite;
+      }
+
+      /* Stagger Delays helper classes */
+      .delay-100 { animation-delay: 100ms; }
+      .delay-200 { animation-delay: 200ms; }
+      .delay-300 { animation-delay: 300ms; }
+
+      /* Scanning Animation */
       @keyframes scan {
         0% { top: 0%; opacity: 0; }
         10% { opacity: 1; }
@@ -32,14 +77,6 @@
       .animate-scan {
         animation: scan 2s linear infinite;
       }
-      
-      @keyframes sonar {
-        0% { transform: scale(0.9); opacity: 0.8; }
-        100% { transform: scale(2); opacity: 0; }
-      }
-      .animate-sonar {
-        animation: sonar 1.5s ease-out infinite;
-      }
 
       body {
         -webkit-tap-highlight-color: transparent;
@@ -47,7 +84,6 @@
         transition: background-color 0.3s ease;
       }
       
-      /* Apply dark background only when the 'dark' class is present on html */
       html.dark body {
         background-color: #0A0A0A;
       }
@@ -57,62 +93,45 @@
         background-color: #FFFFFF !important;
         color: #000000 !important;
       }
-
-      /* Reset visual noise for Solar Mode */
       html.solar * {
         box-shadow: none !important;
         text-shadow: none !important;
         backdrop-filter: none !important;
+        animation: none !important; /* Disable animations in solar mode */
+        transition: none !important;
       }
-
-      /* Enforce borders and bold text */
-      html.solar .bg-white, 
-      html.solar .bg-gray-50, 
-      html.solar .bg-gray-100 {
+      html.solar .bg-white, html.solar .bg-gray-50, html.solar .bg-gray-100 {
         background-color: #FFFFFF !important;
         border: 2px solid #000000 !important;
         color: #000000 !important;
       }
-      
-      /* Enhance Typography visibility */
       html.solar h1, html.solar h2, html.solar h3, html.solar h4, html.solar p, html.solar span, html.solar div {
-        font-weight: 700 !important; /* Bold everything */
+        font-weight: 700 !important;
         letter-spacing: 0.5px;
       }
-      
-      html.solar .text-gray-400, 
-      html.solar .text-gray-500, 
-      html.solar .text-gray-600 {
+      html.solar .text-gray-400, html.solar .text-gray-500, html.solar .text-gray-600 {
         color: #000000 !important;
       }
-
-      /* High Impact Buttons */
       html.solar .bg-agro-green {
         background-color: #000000 !important;
-        color: #FFFF00 !important; /* Yellow text on Black button */
+        color: #FFFF00 !important;
         border: 2px solid #000000 !important;
       }
-
-      /* Inputs High Contrast */
       html.solar input, html.solar select {
         background-color: #FFFFFF !important;
         border: 3px solid #000000 !important;
         color: #000000 !important;
         font-weight: 900 !important;
       }
-
-      /* Icons thickness */
       html.solar svg {
         stroke-width: 3px !important;
         stroke: #000000 !important;
       }
-      
-      /* Specific override for white text elements to be black in solar mode if background flips */
       html.solar .text-white {
         color: #000000 !important;
       }
       html.solar .bg-agro-green .text-white {
-        color: #FFFF00 !important; /* Exception for primary buttons */
+        color: #FFFF00 !important;
       }
 
     </style>
@@ -136,6 +155,9 @@
             },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
+            },
+            animation: {
+              'spin-slow': 'spin 8s linear infinite',
             }
           }
         }

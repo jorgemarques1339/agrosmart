@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Camera, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -29,7 +30,7 @@ const PestDetection: React.FC = () => {
           <div className="w-24 h-24 bg-white dark:bg-neutral-700 rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100 dark:border-neutral-600">
             <Camera size={36} className="text-gray-400 dark:text-gray-300" />
           </div>
-          <h3 className="font-bold text-2xl text-gray-900 dark:text-white mb-2">Agro-Vision</h3>
+          <h3 className="font-bold text-2xl text-gray-900 dark:text-white mb-2">Oriva Vision</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-[240px] text-base leading-relaxed">
             Detete pragas e doenças em segundos com a nossa IA avançada.
           </p>
