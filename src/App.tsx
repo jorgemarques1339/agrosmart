@@ -482,6 +482,7 @@ const App = () => {
   
   // Real Weather State
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>(INITIAL_WEATHER);
+  const [hourlyForecast, setHourlyForecast] = useState<WeatherForecast[]>([]);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [alertActive, setAlertActive] = useState<string | null>(null);
 
@@ -705,7 +706,7 @@ const App = () => {
           humidity: currentData.main.humidity
         };
 
-        // Filter forecast to get 1 entry per day (approx noon)
+        // Filter forecast to get 1 entry per day (approx noon) for Summary Card
         const daily: WeatherForecast[] = forecastData.list
           .filter((item: any) => item.dt_txt.includes('12:00:00'))
           .slice(0, 4)
@@ -717,6 +718,22 @@ const App = () => {
           }));
 
         setWeatherData([today, ...daily]);
+
+        // Process hourly forecast for Spraying Window (next 8 intervals ~ 24h)
+        const hourly: WeatherForecast[] = forecastData.list.slice(0, 8).map((item: any) => {
+          const date = new Date(item.dt * 1000);
+          return {
+            day: date.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', ''),
+            time: item.dt_txt.split(' ')[1].substring(0, 5), // Extract HH:MM
+            temp: Math.round(item.main.temp),
+            condition: mapCondition(item.weather[0].id),
+            description: item.weather[0].description,
+            windSpeed: Math.round(item.wind.speed * 3.6), // m/s to km/h
+            humidity: item.main.humidity,
+            rainProb: Math.round(item.pop * 100) // pop is 0-1
+          };
+        });
+        setHourlyForecast(hourly);
       }
     } catch (error) {
       console.error("Weather fetch failed", error);
@@ -1213,6 +1230,7 @@ const App = () => {
           <DashboardHome 
             userName={userName}
             weather={weatherData} // Passing REAL Data
+            hourlyForecast={hourlyForecast} // Pass detailed forecast for Spraying Window
             tasks={state.tasks}
             fields={state.fields}
             machines={state.machines || []} 

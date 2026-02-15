@@ -7,6 +7,8 @@ export interface WeatherForecast {
   windSpeed?: number; // km/h
   humidity?: number; // %
   uv?: number;
+  time?: string; // HH:MM
+  rainProb?: number; // Probability of precipitation %
 }
 
 export interface Task {

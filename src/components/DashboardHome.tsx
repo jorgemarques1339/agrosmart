@@ -5,13 +5,15 @@ import {
   ArrowRight, X, User, CloudLightning, Wind, Droplets, MapPin,
   Settings, Bell, Sprout, Cloud, CloudSun,
   Tractor, Fuel, Clock, Gauge, Save, AlertTriangle, Truck, Eye, Package,
-  ChevronDown, ShoppingBag, Link as LinkIcon, CheckCircle2, Circle, ListTodo
+  ChevronDown, ShoppingBag, Link as LinkIcon, CheckCircle2, Circle, ListTodo,
+  Thermometer, ShieldAlert
 } from 'lucide-react';
 import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem } from '../types';
 
 interface DashboardHomeProps {
   userName: string;
   weather: WeatherForecast[];
+  hourlyForecast?: WeatherForecast[]; // Added hourly forecast prop
   tasks: Task[];
   fields: Field[];
   machines?: Machine[];
@@ -31,6 +33,7 @@ interface DashboardHomeProps {
 const DashboardHome: React.FC<DashboardHomeProps> = ({
   userName,
   weather,
+  hourlyForecast = [], // Default empty
   tasks,
   fields,
   machines = [],
@@ -48,6 +51,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 }) => {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
+  const [weatherTab, setWeatherTab] = useState<'general' | 'spray'>('general');
   const [agendaModalDate, setAgendaModalDate] = useState<string | null>(null);
   
   // Task Creation State
@@ -108,6 +112,61 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       default: return 'Parcial';
     }
   };
+
+  // --- LOGICA DE PULVERIZAÇÃO (SPRAY LOGIC) ---
+  // Uses Real Data passed from App.tsx via hourlyForecast
+  const sprayForecast = useMemo(() => {
+    // If no real data available (e.g. offline or initial load), fallback to a safe message or empty
+    const sourceData = hourlyForecast.length > 0 ? hourlyForecast : [];
+
+    return sourceData.map(slot => {
+      let status: 'ideal' | 'warning' | 'danger' = 'ideal';
+      let reasons: string[] = [];
+
+      const wind = slot.windSpeed || 0;
+      const humidity = slot.humidity || 0;
+      const temp = slot.temp;
+      const rainProb = slot.rainProb || 0;
+
+      // 1. Verificação de Vento (Deriva)
+      if (wind > 15) {
+        status = 'danger';
+        reasons.push('Risco de Deriva (Vento Forte)');
+      } else if (wind > 10) {
+        if (status !== 'danger') status = 'warning';
+        reasons.push('Vento Moderado');
+      }
+
+      // 2. Verificação de Evaporação (Temp/Humidade)
+      if (temp > 27 || humidity < 40) {
+        status = 'danger';
+        reasons.push('Risco de Evaporação (Calor/Seco)');
+      }
+
+      // 3. Verificação de Lavagem (Chuva)
+      if (rainProb > 50) {
+        status = 'danger';
+        reasons.push('Risco de Lavagem (Chuva)');
+      }
+
+      // Delta T (Indicador Agronómico Ideal)
+      if ((status as string) === 'ideal' && (temp < 10 || temp > 25)) {
+         status = 'warning';
+         reasons.push('Temperatura Marginal');
+      }
+
+      return { 
+        time: `${slot.day} ${slot.time}`, 
+        temp, 
+        wind, 
+        humidity, 
+        rainProb,
+        status, 
+        reason: reasons.join(' • ') || 'Condições Excelentes' 
+      };
+    });
+  }, [hourlyForecast]);
+
 
   // --- 2. Lógica do AgroCalendário (Próximos 7 dias) ---
   const calendarDays = useMemo(() => {
@@ -622,30 +681,138 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {/* 8. Weather Detail Modal */}
+      {/* 8. Advanced Agro-Weather Modal */}
       {isWeatherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWeatherModalOpen(false)}>
-          <div className="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
-             <div className="flex justify-between items-center mb-6">
-               <h3 className="text-xl font-bold dark:text-white">Previsão 5 Dias</h3>
+          <div className="bg-white dark:bg-neutral-900 w-full max-w-sm h-[75vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
+             {/* Modal Header */}
+             <div className="flex justify-between items-center px-6 pt-6 pb-2">
+               <div>
+                 <h3 className="text-xl font-black dark:text-white">Meteorologia</h3>
+                 <p className="text-xs font-bold text-gray-400 uppercase">Suporte à Decisão</p>
+               </div>
                <button onClick={() => setIsWeatherModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
                  <X size={20} className="dark:text-white" />
                </button>
              </div>
+
+             {/* Tab Switcher */}
+             <div className="px-6 mb-4">
+                <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl">
+                   <button 
+                     onClick={() => setWeatherTab('general')}
+                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase transition-all ${weatherTab === 'general' ? 'bg-white dark:bg-neutral-700 text-agro-green shadow-sm' : 'text-gray-400'}`}
+                   >
+                     Geral
+                   </button>
+                   <button 
+                     onClick={() => setWeatherTab('spray')}
+                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase transition-all ${weatherTab === 'spray' ? 'bg-white dark:bg-neutral-700 text-blue-600 shadow-sm' : 'text-gray-400'}`}
+                   >
+                     Pulverização
+                   </button>
+                </div>
+             </div>
              
-             <div className="space-y-3">
-               {weather.map((day, idx) => (
-                 <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
-                    <div className="flex items-center gap-3">
-                       <span className="w-10 font-bold text-gray-400">{day.day}</span>
-                       {getWeatherIcon(day.condition, 20)}
-                    </div>
-                    <div className="flex items-center gap-4">
-                       <span className="text-xs font-medium text-gray-500 capitalize">{getWeatherLabel(day.condition)}</span>
-                       <span className="font-black text-lg dark:text-white">{day.temp}°</span>
-                    </div>
-                 </div>
-               ))}
+             {/* Content */}
+             <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+                
+                {/* TAB: GENERAL FORECAST */}
+                {weatherTab === 'general' && (
+                  <div className="space-y-3">
+                    {weather.map((day, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
+                          <div className="flex items-center gap-4">
+                            <span className="w-10 font-bold text-gray-400 uppercase text-xs">{day.day}</span>
+                            {getWeatherIcon(day.condition, 24)}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                                <span className="text-xs font-bold text-gray-500 capitalize block">{getWeatherLabel(day.condition)}</span>
+                                {day.description && <span className="text-[10px] text-gray-400 hidden sm:block">{day.description}</span>}
+                            </div>
+                            <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
+                          </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* TAB: SPRAYING WINDOW (NEW FEATURE) */}
+                {weatherTab === 'spray' && (
+                  <div className="space-y-4 animate-slide-up">
+                     
+                     {/* Legend */}
+                     <div className="flex justify-between px-2 pb-2 border-b border-gray-100 dark:border-neutral-800 text-[10px] font-bold uppercase text-gray-400">
+                        <span className="flex items-center gap-1"><Circle size={8} className="text-green-500 fill-green-500"/> Ideal</span>
+                        <span className="flex items-center gap-1"><Circle size={8} className="text-yellow-500 fill-yellow-500"/> Marginal</span>
+                        <span className="flex items-center gap-1"><Circle size={8} className="text-red-500 fill-red-500"/> Risco</span>
+                     </div>
+
+                     {/* Timeline */}
+                     <div className="space-y-3">
+                        {sprayForecast.map((slot, idx) => (
+                           <div 
+                             key={idx} 
+                             className={`relative p-4 rounded-2xl border-l-4 shadow-sm bg-white dark:bg-neutral-800 ${
+                               slot.status === 'ideal' ? 'border-l-green-500' : 
+                               slot.status === 'warning' ? 'border-l-yellow-500' : 
+                               'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
+                             }`}
+                           >
+                              <div className="flex justify-between items-start mb-2">
+                                 <span className="text-lg font-black text-gray-900 dark:text-white">{slot.time}</span>
+                                 {slot.status === 'ideal' ? (
+                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
+                                       <CheckCircle2 size={12} /> Luz Verde
+                                    </span>
+                                 ) : slot.status === 'warning' ? (
+                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
+                                       <AlertTriangle size={12} /> Atenção
+                                    </span>
+                                 ) : (
+                                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
+                                       <ShieldAlert size={12} /> Não Tratar
+                                    </span>
+                                 )}
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                                 <div className={`flex items-center gap-1 ${slot.wind > 15 ? 'text-red-500 font-bold' : ''}`}>
+                                    <Wind size={14} /> {slot.wind} km/h
+                                 </div>
+                                 <div className={`flex items-center gap-1 ${slot.temp > 27 ? 'text-red-500 font-bold' : ''}`}>
+                                    <Thermometer size={14} /> {slot.temp}°C
+                                 </div>
+                                 <div className={`flex items-center gap-1 ${slot.rainProb > 50 ? 'text-red-500 font-bold' : ''}`}>
+                                    <CloudRain size={14} /> {slot.rainProb}%
+                                 </div>
+                              </div>
+
+                              <p className={`text-xs font-medium border-t pt-2 border-gray-100 dark:border-neutral-700 ${
+                                 slot.status === 'ideal' ? 'text-green-600' : 
+                                 slot.status === 'warning' ? 'text-yellow-600' : 
+                                 'text-red-500'
+                              }`}>
+                                 {slot.reason}
+                              </p>
+                           </div>
+                        ))}
+                        {sprayForecast.length === 0 && (
+                           <div className="text-center py-8 opacity-50">
+                              <p className="text-xs font-bold text-gray-400">Dados de previsão detalhada indisponíveis offline.</p>
+                           </div>
+                        )}
+                     </div>
+                     
+                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl flex gap-3 items-start mt-4">
+                        <Droplets className="text-blue-500 mt-0.5 shrink-0" size={16} />
+                        <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                           <strong>Dica Técnica:</strong> A janela ideal considera vento &lt;10km/h para evitar deriva e temperatura &lt;25°C para evitar evaporação do fitofármaco.
+                        </p>
+                     </div>
+                  </div>
+                )}
              </div>
           </div>
         </div>
