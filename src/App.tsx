@@ -201,23 +201,22 @@ const IoTPairingWizard = ({ onClose, onPair, fields }: { onClose: () => void, on
 // --- Componentes ---
 
 // 1. Navegação Inferior (Bottom Navigation)
-// Implementação Flutuante com Glassmorphism conforme especificações
+// Implementação Flutuante Otimizada com Textos
 const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: string) => void }) => {
   const tabs = [
     { id: 'dashboard', icon: Home, label: 'Início' },
     { id: 'animal', icon: ScanLine, label: 'Animal' },
     { id: 'cultivation', icon: Leaf, label: 'Cultivo' },
-    { id: 'machines', icon: Tractor, label: 'Máquinas' },
-    { id: 'stocks', icon: Package, label: 'Stocks' },
+    { id: 'machines', icon: Tractor, label: 'Máq.' }, // Shortened for small screens
+    { id: 'stocks', icon: Package, label: 'Stock' },
     { id: 'accounts', icon: PieChart, label: 'Contas' },
   ];
 
   return (
-    // Container fixo flutuante (Bottom 6 = 1.5rem acima da borda)
-    // Z-Index 100 para garantir prioridade sobre conteúdo
-    <div className="fixed bottom-6 left-2 right-2 z-[100] pointer-events-none animate-slide-up">
+    // Container fixo flutuante
+    <div className="fixed bottom-3 left-2 right-2 z-[100] pointer-events-none animate-slide-up">
       <div className="mx-auto max-w-lg pointer-events-auto">
-        <nav className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-xl border border-white/20 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] h-[5.5rem] flex items-center justify-between px-2 overflow-x-auto scrollbar-hide">
+        <nav className="bg-white/95 dark:bg-neutral-900/95 backdrop-blur-xl border border-white/20 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] py-3 px-1 flex items-end justify-between">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
             const Icon = tab.icon;
@@ -225,13 +224,25 @@ const BottomNav = ({ activeTab, setTab }: { activeTab: string, setTab: (t: strin
               <button
                 key={tab.id}
                 onClick={() => setTab(tab.id)}
-                className={`flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 active:scale-75 shrink-0 ${
-                  isActive 
-                    ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 translate-y-[-4px]' 
-                    : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-neutral-800'
-                }`}
+                className="group flex-1 flex flex-col items-center justify-end gap-1 transition-all duration-300 active:scale-95 touch-manipulation"
               >
-                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+                {/* Icon Container */}
+                <div className={`p-2.5 rounded-2xl transition-all duration-300 ${
+                   isActive 
+                   ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-1' 
+                   : 'text-gray-400 dark:text-gray-500 group-hover:bg-gray-50 dark:group-hover:bg-neutral-800'
+                }`}>
+                  <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                </div>
+                
+                {/* Label */}
+                <span className={`text-[9px] font-bold tracking-wide transition-all duration-300 ${
+                  isActive 
+                  ? 'text-agro-green dark:text-green-400 opacity-100' 
+                  : 'text-gray-400 opacity-70'
+                }`}>
+                  {tab.label}
+                </span>
               </button>
             );
           })}
@@ -296,10 +307,9 @@ const CultivationView = ({
   return (
     <div className="space-y-6 animate-fade-in pt-4">
       
-      {/* Control Section Header */}
-      <div className="flex justify-between items-end px-2">
-        <h2 className="text-2xl font-black uppercase italic text-gray-800 dark:text-white mb-1">Meus<br/>Cultivos</h2>
-        <div className="flex gap-3">
+      {/* Control Section Header - Centered Buttons Dock, Title Removed */}
+      <div className="flex justify-center items-center px-2 mb-4">
+        <div className="flex gap-5 bg-white/60 dark:bg-neutral-900/60 p-3 rounded-[2.5rem] border border-white/20 shadow-sm backdrop-blur-md">
            {/* Botão Caderno de Campo */}
            <div className="flex flex-col items-center gap-1">
              <button 
@@ -332,7 +342,7 @@ const CultivationView = ({
              >
                <Plus size={24} />
              </button>
-             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo Cultivo</span>
+             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
            </div>
         </div>
       </div>
@@ -1198,7 +1208,7 @@ const App = () => {
 
       {/* Área de Conteúdo: Ocupa o espaço restante e permite scroll interno */}
       {/* Dynamic Padding logic based on banner visibility */}
-      <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pb-36 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
+      <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pb-28 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (
           <DashboardHome 
             userName={userName}
@@ -1206,6 +1216,7 @@ const App = () => {
             tasks={state.tasks}
             fields={state.fields}
             machines={state.machines || []} 
+            stocks={state.stocks} // Pass stocks for task resource linking
             onToggleTask={toggleTask}
             onAddTask={addTask}
             onDeleteTask={deleteTask}
@@ -1216,7 +1227,6 @@ const App = () => {
             onUpdateMachineHours={updateMachineHours} 
             onAddMachineLog={addMachineLog} 
             alertCount={alertCount}
-            stocks={state.stocks} // Pass stocks for task resource linking
           />
         )}
         {activeTab === 'animal' && (
