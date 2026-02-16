@@ -144,29 +144,29 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
           {/* Action Buttons Row */}
           <div className="flex gap-2 shrink-0">
              
-             {/* Harvest Button (New) */}
+             {/* Harvest Button (Smaller) */}
              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowHarvestModal(true);
                 }}
-                className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 shadow-sm hover:bg-yellow-200"
+                className="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 shadow-sm hover:bg-yellow-200"
                 title="Registar Colheita"
              >
-                <Wheat size={24} />
+                <Wheat size={20} />
              </button>
 
-             {/* IoT Switch */}
+             {/* IoT Switch (Smaller) */}
              <button
                 onClick={handleIoTToggle}
-                className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 ${field.irrigationStatus ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-gray-500'}`}
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 active:scale-95 ${field.irrigationStatus ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-gray-100 dark:bg-neutral-800 text-gray-400 dark:text-gray-500'}`}
              >
                 {isLoadingIoT ? (
-                  <Loader2 size={24} className="animate-spin" />
+                  <Loader2 size={20} className="animate-spin" />
                 ) : field.irrigationStatus ? (
-                  <Wifi size={24} />
+                  <Wifi size={20} />
                 ) : (
-                  <Droplets size={24} className="opacity-50" />
+                  <Droplets size={20} className="opacity-50" />
                 )}
              </button>
           </div>
