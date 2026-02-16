@@ -140,7 +140,7 @@ export interface StockItem {
   id: string;
   name: string;
   // Expanded categories to support legacy data and new requirements
-  category: 'Fertilizante' | 'Semente' | 'Fito' | 'Combustível' | 'Ração' | 'Medicamento' | 'Outro'; 
+  category: 'Fertilizante' | 'Semente' | 'Fito' | 'Combustível' | 'Ração' | 'Medicamento' | 'Colheita' | 'Outro'; 
   quantity: number;
   unit: string;
   minStock: number;

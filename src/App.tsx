@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Sprout, PawPrint, Package, 
@@ -8,8 +7,8 @@ import {
   Truck, FileCheck // Added for e-Guias
 } from 'lucide-react';
 import mqtt from 'mqtt';
-import jsPDF from 'jspdf'; // Added
-import autoTable from 'jspdf-autotable'; // Added
+import jsPDF from 'jspdf'; 
+import autoTable from 'jspdf-autotable'; 
 
 import { AppState, Field, StockItem, FieldLog, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee } from './types';
 import { loadState, saveState } from './services/storageService';
@@ -22,7 +21,7 @@ import StockManager from './components/StockManager';
 import MachineManager from './components/MachineManager';
 import FinanceManager from './components/FinanceManager';
 import SettingsModal from './components/SettingsModal';
-import NotificationsModal from './components/NotificationsModal';
+import NotificationsModal, { TabId } from './components/NotificationsModal';
 import FieldNotebook from './components/FieldNotebook';
 import InstallPrompt from './components/InstallPrompt';
 
@@ -299,7 +298,8 @@ const CultivationView = ({
   onRegisterSensor,
   onModalChange,
   operatorName,
-  onRegisterSale
+  onRegisterSale,
+  onHarvest // New Prop
 }: { 
   fields: Field[], 
   stocks: StockItem[],
@@ -311,13 +311,14 @@ const CultivationView = ({
   onRegisterSensor: (fieldId: string, sensor: Sensor) => void,
   onModalChange?: (isOpen: boolean) => void,
   operatorName: string,
-  onRegisterSale: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void
+  onRegisterSale: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void,
+  onHarvest: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotebookOpen, setIsNotebookOpen] = useState(false);
   const [showIoTWizard, setShowIoTWizard] = useState(false);
   
-  // --- e-GUIAS MODAL STATE (MOVED HERE) ---
+  // --- e-GUIAS MODAL STATE ---
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [saleStep, setSaleStep] = useState(1);
   const [saleData, setSaleData] = useState({
@@ -329,7 +330,7 @@ const CultivationView = ({
     plate: '',
     date: new Date().toISOString().split('T')[0],
     price: '',
-    fieldId: '' // Added field selection
+    fieldId: ''
   });
   
   const [newName, setNewName] = useState('');
@@ -357,7 +358,7 @@ const CultivationView = ({
     }
   };
 
-  // --- e-GUIAS PDF GENERATION (MOVED HERE) ---
+  // --- e-GUIAS PDF GENERATION ---
   const generateGuidePDF = () => {
     if (!onRegisterSale) return;
 
@@ -452,6 +453,8 @@ const CultivationView = ({
   return (
     <div className="space-y-6 animate-fade-in pt-4">
       <div className="flex justify-between items-start px-2 mb-4">
+        
+        {/* Lado Esquerdo: Registo e e-Guias */}
         <div className="flex gap-3">
            <div className="flex flex-col items-center gap-1">
              <button 
@@ -464,19 +467,6 @@ const CultivationView = ({
              <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
            </div>
 
-           {/* IoT Button (Blue) */}
-           <div className="flex flex-col items-center gap-1">
-             <button 
-               onClick={() => setShowIoTWizard(true)}
-               className="w-12 h-12 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-95 transition-transform"
-               title="Adicionar Sensor IoT"
-             >
-               <Wifi size={22} />
-             </button>
-             <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">IoT</span>
-           </div>
-
-           {/* e-Guias Button (Orange) */}
            <div className="flex flex-col items-center gap-1">
              <button 
                onClick={() => setShowGuideModal(true)}
@@ -489,14 +479,28 @@ const CultivationView = ({
            </div>
         </div>
 
-        <div className="flex flex-col items-center gap-1">
-           <button 
-             onClick={() => setIsModalOpen(true)}
-             className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
-           >
-             <Plus size={24} />
-           </button>
-           <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
+        {/* Lado Direito: IoT e Novo */}
+        <div className="flex gap-3">
+           <div className="flex flex-col items-center gap-1">
+             <button 
+               onClick={() => setShowIoTWizard(true)}
+               className="w-12 h-12 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-95 transition-transform"
+               title="Adicionar Sensor IoT"
+             >
+               <Wifi size={22} />
+             </button>
+             <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">IoT</span>
+           </div>
+
+           <div className="flex flex-col items-center gap-1">
+             <button 
+               onClick={() => setIsModalOpen(true)}
+               className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
+             >
+               <Plus size={24} />
+             </button>
+             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
+           </div>
         </div>
       </div>
 
@@ -511,6 +515,7 @@ const CultivationView = ({
             onUseStock={onUseStock}
             onRegisterSensor={onRegisterSensor}
             onRegisterSale={onRegisterSale}
+            onHarvest={onHarvest} // Pass down
           />
         ))}
       </div>
@@ -762,7 +767,7 @@ const CultivationView = ({
 
 const App = () => {
   const [state, setState] = useState<AppState>(loadState());
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'animal' | 'cultivation' | 'stocks' | 'machines' | 'finance'>('dashboard');
+  const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [userName, setUserName] = useState('Agricultor');
   
   // Modals Global States
@@ -783,40 +788,34 @@ const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSolarMode, setIsSolarMode] = useState(false);
 
-  // --- WEATHER FETCHING LOGIC (REAL API) ---
+  // ... (Weather fetching logic maintained) ...
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        // 1. Current Weather
         const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
         const current = await currentRes.json();
 
-        // 2. 5 Day / 3 Hour Forecast
         const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
         const forecast = await forecastRes.json();
 
-        // --- Parse Detailed Forecast (Next 24h for Spraying) ---
-        // OpenWeather returns 3h steps. We take the first 8 to cover 24h.
         const sprayData: DetailedForecast[] = forecast.list.slice(0, 8).map((item: any) => ({
           dt: item.dt,
           temp: Math.round(item.main.temp),
-          windSpeed: Math.round(item.wind.speed * 3.6), // Convert m/s to km/h
+          windSpeed: Math.round(item.wind.speed * 3.6),
           humidity: item.main.humidity,
-          rainProb: Math.round(item.pop * 100) // Probability of Precipitation (0-1) -> %
+          rainProb: Math.round(item.pop * 100)
         }));
         setDetailedForecast(sprayData);
 
-        // --- Parse Daily Forecast (Next 5 Days) ---
         const mapCondition = (id: number): 'sunny' | 'cloudy' | 'rain' | 'storm' => {
           if (id >= 200 && id < 300) return 'storm';
           if (id >= 300 && id < 600) return 'rain';
           if (id >= 801) return 'cloudy';
-          return 'sunny'; // 800 is clear
+          return 'sunny'; 
         };
 
         const dailyData: WeatherForecast[] = [];
 
-        // Day 0 (Hoje - Tempo Real)
         dailyData.push({
           day: 'Hoje',
           temp: Math.round(current.main.temp),
@@ -826,8 +825,6 @@ const App = () => {
           humidity: current.main.humidity
         });
 
-        // Days 1-4 (Process Forecast)
-        // Agrupar por dia e escolher o datapoint mais próximo do meio-dia (12h) para representar o dia
         const processedDays = new Set<string>();
         const todayDate = new Date().getDate();
 
@@ -837,9 +834,7 @@ const App = () => {
           const dayName = date.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '');
           const hour = date.getHours();
 
-          // Ignorar hoje e dias já processados
           if (dateNum !== todayDate && !processedDays.has(dayName)) {
-             // Preferência por horas centrais (entre 11h e 15h)
              if (hour >= 11 && hour <= 15) {
                 dailyData.push({
                   day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
@@ -854,13 +849,11 @@ const App = () => {
           }
         });
 
-        // Garantir que temos no máximo 5 dias no total
         setWeatherData(dailyData.slice(0, 5));
         setIsOnline(true);
 
       } catch (error) {
         console.error("Erro ao obter meteorologia:", error);
-        // Em caso de erro, mantemos o INITIAL_WEATHER ou mostramos aviso
         setIsOnline(false); 
       }
     };
@@ -888,25 +881,15 @@ const App = () => {
     saveState(state);
   }, [state]);
 
-  // --- LOGICA CENTRAL DE ALERTAS ---
   const alertCount = useMemo(() => {
     let count = 0;
     
-    // 1. Meteorologia (Chuva Hoje)
     if (weatherData.length > 0 && (weatherData[0].condition === 'rain' || weatherData[0].condition === 'storm')) {
       count++;
     }
-
-    // 2. Animais Doentes
     count += state.animals.filter(a => a.status === 'sick').length;
-
-    // 3. Campos (Saúde ou Humidade Crítica)
     count += state.fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
-
-    // 4. Stocks Baixos
     count += state.stocks.filter(s => s.quantity <= s.minStock).length;
-
-    // 5. Máquinas (Revisão ou Inspeção)
     count += state.machines.filter(m => {
        const hoursSince = m.engineHours - m.lastServiceHours;
        const overdue = hoursSince > m.serviceInterval;
@@ -942,14 +925,8 @@ const App = () => {
     setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
   };
 
-  const trackOfflineAction = () => {
-     // Mock logic for tracking actions
-  };
-
   const handleAddLog = (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => {
-    trackOfflineAction();
-    
-    // Se houver stockId, consumimos stock
+    // ... (Existing log adding logic)
     if (stockId && log.quantity) {
        const stockItem = state.stocks.find(s => s.id === stockId);
        if (!stockItem) return;
@@ -978,11 +955,8 @@ const App = () => {
        }));
 
     } else {
-      // Registo normal (Labor ou Observação)
       const newLog: FieldLog = { ...log, id: Date.now().toString() };
       
-      // LOGICA DE MÃO DE OBRA (LABOR MANAGEMENT)
-      // Se for Mão de Obra e tiver custo, gerar transação de despesa automaticamente
       let newTransactions = [...state.transactions];
       if (log.type === 'labor' && log.cost && log.cost > 0) {
          newTransactions = [{
@@ -1007,10 +981,8 @@ const App = () => {
     }
   };
 
-  // --- SALE LOGIC (COMERCIALIZAÇÃO) ---
   const handleRegisterSale = (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => {
     setState(prev => {
-      // 1. Reduce Stock
       const stockItem = prev.stocks.find(s => s.id === saleData.stockId);
       if (!stockItem) return prev;
 
@@ -1020,7 +992,6 @@ const App = () => {
           : s
       );
 
-      // 2. Add Income Transaction
       const totalIncome = saleData.quantity * saleData.pricePerUnit;
       const newTransaction: Transaction = {
         id: Date.now().toString(),
@@ -1031,7 +1002,6 @@ const App = () => {
         description: `Venda ${stockItem.name} a ${saleData.clientName}`
       };
 
-      // 3. Optional: Add Log to Field (if provided)
       let newFields = prev.fields;
       if (saleData.fieldId) {
         newFields = prev.fields.map(f => {
@@ -1041,13 +1011,10 @@ const App = () => {
             logs: [...f.logs, {
               id: Date.now().toString(),
               date: saleData.date,
-              type: 'harvest', // Classify sale/dispatch as harvest output logic
+              type: 'harvest',
               description: `Venda/Expedição: ${saleData.quantity}${stockItem.unit} para ${saleData.clientName}`,
               quantity: saleData.quantity,
               unit: stockItem.unit,
-              // Store revenue as negative cost or handle separately? 
-              // For notebook, usually we track operations. 
-              // We'll leave cost undefined as it's revenue.
             }]
           };
         });
@@ -1062,17 +1029,54 @@ const App = () => {
     });
   };
 
+  // --- HARVEST LOGIC ---
+  const handleHarvest = (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => {
+    setState(prev => {
+      // 1. Find Field to get Crop Name
+      const field = prev.fields.find(f => f.id === fieldId);
+      if (!field) return prev;
+
+      // 2. Create New Stock Item
+      const newStockItem: StockItem = {
+        id: Date.now().toString(),
+        name: `${field.crop} - ${data.batchId}`,
+        category: 'Colheita',
+        quantity: data.quantity,
+        unit: data.unit,
+        minStock: 0,
+        pricePerUnit: 0 // To be set later or upon sale
+      };
+
+      // 3. Add Log to Field
+      const newLog: FieldLog = {
+        id: Date.now().toString(),
+        date: data.date,
+        type: 'harvest',
+        description: `Colheita Realizada: Lote ${data.batchId}`,
+        quantity: data.quantity,
+        unit: data.unit
+      };
+
+      return {
+        ...prev,
+        stocks: [...prev.stocks, newStockItem],
+        fields: prev.fields.map(f => 
+          f.id === fieldId 
+            ? { ...f, logs: [...(f.logs || []), newLog] } 
+            : f
+        )
+      };
+    });
+  };
+
   const toggleIrrigation = (id: string, status: boolean) => {
-    trackOfflineAction();
     setState(prev => ({
       ...prev,
       fields: prev.fields.map(f => f.id === id ? { ...f, irrigationStatus: status } : f)
     }));
   };
 
-  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {
-     // Legacy wrapper if needed
-  };
+  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {};
 
   const addField = (fieldData: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => {
      const newField: Field = {
@@ -1099,20 +1103,13 @@ const App = () => {
      }));
   };
 
+  // ... (Other handlers: addAnimal, updateAnimal, etc. kept same)
   const addAnimal = (animal: Omit<Animal, 'id'>) => {
-    setState(prev => ({
-      ...prev,
-      animals: [...prev.animals, { ...animal, id: Date.now().toString() }]
-    }));
+    setState(prev => ({ ...prev, animals: [...prev.animals, { ...animal, id: Date.now().toString() }] }));
   };
-
   const updateAnimal = (id: string, updates: Partial<Animal>) => {
-    setState(prev => ({
-      ...prev,
-      animals: prev.animals.map(a => a.id === id ? { ...a, ...updates } : a)
-    }));
+    setState(prev => ({ ...prev, animals: prev.animals.map(a => a.id === id ? { ...a, ...updates } : a) }));
   };
-
   const addProduction = (id: string, value: number, type: 'milk' | 'weight') => {
     setState(prev => ({
       ...prev,
@@ -1126,20 +1123,13 @@ const App = () => {
       })
     }));
   };
-
   const updateMachineHours = (id: string, hours: number) => {
-    setState(prev => ({
-      ...prev,
-      machines: prev.machines.map(m => m.id === id ? { ...m, engineHours: hours } : m)
-    }));
+    setState(prev => ({ ...prev, machines: prev.machines.map(m => m.id === id ? { ...m, engineHours: hours } : m) }));
   };
-
   const addMachineLog = (machineId: string, log: Omit<MaintenanceLog, 'id'>) => {
     setState(prev => {
-      // Find the machine to get its name for the transaction description
       const machine = prev.machines.find(m => m.id === machineId);
       const machineName = machine ? machine.name : 'Máquina';
-      
       return {
         ...prev,
         machines: prev.machines.map(m => m.id === machineId ? { ...m, logs: [...m.logs, { ...log, id: Date.now().toString() }] } : m),
@@ -1154,41 +1144,22 @@ const App = () => {
       };
     });
   };
-
   const handleAddTransaction = (tx: Omit<Transaction, 'id'>) => {
-    setState(prev => ({
-      ...prev,
-      transactions: [{ ...tx, id: Date.now().toString() }, ...prev.transactions]
-    }));
+    setState(prev => ({ ...prev, transactions: [{ ...tx, id: Date.now().toString() }, ...prev.transactions] }));
   };
-
-  // Stock Actions
   const handleUpdateStock = (id: string, delta: number) => {
-    setState(prev => ({
-      ...prev,
-      stocks: prev.stocks.map(s => s.id === id ? { ...s, quantity: Math.max(0, s.quantity + delta) } : s)
-    }));
+    setState(prev => ({ ...prev, stocks: prev.stocks.map(s => s.id === id ? { ...s, quantity: Math.max(0, s.quantity + delta) } : s) }));
   };
-
   const handleAddStock = (item: Omit<StockItem, 'id'>) => {
-    setState(prev => ({
-      ...prev,
-      stocks: [...prev.stocks, { ...item, id: Date.now().toString() }]
-    }));
+    setState(prev => ({ ...prev, stocks: [...prev.stocks, { ...item, id: Date.now().toString() }] }));
   };
-
   const handleEditStock = (id: string, updates: Partial<StockItem>) => {
-    setState(prev => ({
-      ...prev,
-      stocks: prev.stocks.map(s => s.id === id ? { ...s, ...updates } : s)
-    }));
+    setState(prev => ({ ...prev, stocks: prev.stocks.map(s => s.id === id ? { ...s, ...updates } : s) }));
   };
-
   const handleChildModalChange = (isOpen: boolean) => {
     setIsChildModalOpen(isOpen);
   };
 
-  // Logic to determine if nav should be hidden
   const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationsOpen;
 
   return (
@@ -1231,7 +1202,7 @@ const App = () => {
           <CultivationView 
             fields={state.fields}
             stocks={state.stocks} 
-            employees={state.employees || []} // PASSANDO FUNCIONÁRIOS
+            employees={state.employees || []}
             toggleIrrigation={toggleIrrigation}
             onAddLog={handleAddLog}
             onUseStock={handleUseStockOnField}
@@ -1240,6 +1211,7 @@ const App = () => {
             onModalChange={handleChildModalChange}
             operatorName={userName}
             onRegisterSale={handleRegisterSale}
+            onHarvest={handleHarvest} // Pass logic here
           />
         )}
         {activeTab === 'stocks' && (
@@ -1271,7 +1243,7 @@ const App = () => {
         )}
       </main>
 
-      {/* Bottom Navigation - Optimized for Mobile & Hides on Modal */}
+      {/* Bottom Navigation */}
       <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${
          shouldHideNav ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
       }`}>
@@ -1285,7 +1257,7 @@ const App = () => {
          ].map(tab => (
            <button
              key={tab.id}
-             onClick={() => setActiveTab(tab.id)}
+             onClick={() => setActiveTab(tab.id as any)}
              className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl ${
                activeTab === tab.id 
                  ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1' 
@@ -1323,7 +1295,7 @@ const App = () => {
         fields={state.fields}
         stocks={state.stocks}
         machines={state.machines}
-        onNavigate={setActiveTab}
+        onNavigate={(tab) => setActiveTab(tab as TabId)}
       />
 
       <InstallPrompt />

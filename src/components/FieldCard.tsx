@@ -5,13 +5,14 @@ import {
   MapPin, Loader2, Activity, Wifi,
   Coins, TrendingUp, TrendingDown, Wallet, Cpu, Signal,
   ShieldAlert, FileText, List, Workflow,
-  Radio, Package
+  Radio, Package, Wheat
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
 import { Field, FieldLog, StockItem, Sensor } from '../types';
 import PestDetection from './PestDetection';
 import AutomationHub from './AutomationHub';
+import HarvestModal from './HarvestModal';
 
 interface FieldCardProps {
   field: Field;
@@ -21,13 +22,15 @@ interface FieldCardProps {
   onUseStock?: (fieldId: string, stockId: string, quantity: number, date: string) => void;
   onRegisterSensor?: (fieldId: string, sensor: Sensor) => void;
   onRegisterSale?: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
+  onHarvest?: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
 }
 
-const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation }) => {
+const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'finance' | 'ai'>('sensors');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
 
   // Safety Interval Logic (IS)
   const safetyLock = useMemo(() => {
@@ -140,6 +143,19 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation }) => {
 
           {/* Action Buttons Row */}
           <div className="flex gap-2 shrink-0">
+             
+             {/* Harvest Button (New) */}
+             <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowHarvestModal(true);
+                }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-95 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-400 shadow-sm hover:bg-yellow-200"
+                title="Registar Colheita"
+             >
+                <Wheat size={24} />
+             </button>
+
              {/* IoT Switch */}
              <button
                 onClick={handleIoTToggle}
@@ -326,6 +342,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation }) => {
                       <div className={`absolute -left-[21px] top-1 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 ${
                         log.type === 'treatment' ? 'bg-orange-400' : 
                         log.type === 'fertilization' ? 'bg-green-500' :
+                        log.type === 'harvest' ? 'bg-yellow-500' :
                         'bg-blue-400'
                       }`}></div>
                       <div className="flex justify-between items-start">
@@ -468,6 +485,16 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation }) => {
           fields={[field]} // Pass only this field for context-specific automation
           onToggleIrrigation={onToggleIrrigation}
           onClose={() => setShowAutomationHub(false)}
+        />
+      )}
+
+      {/* --- HARVEST MODAL --- */}
+      {showHarvestModal && onHarvest && (
+        <HarvestModal 
+          isOpen={showHarvestModal}
+          onClose={() => setShowHarvestModal(false)}
+          field={field}
+          onConfirm={(data) => onHarvest(field.id, data)}
         />
       )}
     </div>
