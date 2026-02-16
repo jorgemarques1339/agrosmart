@@ -1,6 +1,8 @@
+
 {
-  "name": "AgroSmart - Gestão Agrícola",
-  "short_name": "AgroSmart",
+  "name": "OrivaSmart - Gestão Agrícola",
+  "short_name": "OrivaSmart",
+  "description": "Plataforma de Smart Farming Oriva com controlo IoT e gestão pecuária.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#FDFDF5",
@@ -8,14 +10,16 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "pwa-192x192.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/628/628283.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "pwa-512x512.png",
+      "src": "https://cdn-icons-png.flaticon.com/512/628/628283.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }

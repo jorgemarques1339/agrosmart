@@ -1,5 +1,5 @@
 
-import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine } from './types';
+import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine, Employee } from './types';
 
 export const INITIAL_WEATHER: WeatherForecast[] = [
   { day: 'Seg', temp: 22, condition: 'sunny' },
@@ -10,6 +10,10 @@ export const INITIAL_WEATHER: WeatherForecast[] = [
 ];
 
 export const MOCK_STATE: AppState = {
+  employees: [
+    { id: 'e1', name: 'João Silva', role: 'Ajudante Geral', hourlyRate: 7.50 },
+    { id: 'e2', name: 'Maria Santos', role: 'Tratorista', hourlyRate: 9.00 }
+  ],
   tasks: [
     { id: '1', title: 'Aplicar Fungicida Vinha A', date: new Date().toISOString().split('T')[0], type: 'task', completed: false },
     { id: '2', title: 'Colheita Milho Híbrido', date: new Date(Date.now() + 86400000).toISOString().split('T')[0], type: 'harvest', completed: false },
@@ -32,7 +36,14 @@ export const MOCK_STATE: AppState = {
         { date: '2023-10-22', value: 29, type: 'milk' },
         { date: '2023-10-23', value: 31, type: 'milk' },
         { date: '2023-10-24', value: 30, type: 'milk' },
-      ]
+      ],
+      reproductionStatus: 'pregnant',
+      conceptionDate: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(), // ~6 months pregnant
+      lineage: {
+        motherName: 'Estrela',
+        fatherName: 'Touro X200',
+        notes: 'Gestante de: Touro X200'
+      }
     },
     {
       id: 'a2',
@@ -49,7 +60,11 @@ export const MOCK_STATE: AppState = {
         { date: '2023-10-20', value: 15, type: 'milk' },
         { date: '2023-10-21', value: 14, type: 'milk' },
         { date: '2023-10-22', value: 12, type: 'milk' },
-      ]
+      ],
+      reproductionStatus: 'empty',
+      lineage: {
+        fatherName: 'Touro Y100'
+      }
     },
     {
       id: 'a3',
@@ -65,7 +80,12 @@ export const MOCK_STATE: AppState = {
       productionHistory: [
         { date: '2023-09-01', value: 680, type: 'weight' },
         { date: '2023-10-01', value: 710, type: 'weight' },
-      ]
+      ],
+      reproductionStatus: 'heat',
+      lineage: {
+        motherName: 'Mimosa',
+        fatherName: 'Touro Z50'
+      }
     }
   ],
   fields: [

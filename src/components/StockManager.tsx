@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Package, Droplets, Sprout, Syringe, ArrowDown, ArrowUp, 
   Edit2, Plus, X, Save, Info, AlertTriangle, Search, Fuel, Minus,
-  CheckCircle2
+  CheckCircle2, Wallet, Coins
 } from 'lucide-react';
 import { StockItem } from '../types';
 
@@ -83,7 +83,7 @@ const BigStepper = ({
 const StockManager: React.FC<StockManagerProps> = ({ 
   stocks, 
   onUpdateStock, 
-  onAddStock,
+  onAddStock, 
   onEditStock,
   onModalChange
 }) => {
@@ -119,13 +119,13 @@ const StockManager: React.FC<StockManagerProps> = ({
   // Helper de Ícones por Categoria
   const getCategoryIcon = (cat: string) => {
     switch(cat) {
-      case 'Fertilizante': return <Sprout size={18} />;
-      case 'Semente': return <Package size={18} />;
+      case 'Fertilizante': return <Sprout size={16} />;
+      case 'Semente': return <Package size={16} />;
       case 'Fito': 
-      case 'Medicamento': return <Syringe size={18} />;
-      case 'Combustível': return <Fuel size={18} />;
-      case 'Ração': return <Package size={18} />; // Generic package for feed if specific icon unavailable
-      default: return <Droplets size={18} />;
+      case 'Medicamento': return <Syringe size={16} />;
+      case 'Combustível': return <Fuel size={16} />;
+      case 'Ração': return <Package size={16} />;
+      default: return <Droplets size={16} />;
     }
   };
 
@@ -153,70 +153,68 @@ const StockManager: React.FC<StockManagerProps> = ({
   };
 
   return (
-    <div className="animate-fade-in pb-24">
+    <div className="animate-fade-in pb-24 pt-4">
       
-      {/* Header & Métricas */}
-      <div className="mb-6">
-        <div className="flex justify-between items-start mb-4">
+      {/* Header & Quick Stats */}
+      <div className="px-2">
+        <div className="flex justify-between items-end mb-6">
           <div>
-            <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">Armazém</h2>
-            <p className="text-sm text-gray-500 font-medium tracking-wide">Inventário Mobile</p>
+            <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">Armazém</h2>
+            <div className="flex items-center gap-2 mt-2">
+               <span className="bg-gray-100 dark:bg-neutral-800 px-2 py-1 rounded-lg text-[10px] font-bold uppercase text-gray-500 tracking-wide">
+                 {metrics.totalItems} Produtos
+               </span>
+            </div>
           </div>
+          
           <div className="flex flex-col items-center gap-1">
             <button 
               onClick={() => setIsAddModalOpen(true)}
-              className="w-12 h-12 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+              className="w-12 h-12 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
             >
-              <Plus size={24} />
+              <Plus size={24} strokeWidth={2.5} />
             </button>
             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo Item</span>
           </div>
         </div>
 
-        {/* Dashboard Cards (Updated to Premium Style) */}
-        <div className="grid grid-cols-2 gap-3">
-          
-          {/* Card 1: Total Itens */}
-          <div className="bg-gradient-to-br from-gray-900 to-gray-800 dark:from-neutral-800 dark:to-neutral-900 rounded-[2rem] p-4 text-white shadow-lg relative overflow-hidden">
-            <div className="relative z-10">
-               <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Itens</p>
-               <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black">{metrics.totalItems}</span>
-                  <span className="text-sm opacity-60">sku</span>
-               </div>
-               <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-400/10 px-2 py-1 rounded-full w-fit">
-                  <Package size={10} /> {metrics.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, notation: 'compact' })}
-               </div>
-            </div>
-            <Package className="absolute -right-4 -bottom-4 text-white/5 w-24 h-24 rotate-12" />
-          </div>
+        {/* Compact Inventory Status - Optimized for Mobile */}
+        <div className="rounded-2xl p-4 text-white shadow-lg relative overflow-hidden flex items-center justify-between mb-4 bg-gradient-to-r from-gray-900 to-gray-800 dark:from-neutral-800 dark:to-neutral-900">
+           
+           {/* Total Value */}
+           <div className="flex items-center gap-3 relative z-10">
+              <div className="bg-white/20 p-2 rounded-full backdrop-blur-sm">
+                 <Wallet size={18} />
+              </div>
+              <div>
+                 <p className="text-[10px] font-bold text-white/60 uppercase tracking-wider">Valor em Stock</p>
+                 <p className="text-lg font-black leading-none mt-0.5">
+                    {metrics.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, notation: 'compact' })}
+                 </p>
+              </div>
+           </div>
 
-          {/* Card 2: Alertas */}
-          <div className={`rounded-[2rem] p-4 text-white shadow-lg relative overflow-hidden transition-colors ${
-            metrics.lowStock > 0 
-              ? 'bg-gradient-to-br from-red-600 to-red-700 animate-pulse' 
-              : 'bg-gradient-to-br from-agro-green to-green-600'
-          }`}>
-            <div className="relative z-10">
-               <p className="text-xs font-bold text-white/80 uppercase tracking-wider mb-1">
-                 {metrics.lowStock > 0 ? 'Stock Crítico' : 'Stock Seguro'}
-               </p>
-               <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-black">{metrics.lowStock}</span>
-                  <span className="text-sm opacity-80">alertas</span>
-               </div>
-               <div className="mt-2 flex items-center gap-1 text-[10px] font-bold bg-white/20 px-2 py-1 rounded-full w-fit">
-                  {metrics.lowStock > 0 ? <AlertTriangle size={10} /> : <CheckCircle2 size={10} />}
-                  {metrics.lowStock > 0 ? 'Repor Stock' : 'Tudo OK'}
-               </div>
-            </div>
-            <AlertTriangle className="absolute -right-4 -bottom-4 text-white/10 w-24 h-24 rotate-12" />
-          </div>
+           {/* Alerts Status */}
+           <div className="flex items-center gap-2 relative z-10">
+              {metrics.lowStock > 0 ? (
+                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/20 border border-red-500/50 rounded-xl">
+                    <AlertTriangle size={14} className="text-red-400" />
+                    <span className="text-xs font-bold text-red-200">{metrics.lowStock} Baixos</span>
+                 </div>
+              ) : (
+                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/20 border border-green-500/50 rounded-xl">
+                    <CheckCircle2 size={14} className="text-green-400" />
+                    <span className="text-xs font-bold text-green-200">Stock OK</span>
+                 </div>
+              )}
+           </div>
+           
+           <Package className="text-white/5 w-24 h-24 absolute -right-6 -bottom-8 rotate-12" />
         </div>
       </div>
 
-      {/* Lista de Stocks */}
-      <div className="space-y-3">
+      {/* Lista de Stocks Compacta */}
+      <div className="space-y-2 px-1">
         {stocks.map(item => {
           const isLowStock = item.quantity <= item.minStock;
           const progressPercent = Math.min((item.quantity / (item.minStock * 3)) * 100, 100);
@@ -224,28 +222,28 @@ const StockManager: React.FC<StockManagerProps> = ({
           return (
             <div 
               key={item.id} 
-              className="group relative bg-white dark:bg-neutral-900 rounded-[2.2rem] p-4 shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all active:scale-[0.99]"
+              className="group relative bg-white dark:bg-neutral-900 rounded-[2rem] p-3 shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden transition-all active:scale-[0.99]"
             >
               {/* Barra de Estado Lateral */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${isLowStock ? 'bg-red-500' : 'bg-green-500'}`}></div>
+              <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLowStock ? 'bg-red-500' : 'bg-transparent'}`}></div>
 
-              <div className="pl-3 flex flex-col gap-3">
+              <div className="pl-2 flex flex-col gap-2">
                 
-                {/* Topo do Card */}
+                {/* Header Row: Icon + Name + Category + Price */}
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="p-1.5 bg-gray-100 dark:bg-neutral-800 rounded-lg text-gray-500 dark:text-gray-400">
-                        {getCategoryIcon(item.category)}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{item.category}</span>
+                  <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-10 h-10 bg-gray-50 dark:bg-neutral-800 rounded-xl flex items-center justify-center text-gray-500 dark:text-gray-400 shrink-0">
+                       {getCategoryIcon(item.category)}
                     </div>
-                    <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{item.name}</h3>
+                    <div className="min-w-0">
+                       <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight truncate">{item.name}</h3>
+                       <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">{item.category}</p>
+                    </div>
                   </div>
 
                   {/* Preço Chip */}
                   {editingPriceId === item.id ? (
-                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-xl p-1 animate-fade-in">
+                    <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-lg p-1 animate-fade-in h-8">
                       <input 
                         type="number" 
                         autoFocus
@@ -255,47 +253,53 @@ const StockManager: React.FC<StockManagerProps> = ({
                         onBlur={() => handlePriceUpdate(item.id)}
                         onKeyDown={(e) => e.key === 'Enter' && handlePriceUpdate(item.id)}
                       />
-                      <span className="text-[10px] text-gray-500">€</span>
+                      <span className="text-[10px] text-gray-500 mr-1">€</span>
                     </div>
                   ) : (
                     <button 
                       onClick={() => { setEditingPriceId(item.id); setTempPrice(item.pricePerUnit.toString()); }}
-                      className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-neutral-800 rounded-xl border border-gray-100 dark:border-neutral-700 active:bg-gray-200"
+                      className="flex items-center gap-1 px-2 py-1 bg-gray-50 dark:bg-neutral-800 rounded-lg border border-gray-100 dark:border-neutral-700 active:bg-gray-200 h-8 shrink-0"
                     >
                       <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{item.pricePerUnit}€</span>
-                      <Edit2 size={10} className="text-gray-400" />
+                      <Edit2 size={8} className="text-gray-400" />
                     </button>
                   )}
                 </div>
 
-                {/* Controlo de Quantidade e Barra */}
-                <div className="flex items-center justify-between gap-4">
+                {/* Bottom Row: Quantity Bar + Controls */}
+                <div className="flex items-end gap-3 mt-1">
                    <div className="flex-1">
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-bold text-gray-800 dark:text-white">{item.quantity} <span className="text-gray-400 font-normal">{item.unit}</span></span>
-                        {isLowStock && <span className="text-red-500 font-bold flex items-center gap-1"><AlertTriangle size={10}/> Baixo</span>}
+                      <div className="flex justify-between items-end mb-1">
+                        <span className="text-lg font-black text-gray-800 dark:text-white leading-none">
+                           {item.quantity} <span className="text-xs font-bold text-gray-400">{item.unit}</span>
+                        </span>
+                        {isLowStock && (
+                           <span className="text-[9px] font-bold text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded uppercase flex items-center gap-1">
+                              <AlertTriangle size={8} /> Repor
+                           </span>
+                        )}
                       </div>
-                      <div className="h-2 w-full bg-gray-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 w-full bg-gray-100 dark:bg-neutral-800 rounded-full overflow-hidden">
                         <div 
-                          className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-red-500' : 'bg-gradient-to-r from-agro-green to-green-400'}`}
+                          className={`h-full rounded-full transition-all duration-500 ${isLowStock ? 'bg-red-500' : 'bg-gradient-to-r from-agro-green to-emerald-400'}`}
                           style={{ width: `${progressPercent}%` }}
                         ></div>
                       </div>
                    </div>
 
-                   {/* Botões Grandes para Uso com Luvas */}
-                   <div className="flex items-center gap-2">
+                   {/* Compact Buttons */}
+                   <div className="flex items-center gap-1">
                       <button 
                         onClick={() => onUpdateStock(item.id, -1)}
-                        className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-600 dark:text-white active:scale-90 transition-transform shadow-sm border border-gray-200 dark:border-neutral-700"
+                        className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-600 dark:text-gray-300 active:bg-gray-200 dark:active:bg-neutral-700 transition-colors border border-gray-200 dark:border-neutral-700"
                       >
-                        <ArrowDown size={24} />
+                        <ArrowDown size={18} />
                       </button>
                       <button 
                         onClick={() => onUpdateStock(item.id, 1)}
-                        className="w-12 h-12 rounded-2xl bg-agro-green flex items-center justify-center text-white active:scale-90 transition-transform shadow-lg shadow-agro-green/30"
+                        className="w-10 h-10 rounded-xl bg-agro-green flex items-center justify-center text-white active:scale-95 transition-transform shadow-md shadow-agro-green/20"
                       >
-                        <ArrowUp size={24} />
+                        <ArrowUp size={18} />
                       </button>
                    </div>
                 </div>
@@ -310,7 +314,7 @@ const StockManager: React.FC<StockManagerProps> = ({
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsAddModalOpen(false)}>
           <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 h-[85vh] overflow-y-auto" 
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 h-[85vh] overflow-y-auto custom-scrollbar" 
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">

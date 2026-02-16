@@ -7,6 +7,9 @@ import {
 } from 'lucide-react';
 import { Animal, Field, StockItem, WeatherForecast, Machine } from '../types';
 
+// Define specific union type to match App state
+export type TabId = 'dashboard' | 'animal' | 'cultivation' | 'stocks' | 'machines' | 'finance';
+
 interface NotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -15,7 +18,7 @@ interface NotificationsModalProps {
   fields: Field[];
   stocks: StockItem[];
   machines?: Machine[];
-  onNavigate: (tabId: string) => void;
+  onNavigate: (tabId: TabId) => void;
 }
 
 type AlertLevel = 'critical' | 'warning' | 'info';
@@ -25,7 +28,7 @@ interface NotificationItem {
   type: AlertLevel;
   title: string;
   message: string;
-  targetTab: string;
+  targetTab: TabId;
   icon: React.ElementType;
 }
 
@@ -167,7 +170,7 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAlertClick = (targetTab: string) => {
+  const handleAlertClick = (targetTab: TabId) => {
     onNavigate(targetTab);
     onClose();
   };

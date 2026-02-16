@@ -3,10 +3,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Heart, ShieldCheck, Activity, TrendingUp, History, 
   Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight,
-  Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar
+  Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar, Dna
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { Animal } from '../types';
+import AnimalDetailsModal from './AnimalDetailsModal';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({ 
@@ -14,16 +15,21 @@ const AnimalProfile = ({
   onReset, 
   onAddProduction,
   onUpdateAnimal,
-  onScheduleTask
+  onScheduleTask,
+  onAddOffspring,
+  onModalChange
 }: { 
   animal: Animal, 
   onReset: () => void, 
   onAddProduction: (id: string, value: number, type: 'milk' | 'weight') => void,
-  onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void,
-  onScheduleTask?: (title: string, type: 'task', date: string) => void
+  onUpdateAnimal: (id: string, updates: Partial<Animal>) => void,
+  onScheduleTask?: (title: string, type: 'task', date: string) => void,
+  onAddOffspring: (animal: Omit<Animal, 'id'>) => void,
+  onModalChange?: (isOpen: boolean) => void;
 }) => {
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
+  const [showReproductionModal, setShowReproductionModal] = useState(false); // New Modal State
   
   // Vet Modal State
   const [vetNote, setVetNote] = useState('');
@@ -32,6 +38,13 @@ const AnimalProfile = ({
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
   const [productionValue, setProductionValue] = useState<number>(0);
   const [chartMode, setChartMode] = useState<'production' | 'finance'>('production');
+
+  // Report modal state changes
+  useEffect(() => {
+    if (onModalChange) {
+      onModalChange(showProductionModal || showVetModal || showReproductionModal);
+    }
+  }, [showProductionModal, showVetModal, showReproductionModal, onModalChange]);
 
   const chartData = useMemo(() => {
     const milkCount = animal.productionHistory.filter(r => r.type === 'milk').length;
@@ -90,8 +103,6 @@ const AnimalProfile = ({
     if (onUpdateAnimal) {
       onUpdateAnimal(animal.id, { 
         notes: vetNote,
-        // Opcional: Atualizar status se for vacinação?
-        // status: vaccineDate ? 'healthy' : animal.status
       });
     }
 
@@ -236,16 +247,22 @@ const AnimalProfile = ({
             </div>
           )}
 
-          {/* New Veterinary Note Button - Centered Above */}
-          <div className="mb-3">
+          {/* Action Buttons Row - Vet & Reproduction */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
              <button 
                onClick={() => {
                  setVetNote(animal.notes || '');
                  setShowVetModal(true);
                }}
-               className="w-full py-3 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-[1.5rem] font-bold shadow-sm border border-orange-200 dark:border-orange-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+               className="py-3 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-[1.5rem] font-bold shadow-sm border border-orange-200 dark:border-orange-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
              >
-                <ClipboardList size={20} /> Nota Veterinária
+                <ClipboardList size={18} /> Nota Vet.
+             </button>
+             <button 
+               onClick={() => setShowReproductionModal(true)}
+               className="py-3 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-[1.5rem] font-bold shadow-sm border border-blue-200 dark:border-blue-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+             >
+                <Dna size={18} /> Ciclo & Genética
              </button>
           </div>
 
@@ -267,122 +284,131 @@ const AnimalProfile = ({
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Production Modal */}
-      {showProductionModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowProductionModal(false)}>
-          <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold dark:text-white">Novo Registo</h3>
-              <button onClick={() => setShowProductionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                <X size={20} className="dark:text-white" />
-              </button>
-            </div>
+        {/* --- MODALS --- */}
+        <AnimalDetailsModal 
+          isOpen={showReproductionModal}
+          onClose={() => setShowReproductionModal(false)}
+          animal={animal}
+          onUpdateAnimal={onUpdateAnimal}
+          onAddOffspring={onAddOffspring}
+        />
 
-            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
-              <button 
-                onClick={() => setProductionType('milk')}
-                className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                  productionType === 'milk' ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'
-                }`}
-              >
-                <Milk size={18} /> Leite
-              </button>
-              <button 
-                onClick={() => setProductionType('weight')}
-                className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
-                  productionType === 'weight' ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-gray-400'
-                }`}
-              >
-                <Beef size={18} /> Peso
-              </button>
-            </div>
-
-            <div className="mb-8">
-              <div className="flex items-center justify-between gap-4 mb-4">
-                <button onClick={() => adjustValue(-config.step)} className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"><Minus size={32} strokeWidth={3} /></button>
-                <div className="flex-1 text-center">
-                  <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{productionValue}</div>
-                  <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
-                </div>
-                <button onClick={() => adjustValue(config.step)} className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"><Plus size={32} strokeWidth={3} /></button>
+        {/* Production Modal */}
+        {showProductionModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowProductionModal(false)}>
+            <div 
+              className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold dark:text-white">Novo Registo</h3>
+                <button onClick={() => setShowProductionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                  <X size={20} className="dark:text-white" />
+                </button>
               </div>
-              <div className="px-2">
-                <input type="range" min="0" max={config.max} step={config.step} value={productionValue} onChange={(e) => setProductionValue(parseFloat(e.target.value))} className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y" />
+
+              <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
+                <button 
+                  onClick={() => setProductionType('milk')}
+                  className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                    productionType === 'milk' ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'
+                  }`}
+                >
+                  <Milk size={18} /> Leite
+                </button>
+                <button 
+                  onClick={() => setProductionType('weight')}
+                  className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${
+                    productionType === 'weight' ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-gray-400'
+                  }`}
+                >
+                  <Beef size={18} /> Peso
+                </button>
               </div>
-            </div>
 
-            <button onClick={handleSaveProduction} className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform">Confirmar</button>
-          </div>
-        </div>
-      )}
-
-      {/* Vet Note Modal */}
-      {showVetModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowVetModal(false)}>
-           <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                 <ClipboardList size={24} className="text-orange-500" /> Nota Veterinária
-              </h3>
-              <button onClick={() => setShowVetModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                <X size={20} className="dark:text-white" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-               <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Observações / Diagnóstico</label>
-                  <textarea 
-                    autoFocus
-                    value={vetNote}
-                    onChange={(e) => setVetNote(e.target.value)}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[100px] resize-none"
-                    placeholder="Ex: Animal apresenta ligeira claudicação..."
-                  />
-               </div>
-
-               <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block flex items-center gap-1">
-                     <Syringe size={14} /> Agendar Vacinação (Opcional)
-                  </label>
-                  <div className="relative">
-                    <input 
-                      type="date"
-                      value={vaccineDate}
-                      onChange={(e) => setVaccineDate(e.target.value)}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[3.5rem]"
-                    />
-                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+              <div className="mb-8">
+                <div className="flex items-center justify-between gap-4 mb-4">
+                  <button onClick={() => adjustValue(-config.step)} className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"><Minus size={32} strokeWidth={3} /></button>
+                  <div className="flex-1 text-center">
+                    <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{productionValue}</div>
+                    <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
                   </div>
-                  {vaccineDate && (
-                     <p className="text-[10px] text-orange-500 font-bold mt-2 ml-2 flex items-center gap-1">
-                        <Calendar size={10} /> Será adicionado à Agenda
-                     </p>
-                  )}
-               </div>
+                  <button onClick={() => adjustValue(config.step)} className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"><Plus size={32} strokeWidth={3} /></button>
+                </div>
+                <div className="px-2">
+                  <input type="range" min="0" max={config.max} step={config.step} value={productionValue} onChange={(e) => setProductionValue(parseFloat(e.target.value))} className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y" />
+                </div>
+              </div>
 
-               <button 
-                 onClick={handleSaveVetNote}
-                 disabled={!vetNote}
-                 className={`w-full py-5 rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${
-                    !vetNote ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white'
-                 }`}
-               >
-                 <Save size={20} />
-                 Guardar Registo
-               </button>
+              <button onClick={handleSaveProduction} className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform">Confirmar</button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Vet Note Modal */}
+        {showVetModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowVetModal(false)}>
+             <div 
+              className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                   <ClipboardList size={24} className="text-orange-500" /> Nota Veterinária
+                </h3>
+                <button onClick={() => setShowVetModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                  <X size={20} className="dark:text-white" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                 <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Observações / Diagnóstico</label>
+                    <textarea 
+                      autoFocus
+                      value={vetNote}
+                      onChange={(e) => setVetNote(e.target.value)}
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[100px] resize-none"
+                      placeholder="Ex: Animal apresenta ligeira claudicação..."
+                    />
+                 </div>
+
+                 <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block flex items-center gap-1">
+                       <Syringe size={14} /> Agendar Vacinação (Opcional)
+                    </label>
+                    <div className="relative">
+                      <input 
+                        type="date"
+                        value={vaccineDate}
+                        onChange={(e) => setVaccineDate(e.target.value)}
+                        className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[3.5rem]"
+                      />
+                      <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+                    </div>
+                    {vaccineDate && (
+                       <p className="text-[10px] text-orange-500 font-bold mt-2 ml-2 flex items-center gap-1">
+                          <Calendar size={10} /> Será adicionado à Agenda
+                       </p>
+                    )}
+                 </div>
+
+                 <button 
+                   onClick={handleSaveVetNote}
+                   disabled={!vetNote}
+                   className={`w-full py-5 rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${
+                      !vetNote ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white'
+                   }`}
+                 >
+                   <Save size={20} />
+                   Guardar Registo
+                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -396,6 +422,7 @@ interface AnimalCardManagerProps {
   onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void;
   onScheduleTask?: (title: string, type: 'task', date: string) => void;
   onReset?: () => void;
+  onModalChange?: (isOpen: boolean) => void;
 }
 
 const AnimalCard: React.FC<AnimalCardManagerProps> = ({ 
@@ -403,9 +430,10 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   animal: propAnimal, 
   onAddAnimal, 
   onAddProduction,
-  onUpdateAnimal,
+  onUpdateAnimal: propOnUpdateAnimal,
   onScheduleTask,
-  onReset: propOnReset
+  onReset: propOnReset,
+  onModalChange
 }) => {
   const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag'>('scanning');
   const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);
@@ -428,6 +456,18 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
       setViewState('profile');
     }
   }, [propAnimal]);
+
+  // Report add_tag state change
+  useEffect(() => {
+    if (onModalChange) {
+      if (viewState === 'add_tag') {
+        onModalChange(true);
+      } else if (viewState !== 'profile') {
+        // When not adding tag and not in profile (which has its own modals), report false
+        onModalChange(false);
+      }
+    }
+  }, [viewState, onModalChange]);
 
   const activeAnimal = foundAnimal || propAnimal;
 
@@ -468,11 +508,27 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         status: 'healthy',
         lastCheckup: new Date().toISOString().split('T')[0],
         notes: tagForm.notes,
-        productionHistory: []
+        productionHistory: [],
+        reproductionStatus: 'empty', // Default
+        lineage: {}
       });
       // Reset
       setTagForm({ name: '', tagId: '', breed: '', age: '', weight: '', notes: '' });
       setViewState('scanning');
+    }
+  };
+
+  // Wrapper for onUpdateAnimal to support adding offspring which is a special case
+  const handleUpdateAnimal = (id: string, updates: Partial<Animal>) => {
+    if (propOnUpdateAnimal) {
+      propOnUpdateAnimal(id, updates);
+    }
+  };
+
+  // Wrapper for adding offspring (calf)
+  const handleAddOffspring = (calf: Omit<Animal, 'id'>) => {
+    if (onAddAnimal) {
+      onAddAnimal(calf);
     }
   };
 
@@ -618,8 +674,10 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         animal={activeAnimal} 
         onReset={handleReset} 
         onAddProduction={onAddProduction || (() => {})} 
-        onUpdateAnimal={onUpdateAnimal}
+        onUpdateAnimal={handleUpdateAnimal}
         onScheduleTask={onScheduleTask}
+        onAddOffspring={handleAddOffspring}
+        onModalChange={onModalChange}
       />
     );
   }

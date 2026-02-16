@@ -7,8 +7,14 @@ export interface WeatherForecast {
   windSpeed?: number; // km/h
   humidity?: number; // %
   uv?: number;
-  time?: string; // HH:MM
-  rainProb?: number; // Probability of precipitation %
+}
+
+export interface DetailedForecast {
+  dt: number; // Timestamp
+  temp: number;
+  windSpeed: number; // km/h
+  humidity: number; // %
+  rainProb: number; // 0-100% (Pop)
 }
 
 export interface Task {
@@ -30,6 +36,13 @@ export interface ProductionRecord {
   type: 'milk' | 'weight'; // Distinguish between milk liters and weight kg
 }
 
+export interface AnimalEvent {
+  id: string;
+  date: string;
+  type: 'birth' | 'insemination' | 'heat' | 'dry-off';
+  description: string;
+}
+
 export interface Animal {
   id: string;
   tagId: string; // NFC Tag
@@ -39,18 +52,52 @@ export interface Animal {
   age: string; // Display string e.g. "4 Anos"
   weight: number; // Current weight in kg
   status: 'healthy' | 'sick' | 'pregnancy' | 'attention';
+  
+  // Reproduction & Lineage (New)
+  reproductionStatus?: 'empty' | 'pregnant' | 'heat' | 'post-partum';
+  conceptionDate?: string; // ISO Date if pregnant
+  lineage?: {
+    motherId?: string;
+    motherName?: string;
+    fatherId?: string;
+    fatherName?: string; // Bull name/code
+    notes?: string;
+  };
+  events?: AnimalEvent[];
+
   productionHistory: ProductionRecord[];
   lastCheckup: string;
   notes?: string;
 }
 
+export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  hourlyRate: number; // Custo por hora em €
+}
+
 export interface FieldLog {
   id: string;
   date: string;
-  type: 'observation' | 'treatment' | 'harvest';
+  type: 'observation' | 'treatment' | 'harvest' | 'fertilization' | 'irrigation' | 'labor'; // Added 'labor'
   description: string;
-  cost?: number; // Custo associado à operação
-  quantity?: number; // Quantidade de produto utilizado
+  
+  // Technical / Legal Fields (Optional but recommended for Notebook)
+  productName?: string; // Nome Comercial
+  apv?: string; // Autorização de Venda
+  activeSubstance?: string; // Substância Ativa
+  target?: string; // Praga/Doença Alvo
+  safetyDays?: number; // Intervalo Segurança (Dias)
+  operator?: string; // Aplicador (Texto livre ou nome do funcionário)
+  
+  // Labor Specifics
+  employeeId?: string;
+  hoursWorked?: number;
+  hourlyRate?: number;
+
+  cost?: number; 
+  quantity?: number; 
   unit?: string;
 }
 
@@ -143,4 +190,5 @@ export interface AppState {
   stocks: StockItem[];
   transactions: Transaction[];
   machines: Machine[];
+  employees: Employee[]; // New array
 }

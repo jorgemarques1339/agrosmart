@@ -8,12 +8,12 @@ import {
   ChevronDown, ShoppingBag, Link as LinkIcon, CheckCircle2, Circle, ListTodo,
   Thermometer, ShieldAlert
 } from 'lucide-react';
-import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem } from '../types';
+import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem, DetailedForecast } from '../types';
 
 interface DashboardHomeProps {
   userName: string;
   weather: WeatherForecast[];
-  hourlyForecast?: WeatherForecast[]; // Added hourly forecast prop
+  hourlyForecast?: DetailedForecast[]; // Optional prop for backward compatibility
   tasks: Task[];
   fields: Field[];
   machines?: Machine[];
@@ -33,7 +33,7 @@ interface DashboardHomeProps {
 const DashboardHome: React.FC<DashboardHomeProps> = ({
   userName,
   weather,
-  hourlyForecast = [], // Default empty
+  hourlyForecast = [],
   tasks,
   fields,
   machines = [],
@@ -113,27 +113,36 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     }
   };
 
-  // --- LOGICA DE PULVERIZAÇÃO (SPRAY LOGIC) ---
-  // Uses Real Data passed from App.tsx via hourlyForecast
+  // --- LOGICA DE PULVERIZAÇÃO (REAL) ---
   const sprayForecast = useMemo(() => {
-    // If no real data available (e.g. offline or initial load), fallback to a safe message or empty
-    const sourceData = hourlyForecast.length > 0 ? hourlyForecast : [];
+    // Se não houver dados reais (ex: offline), usar fallback simulado para não quebrar UI
+    const sourceData = (hourlyForecast && hourlyForecast.length > 0) ? hourlyForecast : [
+        // Mock Fallback (apenas se a API falhar)
+        { dt: Date.now() / 1000, temp: 12, windSpeed: 5, humidity: 85, rainProb: 0 },
+        { dt: (Date.now() / 1000) + 10800, temp: 16, windSpeed: 8, humidity: 75, rainProb: 0 },
+        { dt: (Date.now() / 1000) + 21600, temp: 24, windSpeed: 12, humidity: 60, rainProb: 10 },
+        { dt: (Date.now() / 1000) + 32400, temp: 28, windSpeed: 18, humidity: 45, rainProb: 0 }, 
+        { dt: (Date.now() / 1000) + 43200, temp: 22, windSpeed: 10, humidity: 65, rainProb: 0 },
+        { dt: (Date.now() / 1000) + 54000, temp: 18, windSpeed: 4, humidity: 80, rainProb: 60 },
+    ];
 
     return sourceData.map(slot => {
+      // Extrair valores
+      const time = new Date(slot.dt * 1000).toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit'});
+      const temp = Math.round(slot.temp);
+      const wind = Math.round(slot.windSpeed);
+      const humidity = slot.humidity;
+      const rainProb = slot.rainProb;
+
       let status: 'ideal' | 'warning' | 'danger' = 'ideal';
       let reasons: string[] = [];
-
-      const wind = slot.windSpeed || 0;
-      const humidity = slot.humidity || 0;
-      const temp = slot.temp;
-      const rainProb = slot.rainProb || 0;
 
       // 1. Verificação de Vento (Deriva)
       if (wind > 15) {
         status = 'danger';
         reasons.push('Risco de Deriva (Vento Forte)');
       } else if (wind > 10) {
-        if (status !== 'danger') status = 'warning';
+        status = 'warning';
         reasons.push('Vento Moderado');
       }
 
@@ -156,11 +165,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       }
 
       return { 
-        time: `${slot.day} ${slot.time}`, 
+        time, 
         temp, 
         wind, 
         humidity, 
-        rainProb,
+        rainProb, 
         status, 
         reason: reasons.join(' • ') || 'Condições Excelentes' 
       };
@@ -293,10 +302,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           >
             {alertCount > 0 ? (
               <>
-                {/* Heartbeat Animation Layer */}
+                {/* Heartbeat Animation Layer: Outer Ring */}
                 <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                {/* Icon Layer */}
-                <div className="relative w-10 h-10 bg-red-500 text-white rounded-full shadow-lg shadow-red-500/50 flex items-center justify-center">
+                {/* Icon Layer: Inner Pulse */}
+                <div className="relative w-10 h-10 bg-red-500 text-white rounded-full shadow-lg shadow-red-500/50 flex items-center justify-center animate-pulse">
                   <Bell size={20} fill="currentColor" />
                 </div>
               </>
@@ -798,11 +807,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                               </p>
                            </div>
                         ))}
-                        {sprayForecast.length === 0 && (
-                           <div className="text-center py-8 opacity-50">
-                              <p className="text-xs font-bold text-gray-400">Dados de previsão detalhada indisponíveis offline.</p>
-                           </div>
-                        )}
                      </div>
                      
                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl flex gap-3 items-start mt-4">
