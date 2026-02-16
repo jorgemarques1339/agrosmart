@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
   Droplets, Thermometer, Brain, Sprout, ChevronDown, 
@@ -31,6 +30,9 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
+
+  // Fix for MapContainer type error
+  const MapContainerAny = MapContainer as any;
 
   // Safety Interval Logic (IS)
   const safetyLock = useMemo(() => {
@@ -479,7 +481,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
       {/* --- AUTOMATION HUB MODAL --- */}
       {showAutomationHub && (
         <AutomationHub 
-          fields={[field]} // Pass only this field for context-specific automation
+          fields={[field]} 
           onToggleIrrigation={onToggleIrrigation}
           onClose={() => setShowAutomationHub(false)}
         />
