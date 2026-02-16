@@ -389,8 +389,8 @@ const MachineManager: React.FC<MachineManagerProps> = ({
         </div>
       </div>
 
-      {/* 2. Machine Cards List - Optimized Layout */}
-      <div className="space-y-4 px-1">
+      {/* 2. Machine Cards List - Grid Responsive */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-1">
         {filteredMachines.map(machine => {
           const health = calculateHealth(machine);
           const needsService = health.isOverdue || health.isApproaching;

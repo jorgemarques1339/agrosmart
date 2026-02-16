@@ -128,7 +128,7 @@ const AnimalProfile = ({
     : { step: 1, max: 1200, unit: 'kg', label: 'Kg' };
 
   return (
-    <div className="animate-slide-up relative pb-20">
+    <div className="animate-slide-up relative pb-20 max-w-2xl mx-auto">
       <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-5 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
         <Heart className="absolute -top-6 -right-6 text-red-50 dark:text-red-900/10 w-48 h-48 opacity-50" fill="currentColor" />
         
@@ -537,7 +537,7 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   // 1. FORMULÁRIO "ADICIONAR NOVA TAG"
   if (viewState === 'add_tag') {
     return (
-      <div className="h-full flex flex-col bg-white dark:bg-neutral-900 animate-slide-up p-6 overflow-y-auto rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl">
+      <div className="h-full flex flex-col bg-white dark:bg-neutral-900 animate-slide-up p-6 overflow-y-auto rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl max-w-2xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h2 className="text-2xl font-black text-gray-900 dark:text-white">Nova Tag</h2>
@@ -690,7 +690,7 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         <div className="absolute top-0 left-0 right-0 h-1/2 bg-agro-green/5 rounded-b-[4rem] z-0"></div>
         <div className="absolute -top-20 -left-20 w-64 h-64 bg-agro-green/10 rounded-full blur-3xl"></div>
         
-        <div className="relative z-10 flex flex-col items-center justify-center h-[75vh] px-6">
+        <div className="relative z-10 flex flex-col items-center justify-center h-[75vh] px-6 max-w-lg mx-auto">
           
           {/* Main NFC Scanner Visual */}
           <div className="relative mb-12" onClick={viewState === 'scanning' ? startScan : undefined}>

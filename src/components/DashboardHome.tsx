@@ -279,10 +279,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   }, [tasks, agendaModalDate]);
 
   return (
-    <div className="space-y-8 animate-fade-in pt-6 pb-24">
+    <div className="space-y-8 md:space-y-0 md:grid md:grid-cols-12 md:gap-6 animate-fade-in pt-6 pb-24">
       
       {/* 1. Header Fixo & Glass (Com Animação de Entrada) */}
-      <div className="flex justify-between items-center px-2 animate-slide-down">
+      <div className="md:col-span-12 flex justify-between items-center px-2 animate-slide-down">
         <div>
           <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">
             Olá, {userName.split(' ')[0]}
@@ -318,27 +318,27 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 2. Weather Hero Card (Modern Mesh Gradient) */}
+      {/* 2. Weather Hero Card (Modern Mesh Gradient - Mobile Optimized) */}
+      {/* UPDATE: md:col-span-12 to force full width and stack below items */}
       <div 
         onClick={() => setIsWeatherModalOpen(true)}
-        className={`relative overflow-hidden rounded-[2.5rem] p-6 shadow-2xl active:scale-[0.98] transition-transform cursor-pointer animate-slide-up delay-100 ${
+        className={`md:col-span-12 relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-2xl active:scale-[0.98] transition-transform cursor-pointer animate-slide-up delay-100 ${
           isRaining 
-            ? 'bg-slate-900 shadow-slate-900/40' 
-            : 'bg-[#0f2612] shadow-agro-green/40'
+            ? 'bg-slate-100 dark:bg-slate-900 shadow-slate-200 dark:shadow-slate-900/40' 
+            : 'bg-gradient-to-br from-[#ecfccb] to-[#dcfce7] dark:bg-[#0f2612] dark:from-transparent dark:to-transparent shadow-agro-green/10 dark:shadow-agro-green/40'
         }`}
       >
          {/* --- Aurora / Mesh Background Effect --- */}
          <div className="absolute inset-0 z-0">
             {isRaining ? (
               <>
-                <div className="absolute top-[-50%] right-[-20%] w-[80%] h-[120%] bg-indigo-900/40 rounded-full blur-[80px] animate-pulse-slow"></div>
-                <div className="absolute bottom-[-30%] left-[-20%] w-[80%] h-[80%] bg-slate-700/30 rounded-full blur-[60px]"></div>
+                <div className="absolute top-[-50%] right-[-20%] w-[80%] h-[120%] bg-indigo-900/10 dark:bg-indigo-900/40 rounded-full blur-[80px] animate-pulse-slow"></div>
+                <div className="absolute bottom-[-30%] left-[-20%] w-[80%] h-[80%] bg-slate-400/20 dark:bg-slate-700/30 rounded-full blur-[60px]"></div>
               </>
             ) : (
               <>
-                <div className="absolute top-[-50%] right-[-20%] w-[90%] h-[120%] bg-green-800/60 rounded-full blur-[80px] animate-pulse-slow"></div>
-                <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[80%] bg-emerald-600/30 rounded-full blur-[60px]"></div>
-                <div className="absolute top-[20%] left-[30%] w-[40%] h-[40%] bg-lime-500/10 rounded-full blur-[40px]"></div>
+                <div className="absolute top-[-50%] right-[-20%] w-[90%] h-[120%] bg-green-200/40 dark:bg-green-800/60 rounded-full blur-[80px] animate-pulse-slow"></div>
+                <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[80%] bg-emerald-200/30 dark:bg-emerald-600/30 rounded-full blur-[60px]"></div>
               </>
             )}
          </div>
@@ -346,37 +346,39 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          {/* Icon Decoration */}
          <div className="absolute inset-0 z-0 opacity-10 mix-blend-overlay pointer-events-none">
             {isRaining ? (
-               <CloudRain className="absolute -right-8 -bottom-8 w-56 h-56 rotate-12 text-white" />
+               <CloudRain className="absolute -right-8 -bottom-8 w-56 h-56 rotate-12 text-slate-400 dark:text-white" />
             ) : (
-               <Sun className="absolute -right-12 -top-12 w-64 h-64 text-yellow-300 animate-spin-slow" />
+               <Sun className="absolute -right-12 -top-12 w-64 h-64 text-yellow-400 dark:text-yellow-300 animate-spin-slow opacity-20 dark:opacity-100" />
             )}
          </div>
 
          {/* Content */}
-         <div className="relative z-10 text-white">
+         <div className="relative z-10 text-gray-900 dark:text-white h-full flex flex-col justify-between">
             <div className="flex justify-between items-start">
                <div>
-                  <div className="flex items-center gap-1.5 opacity-80 mb-2">
-                    <MapPin size={12} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Laundos, PT</span>
+                  <div className="flex items-center gap-1.5 opacity-80 mb-1 md:mb-2">
+                    <MapPin size={10} className="md:w-3 md:h-3" />
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest">Laundos, PT</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                     <span className="text-7xl font-black tracking-tighter drop-shadow-sm">{currentWeather.temp}°</span>
-                     <div className="flex flex-col">
-                       {getWeatherIcon(currentWeather.condition, 32, "drop-shadow-md")}
-                       <span className="text-sm font-bold mt-1 opacity-90 tracking-wide">{getWeatherLabel(currentWeather.condition)}</span>
+                  <div className="flex items-center gap-2 md:gap-3">
+                     <span className="text-5xl md:text-7xl font-black tracking-tighter drop-shadow-sm">{currentWeather.temp}°</span>
+                     <div className="flex flex-col text-gray-800 dark:text-white">
+                        <div className="w-6 h-6 md:w-8 md:h-8">
+                           {getWeatherIcon(currentWeather.condition, 24, "drop-shadow-md w-full h-full")} 
+                        </div>
+                       <span className="text-xs md:text-sm font-bold mt-0.5 md:mt-1 opacity-90 tracking-wide leading-tight">{getWeatherLabel(currentWeather.condition)}</span>
                      </div>
                   </div>
                </div>
                
-               <div className="flex flex-col gap-2 mt-2">
-                  <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-sm">
-                    <Wind size={14} className="opacity-90" />
-                    <span className="text-xs font-bold">{currentWeather.windSpeed} km/h</span>
+               <div className="flex flex-col gap-1.5 md:gap-2 mt-1 md:mt-2">
+                  <div className="bg-white/60 dark:bg-white/10 backdrop-blur-md px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl md:rounded-2xl flex items-center gap-1.5 md:gap-2 border border-white/40 dark:border-white/10 shadow-sm text-gray-700 dark:text-white">
+                    <Wind size={12} className="opacity-90 md:w-3.5 md:h-3.5" />
+                    <span className="text-[10px] md:text-xs font-bold">{currentWeather.windSpeed} km/h</span>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-md px-3 py-2 rounded-2xl flex items-center gap-2 border border-white/10 shadow-sm">
-                    <Droplets size={14} className="opacity-90" />
-                    <span className="text-xs font-bold">{currentWeather.humidity}%</span>
+                  <div className="bg-white/60 dark:bg-white/10 backdrop-blur-md px-2.5 py-1.5 md:px-3 md:py-2 rounded-xl md:rounded-2xl flex items-center gap-1.5 md:gap-2 border border-white/40 dark:border-white/10 shadow-sm text-gray-700 dark:text-white">
+                    <Droplets size={12} className="opacity-90 md:w-3.5 md:h-3.5" />
+                    <span className="text-[10px] md:text-xs font-bold">{currentWeather.humidity}%</span>
                   </div>
                </div>
             </div>
@@ -384,7 +386,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       </div>
 
       {/* 4. Agenda Horizontal (Updated Design & Animation Logic) */}
-      <div className="animate-slide-up delay-200">
+      {/* UPDATE: md:col-span-12 to force full width and stack below weather */}
+      <div className="md:col-span-12 animate-slide-up delay-200">
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 px-2">Oriva-Agenda</h3>
         <div className="flex gap-3 overflow-x-auto px-1 pb-4 scrollbar-hide snap-x">
            {calendarDays.map((day, idx) => {
@@ -427,7 +430,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
       {/* 6. Máquinas Rápidas (Horizontal Scroll) */}
       {machines.length > 0 && (
-        <div className="animate-slide-up delay-300">
+        <div className="md:col-span-12 animate-slide-up delay-300">
            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-2">Acesso Rápido</h3>
            <div className="flex gap-3 overflow-x-auto pb-4 px-1 scrollbar-hide">
               {machines.slice(0, 4).map(machine => (

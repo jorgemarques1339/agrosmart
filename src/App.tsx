@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, Sprout, PawPrint, Package, 
@@ -452,7 +453,7 @@ const CultivationView = ({
 
   return (
     <div className="space-y-6 animate-fade-in pt-4">
-      <div className="flex justify-between items-start px-2 mb-4">
+      <div className="flex justify-between items-start px-2 mb-4 md:mb-6">
         
         {/* Lado Esquerdo: Registo e e-Guias */}
         <div className="flex gap-3">
@@ -504,7 +505,7 @@ const CultivationView = ({
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 items-start">
         {fields.map(field => (
           <FieldCard 
             key={field.id}
@@ -1166,7 +1167,7 @@ const App = () => {
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black overflow-hidden transition-colors duration-300">
       
       {/* Scrollable Content Area */}
-      <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md mx-auto relative px-4 pb-28 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
+      <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md md:max-w-5xl mx-auto relative px-4 md:px-8 pb-28 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (
           <DashboardHome 
             userName={userName}
@@ -1244,7 +1245,7 @@ const App = () => {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${
+      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${
          shouldHideNav ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
       }`}>
          {[

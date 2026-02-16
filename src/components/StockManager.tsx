@@ -213,8 +213,8 @@ const StockManager: React.FC<StockManagerProps> = ({
         </div>
       </div>
 
-      {/* Lista de Stocks Compacta */}
-      <div className="space-y-2 px-1">
+      {/* Lista de Stocks Compacta - GRID RESPONSIVA */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 px-1">
         {stocks.map(item => {
           const isLowStock = item.quantity <= item.minStock;
           const progressPercent = Math.min((item.quantity / (item.minStock * 3)) * 100, 100);
