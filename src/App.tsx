@@ -5,7 +5,7 @@ import {
   Tractor, Wallet, Settings, Bell, X,
   FileText, Wifi, Plus, Save,
   Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown,
-  Truck, FileCheck // Added for e-Guias
+  Truck, FileCheck, WifiOff, CloudOff // Added offline icons
 } from 'lucide-react';
 import mqtt from 'mqtt';
 import jsPDF from 'jspdf'; 
@@ -45,6 +45,12 @@ const IoTPairingWizard = ({ onClose, fields, onPair }: { onClose: () => void, fi
 
   // --- MQTT SCANNING LOGIC ---
   const startScanning = () => {
+    // OFFLINE CHECK
+    if (!navigator.onLine) {
+      alert("A pesquisa de sensores requer conexão à internet. Verifique o seu sinal.");
+      return;
+    }
+
     setScanStatus('scanning');
     setFoundDevices([]);
     
@@ -789,79 +795,111 @@ const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSolarMode, setIsSolarMode] = useState(false);
 
-  // ... (Weather fetching logic maintained) ...
+  // --- ONLINE/OFFLINE EVENT LISTENERS ---
   useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
-        const current = await currentRes.json();
-
-        const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
-        const forecast = await forecastRes.json();
-
-        const sprayData: DetailedForecast[] = forecast.list.slice(0, 8).map((item: any) => ({
-          dt: item.dt,
-          temp: Math.round(item.main.temp),
-          windSpeed: Math.round(item.wind.speed * 3.6),
-          humidity: item.main.humidity,
-          rainProb: Math.round(item.pop * 100)
-        }));
-        setDetailedForecast(sprayData);
-
-        const mapCondition = (id: number): 'sunny' | 'cloudy' | 'rain' | 'storm' => {
-          if (id >= 200 && id < 300) return 'storm';
-          if (id >= 300 && id < 600) return 'rain';
-          if (id >= 801) return 'cloudy';
-          return 'sunny'; 
-        };
-
-        const dailyData: WeatherForecast[] = [];
-
-        dailyData.push({
-          day: 'Hoje',
-          temp: Math.round(current.main.temp),
-          condition: mapCondition(current.weather[0].id),
-          description: current.weather[0].description,
-          windSpeed: Math.round(current.wind.speed * 3.6),
-          humidity: current.main.humidity
-        });
-
-        const processedDays = new Set<string>();
-        const todayDate = new Date().getDate();
-
-        forecast.list.forEach((item: any) => {
-          const date = new Date(item.dt * 1000);
-          const dateNum = date.getDate();
-          const dayName = date.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '');
-          const hour = date.getHours();
-
-          if (dateNum !== todayDate && !processedDays.has(dayName)) {
-             if (hour >= 11 && hour <= 15) {
-                dailyData.push({
-                  day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
-                  temp: Math.round(item.main.temp),
-                  condition: mapCondition(item.weather[0].id),
-                  description: item.weather[0].description,
-                  windSpeed: Math.round(item.wind.speed * 3.6),
-                  humidity: item.main.humidity
-                });
-                processedDays.add(dayName);
-             }
-          }
-        });
-
-        setWeatherData(dailyData.slice(0, 5));
-        setIsOnline(true);
-
-      } catch (error) {
-        console.error("Erro ao obter meteorologia:", error);
-        setIsOnline(false); 
-      }
-    };
-
-    if (navigator.onLine) {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setShowOnlineSuccess(true);
+      setTimeout(() => setShowOnlineSuccess(false), 3000);
+      // Try to re-fetch weather when online
       fetchWeather();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const fetchWeather = async () => {
+    // Only attempt fetch if online
+    if (!navigator.onLine) {
+      // Try to load cached weather from localStorage
+      const cachedWeather = localStorage.getItem('oriva_cached_weather');
+      const cachedHourly = localStorage.getItem('oriva_cached_hourly');
+      if (cachedWeather) setWeatherData(JSON.parse(cachedWeather));
+      if (cachedHourly) setDetailedForecast(JSON.parse(cachedHourly));
+      return;
     }
+
+    try {
+      const currentRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
+      const current = await currentRes.json();
+
+      const forecastRes = await fetch(`https://api.openweathermap.org/data/2.5/forecast?lat=${LAT}&lon=${LON}&units=metric&lang=pt&appid=${WEATHER_API_KEY}`);
+      const forecast = await forecastRes.json();
+
+      const sprayData: DetailedForecast[] = forecast.list.slice(0, 8).map((item: any) => ({
+        dt: item.dt,
+        temp: Math.round(item.main.temp),
+        windSpeed: Math.round(item.wind.speed * 3.6),
+        humidity: item.main.humidity,
+        rainProb: Math.round(item.pop * 100)
+      }));
+      setDetailedForecast(sprayData);
+      localStorage.setItem('oriva_cached_hourly', JSON.stringify(sprayData));
+
+      const mapCondition = (id: number): 'sunny' | 'cloudy' | 'rain' | 'storm' => {
+        if (id >= 200 && id < 300) return 'storm';
+        if (id >= 300 && id < 600) return 'rain';
+        if (id >= 801) return 'cloudy';
+        return 'sunny'; 
+      };
+
+      const dailyData: WeatherForecast[] = [];
+
+      dailyData.push({
+        day: 'Hoje',
+        temp: Math.round(current.main.temp),
+        condition: mapCondition(current.weather[0].id),
+        description: current.weather[0].description,
+        windSpeed: Math.round(current.wind.speed * 3.6),
+        humidity: current.main.humidity
+      });
+
+      const processedDays = new Set<string>();
+      const todayDate = new Date().getDate();
+
+      forecast.list.forEach((item: any) => {
+        const date = new Date(item.dt * 1000);
+        const dateNum = date.getDate();
+        const dayName = date.toLocaleDateString('pt-PT', { weekday: 'short' }).replace('.', '');
+        const hour = date.getHours();
+
+        if (dateNum !== todayDate && !processedDays.has(dayName)) {
+            if (hour >= 11 && hour <= 15) {
+              dailyData.push({
+                day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+                temp: Math.round(item.main.temp),
+                condition: mapCondition(item.weather[0].id),
+                description: item.weather[0].description,
+                windSpeed: Math.round(item.wind.speed * 3.6),
+                humidity: item.main.humidity
+              });
+              processedDays.add(dayName);
+            }
+        }
+      });
+
+      setWeatherData(dailyData.slice(0, 5));
+      localStorage.setItem('oriva_cached_weather', JSON.stringify(dailyData.slice(0, 5)));
+      setIsOnline(true);
+
+    } catch (error) {
+      console.error("Erro ao obter meteorologia:", error);
+      // Fallback to cache if request fails despite being "online"
+      const cachedWeather = localStorage.getItem('oriva_cached_weather');
+      if (cachedWeather) setWeatherData(JSON.parse(cachedWeather));
+    }
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    fetchWeather();
   }, []);
 
   useEffect(() => {
@@ -1166,6 +1204,20 @@ const App = () => {
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black overflow-hidden transition-colors duration-300">
       
+      {/* OFFLINE INDICATOR BANNER */}
+      {!isOnline && (
+        <div className="absolute top-0 left-0 right-0 z-[100] bg-orange-500 text-white text-[10px] font-bold text-center py-1 uppercase tracking-widest flex items-center justify-center gap-2 animate-slide-down shadow-md">
+           <WifiOff size={12} /> Modo Offline • Dados Guardados no Dispositivo
+        </div>
+      )}
+      
+      {/* ONLINE RESTORED BANNER */}
+      {showOnlineSuccess && (
+        <div className="absolute top-0 left-0 right-0 z-[100] bg-green-500 text-white text-[10px] font-bold text-center py-1 uppercase tracking-widest flex items-center justify-center gap-2 animate-slide-down shadow-md">
+           <Wifi size={12} /> Conexão Restaurada • Sincronizado
+        </div>
+      )}
+
       {/* Scrollable Content Area */}
       <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md md:max-w-5xl mx-auto relative px-4 md:px-8 pb-28 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (

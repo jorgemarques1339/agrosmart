@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Heart, ShieldCheck, Activity, TrendingUp, History, 
   Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight,
-  Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar, Dna
+  Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar, Dna,
+  Wifi, Radio, ChevronRight
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { Animal } from '../types';
@@ -682,79 +683,103 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
     );
   }
 
-  // 3. MODO SCANNING (Default)
+  // 3. MODO SCANNING (Modern Redesign)
   return (
-    <div className="h-full flex flex-col relative overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-[#0A0A0A] dark:to-[#111] animate-fade-in">
+    <div className="h-full flex flex-col relative overflow-hidden bg-[#FDFDF5] dark:bg-black animate-fade-in">
         
-        {/* Background Elements */}
-        <div className="absolute top-0 left-0 right-0 h-1/2 bg-agro-green/5 rounded-b-[4rem] z-0"></div>
-        <div className="absolute -top-20 -left-20 w-64 h-64 bg-agro-green/10 rounded-full blur-3xl"></div>
+        {/* Background Ambient Effect - Optimized for mobile performance */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+           <div className="absolute top-[-10%] left-[-10%] w-[80%] h-[50%] bg-green-400/10 rounded-full blur-[100px] animate-pulse-slow"></div>
+           <div className="absolute bottom-[-10%] right-[-10%] w-[80%] h-[50%] bg-blue-400/10 rounded-full blur-[100px] animate-pulse-slow delay-1000"></div>
+           {/* Subtle Grid Pattern */}
+           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+        </div>
         
-        <div className="relative z-10 flex flex-col items-center justify-center h-[75vh] px-6 max-w-lg mx-auto">
+        <div className="relative z-10 flex flex-col items-center justify-between h-full pt-12 pb-8 px-6 max-w-md mx-auto w-full md:max-w-2xl md:justify-center md:gap-12">
           
-          {/* Main NFC Scanner Visual */}
-          <div className="relative mb-12" onClick={viewState === 'scanning' ? startScan : undefined}>
+          {/* Header Text */}
+          <div className="text-center space-y-2 animate-slide-down">
+             <div className="inline-flex items-center justify-center p-3 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl mb-4 shadow-sm border border-white/40 dark:border-white/10">
+                <Smartphone size={24} className="text-gray-900 dark:text-white" />
+             </div>
+             <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">
+               Identificação
+             </h2>
+             <p className="text-sm md:text-base font-medium text-gray-500 dark:text-gray-400 max-w-[260px] mx-auto leading-relaxed">
+                Aproxime o telemóvel da etiqueta eletrónica ou auricular.
+             </p>
+          </div>
+
+          {/* Main Interactive Scanner Area */}
+          <div className="relative flex-1 flex items-center justify-center w-full" onClick={viewState === 'scanning' ? startScan : undefined}>
              
-             {/* Pulsing Rings (Only in Scanning) */}
-             {viewState === 'scanning' && (
-               <>
-                 <div className="absolute inset-0 bg-agro-green/20 rounded-full animate-ping opacity-75"></div>
-                 <div className="absolute -inset-4 bg-agro-green/10 rounded-full animate-pulse opacity-50 delay-100"></div>
-                 <div className="absolute -inset-8 bg-agro-green/5 rounded-full animate-pulse-slow opacity-30 delay-200"></div>
-               </>
-             )}
-
-             {/* The "Ear Tag" Metaphor Card */}
-             <div className={`relative w-48 h-48 bg-gradient-to-br from-[#ffffff] to-[#f0fdf4] dark:from-[#262626] dark:to-[#1a1a1a] rounded-[2.5rem] shadow-2xl border border-white/50 dark:border-neutral-700 flex flex-col items-center justify-center transition-all duration-500 cursor-pointer ${
-               viewState === 'loading' ? 'scale-95 shadow-inner border-agro-green' : 'hover:scale-105 hover:shadow-agro-green/20'
-             }`}>
-                
-                {/* Hole of the Tag */}
-                <div className="absolute top-4 w-4 h-4 bg-gray-200 dark:bg-neutral-800 rounded-full shadow-inner border border-black/5"></div>
-
-                {viewState === 'loading' ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <Loader2 size={48} className="text-agro-green animate-spin" />
-                    <span className="text-xs font-bold text-agro-green animate-pulse">Lendo Tag...</span>
-                  </div>
-                ) : (
-                  <>
-                    <Signal size={48} className="text-agro-green mb-2 opacity-80" />
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest mt-1">Oriva NFC</span>
-                  </>
-                )}
+             {/* Expanding Rings (Sonar) */}
+             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                {/* Ring 1 */}
+                <div className={`absolute border-2 border-agro-green/20 rounded-full transition-all duration-[2000ms] ease-out ${viewState === 'loading' ? 'w-[120%] h-[120%] opacity-0' : 'w-64 h-64 opacity-20 scale-90'}`}></div>
+                {/* Ring 2 */}
+                <div className={`absolute border border-agro-green/30 rounded-full transition-all duration-[2000ms] delay-150 ease-out ${viewState === 'loading' ? 'w-[100%] h-[100%] opacity-0' : 'w-52 h-52 opacity-30 scale-90'}`}></div>
+                {/* Ring 3 */}
+                <div className={`absolute border border-agro-green/10 rounded-full transition-all duration-[2000ms] delay-300 ease-out ${viewState === 'loading' ? 'w-[80%] h-[80%] opacity-0' : 'w-80 h-80 opacity-10 scale-90'}`}></div>
              </div>
 
-             {/* Smartphone Icon Overlay (Hint) */}
-             {viewState === 'scanning' && (
-                <div className="absolute -bottom-4 -right-4 bg-white dark:bg-neutral-800 p-3 rounded-2xl shadow-lg border border-gray-100 dark:border-neutral-700 animate-bounce">
-                   <Smartphone size={24} className="text-gray-600 dark:text-gray-300" />
+             {/* Central Button */}
+             <div className={`relative w-48 h-48 md:w-56 md:h-56 rounded-full flex flex-col items-center justify-center transition-all duration-500 cursor-pointer group active:scale-95 z-20 ${
+               viewState === 'loading' 
+                 ? 'bg-agro-green shadow-[0_0_80px_rgba(74,222,128,0.5)] scale-105' 
+                 : 'bg-gradient-to-b from-white to-gray-50 dark:from-neutral-800 dark:to-neutral-900 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-white/60 dark:border-white/5'
+             }`}>
+                
+                {/* Inner Glow/Gradient Border */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/80 to-transparent opacity-50 pointer-events-none"></div>
+
+                <div className={`transition-all duration-500 flex flex-col items-center gap-4 ${viewState === 'loading' ? 'text-white scale-110' : 'text-gray-400 dark:text-gray-500 group-hover:text-agro-green'}`}>
+                   {viewState === 'loading' ? (
+                     <>
+                        <Loader2 size={56} className="animate-spin" />
+                        <span className="text-xs font-bold uppercase tracking-widest animate-pulse">Lendo Tag...</span>
+                     </>
+                   ) : (
+                     <>
+                        <div className="relative">
+                           <Wifi size={64} strokeWidth={1.5} className="opacity-80" />
+                           <div className="absolute -top-1 -right-1 w-3 h-3 bg-agro-green rounded-full animate-ping"></div>
+                           <div className="absolute -top-1 -right-1 w-3 h-3 bg-agro-green rounded-full border-2 border-white dark:border-neutral-900"></div>
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-60 group-hover:opacity-100 transition-opacity">Tocar para Ler</span>
+                     </>
+                   )}
                 </div>
-             )}
+             </div>
           </div>
 
-          {/* Text Instructions */}
-          <div className="text-center space-y-3 max-w-xs mx-auto">
-            <h2 className="text-3xl font-black text-gray-900 dark:text-white leading-tight">
-              {viewState === 'loading' ? 'A Sincronizar...' : 'Identificação'}
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm font-medium leading-relaxed">
-              {viewState === 'loading' 
-                ? 'A obter dados biométricos e histórico produtivo da cloud.' 
-                : 'Aproxime o seu telemóvel do brinco eletrónico do animal para ler.'}
-            </p>
-          </div>
+          {/* Footer Actions */}
+          <div className="w-full space-y-4 animate-slide-up delay-200">
+            
+            {/* Divider with Text */}
+            <div className="flex items-center gap-4 opacity-30">
+               <div className="h-px flex-1 bg-gray-400"></div>
+               <span className="text-[10px] font-bold uppercase text-gray-500">Ou</span>
+               <div className="h-px flex-1 bg-gray-400"></div>
+            </div>
 
-          {/* Add Tag Button (Primary Action) */}
-          {viewState === 'scanning' && (
+            {/* Manual Entry Button */}
             <button 
               onClick={() => setViewState('add_tag')}
-              className="mt-10 py-3 px-6 rounded-xl bg-agro-green text-white border border-transparent font-bold uppercase tracking-wider shadow-lg shadow-agro-green/20 active:scale-95 transition-all flex items-center gap-2"
+              className="w-full py-4 bg-white dark:bg-neutral-800 rounded-3xl border border-gray-100 dark:border-neutral-700 shadow-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-all group hover:border-agro-green/30"
             >
-              <Plus size={18} />
-              Adicionar Nova Tag
+              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-700 flex items-center justify-center text-gray-500 group-hover:bg-agro-green group-hover:text-white transition-colors">
+                 <Plus size={16} strokeWidth={3} />
+              </div>
+              <div className="text-left">
+                 <p className="text-sm font-bold text-gray-900 dark:text-white">Adicionar Nova Tag</p>
+                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Sem NFC? Digite o código</p>
+              </div>
+              <div className="ml-auto pr-4 text-gray-300 group-hover:text-agro-green transition-colors">
+                 <ArrowDownRight size={20} />
+              </div>
             </button>
-          )}
+          </div>
 
         </div>
     </div>

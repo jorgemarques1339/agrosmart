@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Tractor, Wrench, Fuel, Calendar, Clock, AlertTriangle, 
   CheckCircle2, Plus, X, Gauge, Truck, Activity, Droplets, Save,
-  MoreHorizontal, ChevronRight, GaugeCircle, Filter
+  MoreHorizontal, ChevronRight, GaugeCircle, Filter, FileText, History,
+  ArrowRight
 } from 'lucide-react';
 import { Machine, MaintenanceLog, StockItem } from '../types';
 
@@ -24,10 +25,14 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   onAddMachine,
   onModalChange 
 }) => {
+  // State for Input Modals (Action Sheets)
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [modalType, setModalType] = useState<'hours' | 'maintenance' | null>(null);
+  
+  // State for Detail View (The "Weather Widget" style modal)
+  const [detailMachine, setDetailMachine] = useState<Machine | null>(null);
+  
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  // Filter state kept for logic, but UI removed as requested
   const [filterType, setFilterType] = useState<'all' | 'tractor' | 'vehicle'>('all');
 
   // New Machine Form State
@@ -60,11 +65,11 @@ const MachineManager: React.FC<MachineManagerProps> = ({
 
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(!!selectedMachine || isAddModalOpen);
+      onModalChange(!!selectedMachine || isAddModalOpen || !!detailMachine);
     }
-  }, [selectedMachine, isAddModalOpen, onModalChange]);
+  }, [selectedMachine, isAddModalOpen, detailMachine, onModalChange]);
 
-  const openModal = (machine: Machine, type: 'hours' | 'maintenance') => {
+  const openActionModal = (machine: Machine, type: 'hours' | 'maintenance') => {
     setSelectedMachine(machine);
     setModalType(type);
     setNewHours(machine.engineHours.toString());
@@ -74,16 +79,15 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     setLogLiters('');
   };
 
-  const closeModal = () => {
+  const closeActionModal = () => {
     setSelectedMachine(null);
     setModalType(null);
-    setIsAddModalOpen(false);
   };
 
   const handleUpdateHours = () => {
     if (selectedMachine && newHours) {
       onUpdateHours(selectedMachine.id, parseFloat(newHours));
-      closeModal();
+      closeActionModal();
     }
   };
 
@@ -105,7 +109,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
         engineHoursAtLog: selectedMachine.engineHours,
         quantity: logType === 'fuel' ? liters : undefined
       });
-      closeModal();
+      closeActionModal();
     }
   };
 
@@ -124,7 +128,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
          plate: '',
          nextInspectionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       });
-      closeModal();
+      setIsAddModalOpen(false);
     }
   };
 
@@ -167,7 +171,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
 
   // --- RENDER MODAL ADD MACHINE ---
   const renderAddMachineModal = () => (
-    <div className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-4" onClick={closeModal}>
+    <div className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-4" onClick={() => setIsAddModalOpen(false)}>
       <div 
         className="bg-white dark:bg-neutral-900 w-full md:max-w-2xl h-[92vh] md:h-auto md:max-h-[85vh] p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 overflow-y-auto custom-scrollbar" 
         onClick={e => e.stopPropagation()}
@@ -177,7 +181,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
              <h3 className="text-2xl font-black dark:text-white leading-none">Nova Máquina</h3>
              <p className="text-xs font-bold text-gray-400 uppercase mt-1">Registo de Equipamento</p>
           </div>
-          <button onClick={closeModal} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
+          <button onClick={() => setIsAddModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
             <X size={24} className="dark:text-white" />
           </button>
         </div>
@@ -368,7 +372,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
           </div>
         </div>
 
-        {/* Compact Fleet Status - Optimized for Mobile */}
+        {/* Compact Fleet Status */}
         <div className={`rounded-2xl p-4 text-white shadow-lg relative overflow-hidden flex items-center justify-between mb-4 ${
            metrics.maintenanceDue > 0 
              ? 'bg-gradient-to-r from-orange-500 to-red-600 shadow-orange-500/20' 
@@ -389,8 +393,8 @@ const MachineManager: React.FC<MachineManagerProps> = ({
         </div>
       </div>
 
-      {/* 2. Machine Cards List - Grid Responsive */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 px-1">
+      {/* 2. Compact Machine Cards List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 px-1">
         {filteredMachines.map(machine => {
           const health = calculateHealth(machine);
           const needsService = health.isOverdue || health.isApproaching;
@@ -398,110 +402,179 @@ const MachineManager: React.FC<MachineManagerProps> = ({
           return (
             <div 
               key={machine.id}
-              className="bg-white dark:bg-neutral-900 rounded-[2rem] shadow-sm border border-gray-100 dark:border-neutral-800 overflow-hidden relative group active:scale-[0.99] transition-transform duration-300"
+              onClick={() => setDetailMachine(machine)}
+              className="bg-white dark:bg-neutral-900 rounded-[2rem] shadow-sm border border-gray-100 dark:border-neutral-800 p-4 active:scale-[0.99] transition-transform duration-300 cursor-pointer relative"
             >
-              {/* Status Banner Strip (if urgent) */}
-              {(health.isOverdue || health.isInspectionDue) && (
-                <div className="bg-red-500 text-white text-[9px] font-bold text-center py-1 uppercase tracking-widest animate-pulse">
-                   Ação Necessária
-                </div>
-              )}
+              {/* Status Dot (Top Right) */}
+              <div className={`absolute top-4 right-4 w-3 h-3 rounded-full ${needsService ? 'bg-red-500 animate-pulse' : 'bg-green-500'}`}></div>
 
-              <div className="p-4">
-                {/* Header Row - Compact */}
-                <div className="flex items-start gap-3 mb-4">
-                   {/* Icon Box - Smaller */}
-                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-md shrink-0 ${
-                      needsService ? 'bg-orange-500 shadow-orange-500/30' : 'bg-gray-800 dark:bg-neutral-700 shadow-gray-500/20'
-                   }`}>
-                      {getMachineIcon(machine.type)}
-                   </div>
+              <div className="flex items-center gap-3 mb-3">
+                 <div className="w-12 h-12 bg-gray-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center text-gray-500 dark:text-gray-400">
+                    {getMachineIcon(machine.type)}
+                 </div>
+                 <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-black text-gray-900 dark:text-white leading-tight truncate">{machine.name}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                       <span className="text-[10px] font-bold text-gray-500 bg-gray-50 dark:bg-neutral-800 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                         {machine.plate}
+                       </span>
+                    </div>
+                 </div>
+              </div>
 
-                   {/* Info - Tighter Layout */}
-                   <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                         <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight truncate">{machine.name}</h3>
-                         {/* Status Pill - Compact */}
-                         <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
-                            machine.status === 'active' 
-                              ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400' 
-                              : 'bg-gray-100 border-gray-200 text-gray-500'
-                         }`}>
-                            {machine.status === 'active' ? 'Ativo' : 'Parado'}
-                         </span>
-                      </div>
-                      <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">{machine.brand} {machine.model}</p>
-                      
-                      <div className="flex items-center gap-2 mt-1.5">
-                         <span className="bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-neutral-700">
-                           {machine.plate}
-                         </span>
-                         {health.isInspectionDue && (
-                           <span className="flex items-center gap-1 text-[9px] font-bold text-orange-600 dark:text-orange-400">
-                              <AlertTriangle size={10} /> Insp. {health.daysUntilInspection}d
-                           </span>
-                         )}
-                      </div>
-                   </div>
-                </div>
+              {/* Stats Row */}
+              <div className="flex justify-between items-center mb-4">
+                 <div className="flex flex-col">
+                    <span className="text-[9px] font-bold text-gray-400 uppercase">Próxima Revisão</span>
+                    <span className={`text-xs font-bold ${needsService ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
+                       {health.hoursRemaining > 0 ? `${health.hoursRemaining}h Restantes` : `${Math.abs(health.hoursRemaining)}h Atraso`}
+                    </span>
+                 </div>
+              </div>
 
-                {/* Service Health Bar - Slimmer */}
-                <div className="mb-4">
-                   <div className="flex justify-between items-end mb-1">
-                      <div className="flex flex-col">
-                         <span className="text-[9px] font-bold uppercase text-gray-400">Próxima Revisão</span>
-                         <span className={`text-xs font-bold ${needsService ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
-                            {health.hoursRemaining > 0 ? `${health.hoursRemaining}h Restantes` : `${Math.abs(health.hoursRemaining)}h Atraso`}
-                         </span>
-                      </div>
-                      <div className="text-right">
-                         <span className="text-[9px] text-gray-400">Total</span>
-                         <p className="text-xs font-black text-gray-900 dark:text-white">{machine.engineHours.toLocaleString()}h</p>
-                      </div>
-                   </div>
-                   
-                   {/* Custom Progress Bar */}
-                   <div className="h-2 w-full bg-gray-100 dark:bg-neutral-800 rounded-full overflow-hidden border border-gray-200 dark:border-neutral-700 relative">
-                      {/* Ticks */}
-                      <div className="absolute top-0 bottom-0 left-1/4 w-px bg-white/50 z-10"></div>
-                      <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/50 z-10"></div>
-                      <div className="absolute top-0 bottom-0 left-3/4 w-px bg-white/50 z-10"></div>
-                      
-                      <div 
-                         className={`h-full rounded-full transition-all duration-700 ease-out ${
-                            health.isOverdue ? 'bg-red-500' : 
-                            health.isApproaching ? 'bg-orange-500' : 
-                            'bg-gradient-to-r from-agro-green to-emerald-400'
-                         }`}
-                         style={{ width: `${health.progress}%` }}
-                      ></div>
-                   </div>
-                </div>
-
-                {/* Actions Grid - Smaller Buttons */}
-                <div className="grid grid-cols-2 gap-2">
-                   <button 
-                     onClick={() => openModal(machine, 'hours')}
-                     className="py-2.5 bg-gray-50 dark:bg-neutral-800 rounded-xl border border-gray-100 dark:border-neutral-700 flex items-center justify-center gap-1.5 text-xs font-bold text-gray-600 dark:text-gray-300 active:bg-gray-200 dark:active:bg-neutral-700 transition-colors"
-                   >
-                      <Clock size={14} /> Horas
-                   </button>
-                   <button 
-                     onClick={() => openModal(machine, 'maintenance')}
-                     className="py-2.5 bg-gray-900 dark:bg-white rounded-xl text-white dark:text-black flex items-center justify-center gap-1.5 text-xs font-bold active:scale-95 transition-transform shadow-md"
-                   >
-                      <Fuel size={14} /> Abastecer
-                   </button>
-                </div>
+              {/* Compact Buttons */}
+              <div className="flex gap-2">
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); openActionModal(machine, 'hours'); }}
+                   className="flex-1 py-2 bg-gray-100 dark:bg-neutral-800 rounded-xl text-[10px] font-bold text-gray-600 dark:text-gray-300 flex items-center justify-center gap-1 active:bg-gray-200 dark:active:bg-neutral-700"
+                 >
+                    <Clock size={12} /> Horas
+                 </button>
+                 <button 
+                   onClick={(e) => { e.stopPropagation(); openActionModal(machine, 'maintenance'); }}
+                   className="flex-1 py-2 bg-gray-900 dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-bold flex items-center justify-center gap-1 active:scale-95 shadow-sm"
+                 >
+                    <Fuel size={12} /> Abastecer
+                 </button>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Modal Logic (Action Sheets) */}
+      {/* --- DETAIL MACHINE MODAL (The "Weather Style" Full View) --- */}
+      {detailMachine && (
+        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setDetailMachine(null)}>
+           <div 
+             className="bg-white dark:bg-neutral-900 w-full max-w-sm h-[85vh] rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 flex flex-col overflow-hidden relative" 
+             onClick={e => e.stopPropagation()}
+           >
+              {/* Header com Gradiente */}
+              <div className={`px-6 pt-8 pb-6 bg-gradient-to-br ${
+                 calculateHealth(detailMachine).isOverdue 
+                   ? 'from-red-500 to-red-700' 
+                   : 'from-gray-800 to-black'
+              } text-white relative shrink-0`}>
+                 
+                 <button 
+                   onClick={() => setDetailMachine(null)}
+                   className="absolute top-6 right-6 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-colors"
+                 >
+                   <X size={20} />
+                 </button>
+
+                 <div className="flex items-center gap-4 mb-4">
+                    <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center shadow-inner text-white">
+                       {getMachineIcon(detailMachine.type)}
+                    </div>
+                    <div>
+                       <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">{detailMachine.brand} {detailMachine.model}</span>
+                       <h2 className="text-2xl font-black leading-none mt-1">{detailMachine.name}</h2>
+                       <div className="inline-block mt-2 bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[10px] font-mono font-bold">
+                          {detailMachine.plate}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                       <p className="text-[10px] font-bold uppercase opacity-70">Total Horas</p>
+                       <p className="text-xl font-black">{detailMachine.engineHours} h</p>
+                    </div>
+                    <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
+                       <p className="text-[10px] font-bold uppercase opacity-70">Próx. Inspeção</p>
+                       <p className="text-sm font-bold flex items-center gap-1 mt-1">
+                          <Calendar size={12} /> {new Date(detailMachine.nextInspectionDate).toLocaleDateString()}
+                       </p>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Corpo com Scroll */}
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 bg-gray-50 dark:bg-neutral-900">
+                 
+                 {/* Barra de Saúde */}
+                 <div className="bg-white dark:bg-neutral-800 p-5 rounded-3xl shadow-sm">
+                    <div className="flex justify-between items-end mb-2">
+                       <h4 className="text-xs font-bold text-gray-500 uppercase">Ciclo de Manutenção</h4>
+                       <span className={`text-xs font-bold ${calculateHealth(detailMachine).isOverdue ? 'text-red-500' : 'text-green-500'}`}>
+                          {calculateHealth(detailMachine).hoursRemaining > 0 ? 'Regular' : 'Atrasado'}
+                       </span>
+                    </div>
+                    <div className="h-3 w-full bg-gray-100 dark:bg-neutral-700 rounded-full overflow-hidden">
+                       <div 
+                          className={`h-full rounded-full ${calculateHealth(detailMachine).isOverdue ? 'bg-red-500' : 'bg-agro-green'}`}
+                          style={{ width: `${calculateHealth(detailMachine).progress}%` }}
+                       ></div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2 text-right">
+                       Faltam {calculateHealth(detailMachine).hoursRemaining}h para revisão das {detailMachine.lastServiceHours + detailMachine.serviceInterval}h
+                    </p>
+                 </div>
+
+                 {/* Histórico */}
+                 <div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                       <History size={16} /> Histórico Recente
+                    </h4>
+                    <div className="space-y-3">
+                       {detailMachine.logs && detailMachine.logs.length > 0 ? (
+                          detailMachine.logs.slice().reverse().map(log => (
+                             <div key={log.id} className="bg-white dark:bg-neutral-800 p-3 rounded-2xl flex items-center gap-3 shadow-sm">
+                                <div className={`p-2 rounded-xl shrink-0 ${
+                                   log.type === 'fuel' ? 'bg-blue-100 text-blue-600' : 
+                                   log.type === 'repair' ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-600'
+                                }`}>
+                                   {log.type === 'fuel' ? <Fuel size={16} /> : <Wrench size={16} />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                   <p className="text-xs font-bold text-gray-800 dark:text-gray-200 truncate">{log.description}</p>
+                                   <p className="text-[10px] text-gray-400">{log.date} • {log.engineHoursAtLog}h</p>
+                                </div>
+                                {log.cost > 0 && (
+                                   <span className="text-xs font-black text-gray-900 dark:text-white">{log.cost}€</span>
+                                )}
+                             </div>
+                          ))
+                       ) : (
+                          <p className="text-center text-xs text-gray-400 py-4 italic">Sem registos.</p>
+                       )}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="p-4 bg-white dark:bg-neutral-900 border-t border-gray-100 dark:border-neutral-800 flex gap-3 shrink-0">
+                 <button 
+                   onClick={() => openActionModal(detailMachine, 'hours')}
+                   className="flex-1 py-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl text-gray-600 dark:text-white font-bold text-sm flex items-center justify-center gap-2"
+                 >
+                    <Clock size={18} /> + Horas
+                 </button>
+                 <button 
+                   onClick={() => openActionModal(detailMachine, 'maintenance')}
+                   className="flex-1 py-4 bg-agro-green text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-agro-green/30"
+                 >
+                    <Plus size={18} /> Registo
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* --- ACTION INPUT MODAL (BottomSheet) --- */}
       {selectedMachine && (
-        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={closeModal}>
+        <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={closeActionModal}>
           <div 
             className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
             onClick={e => e.stopPropagation()}
@@ -513,7 +586,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                 </h3>
                 <p className="text-xs text-gray-500 font-bold uppercase mt-1 tracking-wide">{selectedMachine.name}</p>
               </div>
-              <button onClick={closeModal} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+              <button onClick={closeActionModal} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
                 <X size={24} className="dark:text-white" />
               </button>
             </div>

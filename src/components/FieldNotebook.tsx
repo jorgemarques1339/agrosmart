@@ -25,8 +25,8 @@ interface FieldNotebookProps {
 const OPERATION_TYPES = [
   { id: 'treatment', label: 'Fitossanitário', icon: Syringe, color: 'text-red-600', bg: 'bg-red-100' },
   { id: 'fertilization', label: 'Fertilização', icon: Sprout, color: 'text-green-600', bg: 'bg-green-100' },
-  { id: 'labor', label: 'Mão de Obra', icon: Users, color: 'text-purple-600', bg: 'bg-purple-100' }, // New Type
-  { id: 'harvest', label: 'Colheita', icon: Package, color: 'text-orange-600', bg: 'bg-orange-100' },
+  { id: 'labor', label: 'Mão de Obra', icon: Users, color: 'text-purple-600', bg: 'bg-purple-100' }, 
+  // Harvest removed as requested
   { id: 'observation', label: 'Observação', icon: Search, color: 'text-gray-600', bg: 'bg-gray-100' },
 ];
 
@@ -323,7 +323,7 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                   </div>
                 ) : (
                   filteredLogs.map((log, idx) => {
-                    const opType = OPERATION_TYPES.find(t => t.id === log.type) || OPERATION_TYPES[OPERATION_TYPES.length - 1];
+                    const opType = OPERATION_TYPES.find(t => t.id === log.type) || { label: 'Outro', bg: 'bg-gray-100', color: 'text-gray-600', icon: Search };
                     const Icon = opType.icon;
                     
                     return (
@@ -440,8 +440,8 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                         onChange={e => {
                            setWizardFieldId(e.target.value);
                            const fieldName = e.target.options[e.target.selectedIndex].text;
-                           // Only set default description if not already set by labor logic
-                           if (entryType !== 'labor') {
+                           // Only set default description if not already set by labor logic and NOT observation
+                           if (entryType !== 'labor' && entryType !== 'observation') {
                              setEntryData(prev => ({...prev, description: `Aplicação em ${fieldName}`}));
                            }
                         }}
@@ -575,8 +575,8 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                     </div>
                   )}
 
-                  {/* Generic Inputs (Hidden for Labor) */}
-                  {entryType !== 'labor' && (
+                  {/* Generic Inputs (Hidden for Labor AND Observation) */}
+                  {entryType !== 'labor' && entryType !== 'observation' && (
                     <div className="grid grid-cols-2 gap-4">
                        <div>
                           <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Quantidade</label>
@@ -609,6 +609,20 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                             <option value="Un">Un</option>
                           </select>
                        </div>
+                    </div>
+                  )}
+
+                  {/* OBSERVATION SPECIFIC: NOTE FIELD */}
+                  {entryType === 'observation' && (
+                    <div className="bg-gray-50 dark:bg-neutral-800/50 p-4 rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-inner">
+                       <label className="text-[10px] font-bold uppercase text-gray-400 ml-1 mb-1 block">Nota de Campo</label>
+                       <textarea 
+                          autoFocus
+                          className="w-full p-4 rounded-xl text-sm font-medium bg-white dark:bg-neutral-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green min-h-[120px] resize-none border border-transparent"
+                          placeholder="Descreva o que observou (ex: Aparecimento de infestantes...)"
+                          value={entryData.description || ''}
+                          onChange={e => setEntryData({...entryData, description: e.target.value})}
+                       />
                     </div>
                   )}
 
@@ -652,8 +666,16 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                         </div>
                       )}
 
+                      {/* Display Note for Observations */}
+                      {entryType === 'observation' && (
+                        <div>
+                           <p className="text-xs text-gray-400 font-bold uppercase">Nota</p>
+                           <p className="font-medium text-sm dark:text-white italic bg-gray-50 dark:bg-black/20 p-3 rounded-xl mt-1">"{entryData.description}"</p>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4">
-                         {entryType !== 'labor' && (
+                         {entryType !== 'labor' && entryType !== 'observation' && (
                            <div>
                               <p className="text-xs text-gray-400 font-bold uppercase">Dose</p>
                               <p className="font-bold dark:text-white">{entryData.quantity} {entryData.unit}</p>
