@@ -17,6 +17,14 @@ export interface DetailedForecast {
   rainProb: number; // 0-100% (Pop)
 }
 
+export interface UserProfile {
+  id: string;
+  name: string;
+  role: 'admin' | 'operator';
+  avatar: string; // URL ou Initials
+  specialty?: string; // ex: "Veterinária", "Máquinas"
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -28,6 +36,12 @@ export interface Task {
   relatedStockId?: string; // Que produto vai ser usado?
   plannedQuantity?: number; // Quanto vai ser usado?
   resourceDeducted?: boolean; // Flag para saber se já descontou do stock
+  
+  // Team Connect Fields
+  assignedTo?: string; // ID do User
+  status?: 'pending' | 'review' | 'done'; // Workflow status
+  proofImage?: string; // Base64 proof
+  feedback?: string; // Admin feedback
 }
 
 export interface ProductionRecord {
@@ -183,12 +197,32 @@ export interface Machine {
   logs: MaintenanceLog[];
 }
 
+// --- Rastreabilidade (Traceability) ---
+export interface ProductBatch {
+  batchId: string; // e.g. "AGRO-2026-MILHO-04"
+  crop: string; // "Mirtilos Premium"
+  harvestDate: string; // ISO date
+  origin: string; // "Laundos, Portugal"
+  coordinates: [number, number];
+  quantity: number; // New: Total harvested
+  unit: string; // New: Unit (Ton, kg)
+  stats: {
+    sunDays: number;
+    waterSavedLitres?: number;
+    harvestMethod: string;
+  };
+  farmerName: string;
+  imageUrl?: string;
+}
+
 export interface AppState {
+  users: UserProfile[]; // Team Connect
   tasks: Task[];
   animals: Animal[];
   fields: Field[];
   stocks: StockItem[];
   transactions: Transaction[];
   machines: Machine[];
-  employees: Employee[]; // New array
+  employees: Employee[]; 
+  harvests: ProductBatch[];
 }

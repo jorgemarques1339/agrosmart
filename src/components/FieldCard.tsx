@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Droplets, Thermometer, Brain, Sprout, ChevronDown, 
   MapPin, Loader2, Activity, Wifi,
   Coins, TrendingUp, TrendingDown, Wallet, Cpu, Signal,
   ShieldAlert, FileText, List, Workflow,
   Radio, Package, Wheat, Leaf, BarChart3, ScanEye, X, ArrowLeft,
-  Syringe
+  Syringe, Trash2
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
@@ -23,14 +23,23 @@ interface FieldCardProps {
   onRegisterSensor?: (fieldId: string, sensor: Sensor) => void;
   onRegisterSale?: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
   onHarvest?: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
+  onModalChange?: (isOpen: boolean) => void;
+  onDelete?: (id: string) => void;
 }
 
-const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest }) => {
+const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onModalChange, onDelete }) => {
   const [isOpen, setIsOpen] = useState(false); // Changed from isExpanded to isOpen (Modal mode)
   const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'finance' | 'ai'>('sensors');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
+
+  // Notificar o pai sobre o estado do modal (Detalhes OU Colheita) para esconder a barra de navegação
+  useEffect(() => {
+    if (onModalChange) {
+      onModalChange(isOpen || showHarvestModal);
+    }
+  }, [isOpen, showHarvestModal, onModalChange]);
 
   // Fix for MapContainer type error
   const MapContainerAny = MapContainer as any;
@@ -60,6 +69,12 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
       onToggleIrrigation(field.id, !field.irrigationStatus);
       setIsLoadingIoT(false);
     }, 1200);
+  };
+
+  const handleDelete = () => {
+    if (onDelete && window.confirm(`Tem a certeza que deseja eliminar o campo "${field.name}"? Esta ação não pode ser desfeita.`)) {
+      onDelete(field.id);
+    }
   };
 
   // --- Financial Logic ---
@@ -264,6 +279,15 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                 <div className="w-10 h-10 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center text-2xl shadow-sm border border-gray-200 dark:border-neutral-700">
                    {field.emoji}
                 </div>
+                {onDelete && (
+                  <button 
+                    onClick={handleDelete}
+                    className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors active:scale-90 border border-red-100 dark:border-red-900/30 ml-2"
+                    title="Eliminar Campo"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                )}
              </div>
           </div>
 

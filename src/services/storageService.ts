@@ -12,10 +12,10 @@ export const loadState = (): AppState => {
     
     // MIGRATION LOGIC:
     // Mesclar o estado carregado com o MOCK_STATE.
-    // Isto garante que se adicionarmos novas funcionalidades (ex: machines, employees), 
+    // Isto garante que se adicionarmos novas funcionalidades (ex: machines, employees, harvests), 
     // os utilizadores antigos recebem os dados de exemplo em vez de 'undefined'.
     return {
-      ...MOCK_STATE, // Valores por defeito (inclui as máquinas novas e funcionários)
+      ...MOCK_STATE, // Valores por defeito 
       ...loadedState, // Valores do utilizador (sobrepõem os defeitos)
       // Forçar a existência de arrays críticos se estiverem em falta no objeto antigo
       machines: loadedState.machines || MOCK_STATE.machines,
@@ -25,6 +25,7 @@ export const loadState = (): AppState => {
       fields: loadedState.fields || MOCK_STATE.fields,
       stocks: loadedState.stocks || MOCK_STATE.stocks,
       transactions: loadedState.transactions || MOCK_STATE.transactions,
+      harvests: loadedState.harvests || MOCK_STATE.harvests, // Add migration for harvests
     };
   } catch (err) {
     console.error("Failed to load state", err);

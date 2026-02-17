@@ -1,5 +1,5 @@
 
-import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine, Employee } from './types';
+import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine, Employee, UserProfile } from './types';
 
 export const INITIAL_WEATHER: WeatherForecast[] = [
   { day: 'Seg', temp: 22, condition: 'sunny' },
@@ -9,14 +9,36 @@ export const INITIAL_WEATHER: WeatherForecast[] = [
   { day: 'Sex', temp: 25, condition: 'sunny' },
 ];
 
+const MOCK_USERS: UserProfile[] = [
+  { id: 'u1', name: 'Carlos Dono', role: 'admin', avatar: 'CD', specialty: 'Gestão' },
+  { id: 'u2', name: 'João Tratorista', role: 'operator', avatar: 'JT', specialty: 'Máquinas' },
+  { id: 'u3', name: 'Maria Vet', role: 'operator', avatar: 'MV', specialty: 'Animais' },
+];
+
 export const MOCK_STATE: AppState = {
+  users: MOCK_USERS,
   employees: [
     { id: 'e1', name: 'João Silva', role: 'Ajudante Geral', hourlyRate: 7.50 },
     { id: 'e2', name: 'Maria Santos', role: 'Tratorista', hourlyRate: 9.00 }
   ],
   tasks: [
-    { id: '1', title: 'Aplicar Fungicida Vinha A', date: new Date().toISOString().split('T')[0], type: 'task', completed: false },
-    { id: '2', title: 'Colheita Milho Híbrido', date: new Date(Date.now() + 86400000).toISOString().split('T')[0], type: 'harvest', completed: false },
+    { 
+      id: '1', 
+      title: 'Aplicar Fungicida Vinha A', 
+      date: new Date().toISOString().split('T')[0], 
+      type: 'task', 
+      completed: false, 
+      status: 'pending',
+      assignedTo: 'u2' // João
+    },
+    { 
+      id: '2', 
+      title: 'Colheita Milho Híbrido', 
+      date: new Date(Date.now() + 86400000).toISOString().split('T')[0], 
+      type: 'harvest', 
+      completed: false, 
+      status: 'pending' 
+    },
   ],
   animals: [
     {
@@ -181,7 +203,8 @@ export const MOCK_STATE: AppState = {
       fuelLevel: 40,
       logs: []
     }
-  ]
+  ],
+  harvests: [] // Initial empty state for harvests
 };
 
 export const STORAGE_KEY = 'oriva_enterprise_v1';

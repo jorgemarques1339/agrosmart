@@ -6,9 +6,9 @@ import {
   Settings, Bell, Sprout, Cloud, CloudSun,
   Tractor, Fuel, Clock, Gauge, Save, AlertTriangle, Truck, Eye, Package,
   ChevronDown, ShoppingBag, Link as LinkIcon, CheckCircle2, Circle, ListTodo,
-  Thermometer, ShieldAlert
+  Thermometer, ShieldAlert, Users, Camera, Clock as ClockIcon
 } from 'lucide-react';
-import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem, DetailedForecast } from '../types';
+import { Task, WeatherForecast, Field, Machine, MaintenanceLog, StockItem, DetailedForecast, UserProfile } from '../types';
 
 interface DashboardHomeProps {
   userName: string;
@@ -18,8 +18,10 @@ interface DashboardHomeProps {
   fields: Field[];
   machines?: Machine[];
   stocks?: StockItem[];
+  users?: UserProfile[]; // Team Connect
+  currentUser?: UserProfile; // Team Connect
   onToggleTask: (id: string) => void;
-  onAddTask: (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number) => void;
+  onAddTask: (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number, assignedTo?: string) => void;
   onDeleteTask: (id: string) => void;
   onWeatherClick: () => void;
   onOpenSettings: () => void;
@@ -27,6 +29,7 @@ interface DashboardHomeProps {
   onModalChange?: (isOpen: boolean) => void;
   onUpdateMachineHours?: (id: string, hours: number) => void;
   onAddMachineLog?: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
+  onTaskClick?: (task: Task) => void; // New prop for handling task clicks (proof/review)
   alertCount: number;
 }
 
@@ -38,6 +41,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   fields,
   machines = [],
   stocks = [],
+  users = [],
+  currentUser,
   onToggleTask,
   onAddTask,
   onDeleteTask,
@@ -47,6 +52,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   onModalChange,
   onUpdateMachineHours,
   onAddMachineLog,
+  onTaskClick,
   alertCount
 }) => {
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -56,12 +62,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   
   // Task Creation State
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  // newTaskDate is now derived from the selected agenda date usually, but we keep state for form manipulation
   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
   const [showResources, setShowResources] = useState(false);
   const [selectedFieldId, setSelectedFieldId] = useState('');
   const [selectedStockId, setSelectedStockId] = useState('');
   const [plannedQty, setPlannedQty] = useState('');
+  const [assignedTo, setAssignedTo] = useState(''); // New: Assigned User
 
   // Quick Action States
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
@@ -113,11 +119,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     }
   };
 
-  // --- LOGICA DE PULVERIZAÇÃO (REAL) ---
+  // --- LOGICA DE PULVERIZAÇÃO ---
   const sprayForecast = useMemo(() => {
-    // Se não houver dados reais (ex: offline), usar fallback simulado para não quebrar UI
     const sourceData = (hourlyForecast && hourlyForecast.length > 0) ? hourlyForecast : [
-        // Mock Fallback (apenas se a API falhar)
+        // Mock Fallback
         { dt: Date.now() / 1000, temp: 12, windSpeed: 5, humidity: 85, rainProb: 0 },
         { dt: (Date.now() / 1000) + 10800, temp: 16, windSpeed: 8, humidity: 75, rainProb: 0 },
         { dt: (Date.now() / 1000) + 21600, temp: 24, windSpeed: 12, humidity: 60, rainProb: 10 },
@@ -127,7 +132,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     ];
 
     return sourceData.map(slot => {
-      // Extrair valores
       const time = new Date(slot.dt * 1000).toLocaleTimeString('pt-PT', {hour: '2-digit', minute:'2-digit'});
       const temp = Math.round(slot.temp);
       const wind = Math.round(slot.windSpeed);
@@ -137,47 +141,21 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       let status: 'ideal' | 'warning' | 'danger' = 'ideal';
       let reasons: string[] = [];
 
-      // 1. Verificação de Vento (Deriva)
-      if (wind > 15) {
-        status = 'danger';
-        reasons.push('Risco de Deriva (Vento Forte)');
-      } else if (wind > 10) {
-        status = 'warning';
-        reasons.push('Vento Moderado');
-      }
+      if (wind > 15) { status = 'danger'; reasons.push('Risco de Deriva (Vento Forte)'); } 
+      else if (wind > 10) { status = 'warning'; reasons.push('Vento Moderado'); }
 
-      // 2. Verificação de Evaporação (Temp/Humidade)
-      if (temp > 27 || humidity < 40) {
-        status = 'danger';
-        reasons.push('Risco de Evaporação (Calor/Seco)');
-      }
+      if (temp > 27 || humidity < 40) { status = 'danger'; reasons.push('Risco de Evaporação (Calor/Seco)'); }
 
-      // 3. Verificação de Lavagem (Chuva)
-      if (rainProb > 50) {
-        status = 'danger';
-        reasons.push('Risco de Lavagem (Chuva)');
-      }
+      if (rainProb > 50) { status = 'danger'; reasons.push('Risco de Lavagem (Chuva)'); }
 
-      // Delta T (Indicador Agronómico Ideal)
-      if ((status as string) === 'ideal' && (temp < 10 || temp > 25)) {
-         status = 'warning';
-         reasons.push('Temperatura Marginal');
-      }
+      if ((status as string) === 'ideal' && (temp < 10 || temp > 25)) { status = 'warning'; reasons.push('Temperatura Marginal'); }
 
-      return { 
-        time, 
-        temp, 
-        wind, 
-        humidity, 
-        rainProb, 
-        status, 
-        reason: reasons.join(' • ') || 'Condições Excelentes' 
-      };
+      return { time, temp, wind, humidity, rainProb, status, reason: reasons.join(' • ') || 'Condições Excelentes' };
     });
   }, [hourlyForecast]);
 
 
-  // --- 2. Lógica do AgroCalendário (Próximos 7 dias) ---
+  // --- 2. Lógica do AgroCalendário ---
   const calendarDays = useMemo(() => {
     const days = [];
     for (let i = 0; i < 7; i++) {
@@ -204,16 +182,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   // --- 3. Handlers ---
   const handleOpenDayAgenda = (isoDate: string) => {
     setAgendaModalDate(isoDate);
-    setNewTaskDate(isoDate); // Pre-set form date to selected day
-    setIsAddingTask(false); // Ensure form is closed initially
+    setNewTaskDate(isoDate);
+    setIsAddingTask(false);
   };
 
   const handleAddNewTask = () => {
     if (!newTaskTitle.trim()) return;
     
     const qty = plannedQty ? parseFloat(plannedQty) : undefined;
-    
-    // Use either the manually changed date or the current modal context date
     const finalDate = newTaskDate || agendaModalDate || new Date().toISOString().split('T')[0];
 
     onAddTask(
@@ -222,7 +198,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       finalDate, 
       selectedFieldId || undefined, 
       selectedStockId || undefined, 
-      qty
+      qty,
+      assignedTo || undefined // Pass assignment
     );
     
     setNewTaskTitle('');
@@ -230,7 +207,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     setSelectedFieldId('');
     setSelectedStockId('');
     setPlannedQty('');
-    setIsAddingTask(false); // Close form
+    setAssignedTo('');
+    setIsAddingTask(false);
   };
 
   const handleOpenQuickAction = (machine: Machine, type: 'hours' | 'fuel') => {
@@ -272,7 +250,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     return s ? s.unit : '';
   }, [selectedStockId, stocks]);
 
-  // Filter tasks for the modal
   const selectedDayTasks = useMemo(() => {
     if (!agendaModalDate) return [];
     return tasks.filter(t => t.date === agendaModalDate);
@@ -281,15 +258,23 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   return (
     <div className="space-y-8 md:space-y-0 md:grid md:grid-cols-12 md:gap-6 animate-fade-in pt-6 pb-24">
       
-      {/* 1. Header Fixo & Glass (Com Animação de Entrada) */}
+      {/* 1. Header Fixo */}
       <div className="md:col-span-12 flex justify-between items-center px-2 animate-slide-down">
-        <div>
-          <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">
-            Olá, {userName.split(' ')[0]}
-          </h2>
-          <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">
-            {formattedDate}
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Avatar do Current User */}
+          {currentUser && (
+             <div className="w-12 h-12 bg-agro-green rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg border-2 border-white dark:border-black">
+                {currentUser.avatar}
+             </div>
+          )}
+          <div>
+            <h2 className="text-3xl font-black italic text-gray-900 dark:text-white leading-none">
+              Olá, {userName.split(' ')[0]}
+            </h2>
+            <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-wider">
+              {currentUser?.role === 'admin' ? 'Administrador' : 'Operador'} • {formattedDate}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <button onClick={onOpenSettings} className="w-10 h-10 rounded-full bg-white dark:bg-neutral-800 text-gray-400 hover:text-agro-green shadow-sm flex items-center justify-center transition-colors active:scale-90">
@@ -302,9 +287,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
           >
             {alertCount > 0 ? (
               <>
-                {/* Heartbeat Animation Layer: Outer Ring */}
                 <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                {/* Icon Layer: Inner Pulse */}
                 <div className="relative w-10 h-10 bg-red-500 text-white rounded-full shadow-lg shadow-red-500/50 flex items-center justify-center animate-pulse">
                   <Bell size={20} fill="currentColor" />
                 </div>
@@ -318,8 +301,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 2. Weather Hero Card (Modern Mesh Gradient - Mobile Optimized) */}
-      {/* UPDATE: md:col-span-12 to force full width and stack below items */}
+      {/* 2. Weather Hero Card */}
       <div 
         onClick={() => setIsWeatherModalOpen(true)}
         className={`md:col-span-12 relative overflow-hidden rounded-[2rem] md:rounded-[2.5rem] p-4 md:p-6 shadow-2xl active:scale-[0.98] transition-transform cursor-pointer animate-slide-up delay-100 ${
@@ -328,7 +310,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             : 'bg-gradient-to-br from-[#ecfccb] to-[#dcfce7] dark:bg-[#0f2612] dark:from-transparent dark:to-transparent shadow-agro-green/10 dark:shadow-agro-green/40'
         }`}
       >
-         {/* --- Aurora / Mesh Background Effect --- */}
+         {/* ... Weather Background & Content (Mesmo código anterior) ... */}
          <div className="absolute inset-0 z-0">
             {isRaining ? (
               <>
@@ -343,7 +325,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
          </div>
 
-         {/* Icon Decoration */}
          <div className="absolute inset-0 z-0 opacity-10 mix-blend-overlay pointer-events-none">
             {isRaining ? (
                <CloudRain className="absolute -right-8 -bottom-8 w-56 h-56 rotate-12 text-slate-400 dark:text-white" />
@@ -352,7 +333,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             )}
          </div>
 
-         {/* Content */}
          <div className="relative z-10 text-gray-900 dark:text-white h-full flex flex-col justify-between">
             <div className="flex justify-between items-start">
                <div>
@@ -385,8 +365,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          </div>
       </div>
 
-      {/* 4. Agenda Horizontal (Updated Design & Animation Logic) */}
-      {/* UPDATE: md:col-span-12 to force full width and stack below weather */}
+      {/* 4. Agenda Horizontal */}
       <div className="md:col-span-12 animate-slide-up delay-200">
         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 px-2">Oriva-Agenda</h3>
         <div className="flex gap-3 overflow-x-auto px-1 pb-4 scrollbar-hide snap-x">
@@ -409,7 +388,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <span className="text-[10px] font-bold uppercase tracking-wider">{day.dayName}</span>
                   <span className="text-2xl font-black">{day.dayNumber}</span>
                   
-                  {/* Dots Indicators */}
                   <div className="flex gap-1 h-1.5">
                     {day.hasTask && (
                       <div className={`w-1.5 h-1.5 rounded-full ${
@@ -428,7 +406,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       </div>
 
-      {/* 6. Máquinas Rápidas (Horizontal Scroll) */}
+      {/* 6. Máquinas Rápidas */}
       {machines.length > 0 && (
         <div className="md:col-span-12 animate-slide-up delay-300">
            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 px-2">Acesso Rápido</h3>
@@ -463,7 +441,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {/* --- AGENDA DAY POP-UP (New Feature) --- */}
+      {/* --- AGENDA DAY POP-UP (Including Team Connect Features) --- */}
       {agendaModalDate && (
         <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setAgendaModalDate(null)}>
           <div 
@@ -486,7 +464,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
              {/* Content Area */}
              <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
                
-               {/* Create Task Form (Inside Modal) */}
+               {/* Create Task Form */}
                {isAddingTask ? (
                   <div className="mb-6 animate-slide-down bg-gray-50 dark:bg-neutral-800/50 p-5 rounded-[2rem] border border-gray-100 dark:border-neutral-800">
                     <input 
@@ -499,6 +477,39 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                       onKeyDown={(e) => e.key === 'Enter' && handleAddNewTask()}
                     />
                     
+                    {/* Team Connect: Assign User */}
+                    <div className="mt-4">
+                       <label className="text-[10px] font-bold uppercase text-gray-400 block mb-1">Atribuir a</label>
+                       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                          <button 
+                             onClick={() => setAssignedTo('')}
+                             className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${
+                                assignedTo === '' 
+                                  ? 'bg-black text-white border-black dark:bg-white dark:text-black' 
+                                  : 'bg-white dark:bg-neutral-800 border-transparent text-gray-500'
+                             }`}
+                          >
+                             <div className="w-5 h-5 rounded-full bg-gray-200 dark:bg-neutral-700 flex items-center justify-center text-[10px]">Eu</div>
+                             <span className="text-xs font-bold">Ninguém</span>
+                          </button>
+                          
+                          {users.map(u => (
+                             <button
+                                key={u.id}
+                                onClick={() => setAssignedTo(u.id)}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${
+                                   assignedTo === u.id 
+                                     ? 'bg-agro-green text-white border-agro-green' 
+                                     : 'bg-white dark:bg-neutral-800 border-transparent text-gray-500'
+                                }`}
+                             >
+                                <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">{u.avatar}</div>
+                                <span className="text-xs font-bold truncate max-w-[80px]">{u.name}</span>
+                             </button>
+                          ))}
+                       </div>
+                    </div>
+
                     {/* Resources Toggle */}
                     <div className="mt-4">
                         <button 
@@ -579,50 +590,86 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                    selectedDayTasks.map((task) => {
                      const linkedField = fields.find(f => f.id === task.relatedFieldId);
                      const linkedStock = stocks.find(s => s.id === task.relatedStockId);
+                     const assignedUser = users.find(u => u.id === task.assignedTo);
+                     
+                     // Determine style based on workflow status
+                     let borderClass = 'border-gray-100 dark:border-neutral-800';
+                     if (task.status === 'review') borderClass = 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10';
+                     if (task.completed) borderClass = 'border-transparent opacity-60 bg-gray-50 dark:bg-neutral-800';
 
                      return (
                        <div 
                          key={task.id} 
-                         className={`group p-4 rounded-[1.5rem] shadow-sm border flex items-center gap-4 active:scale-[0.99] transition-all ${
-                           task.completed 
-                             ? 'bg-gray-50 dark:bg-neutral-800 border-transparent opacity-60' 
-                             : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800'
-                         }`}
+                         onClick={() => onTaskClick && onTaskClick(task)}
+                         className={`group p-4 rounded-[1.5rem] shadow-sm border flex items-center gap-4 active:scale-[0.99] transition-all cursor-pointer ${borderClass} ${!task.completed && task.status !== 'review' ? 'bg-white dark:bg-neutral-900' : ''}`}
                        >
-                          <button 
-                            onClick={() => onToggleTask(task.id)}
-                            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                              task.completed 
-                                ? 'bg-green-500 border-green-500 text-white' 
-                                : 'border-gray-300 dark:border-neutral-600 hover:border-agro-green'
-                            }`}
-                          >
-                            {task.completed ? <Check size={14} /> : <Circle size={0} className="opacity-0" />}
-                          </button>
-                          
-                          <div className="flex-1 min-w-0">
-                             <p className={`font-bold text-sm ${task.completed ? 'text-gray-500 line-through' : 'text-gray-800 dark:text-white'} truncate`}>
-                               {task.title}
-                             </p>
-                             
-                             {(linkedField || linkedStock) && (
-                               <div className="flex flex-wrap gap-2 mt-2">
-                                  {linkedField && (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-gray-100 dark:bg-neutral-800 text-gray-500 px-2 py-1 rounded-md">
-                                       <MapPin size={8} /> {linkedField.name}
-                                    </span>
-                                  )}
-                                  {linkedStock && task.plannedQuantity && (
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-1 rounded-md">
-                                       <Package size={8} /> {task.plannedQuantity}{linkedStock.unit}
-                                    </span>
-                                  )}
-                               </div>
-                             )}
+                          {/* Left Icon (Status or Toggle) */}
+                          <div className="relative">
+                             <button 
+                               onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (task.assignedTo && task.assignedTo !== currentUser?.id && currentUser?.role !== 'admin') return;
+                                  if (task.status === 'pending' && task.assignedTo) {
+                                     // Se for atribuída e pendente, abre o modal de prova (via onTaskClick)
+                                     if(onTaskClick) onTaskClick(task);
+                                  } else {
+                                     // Tarefa simples
+                                     onToggleTask(task.id);
+                                  }
+                               }}
+                               className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${
+                                 task.completed 
+                                   ? 'bg-green-500 border-green-500 text-white' 
+                                   : task.status === 'review'
+                                     ? 'bg-yellow-400 border-yellow-400 text-white animate-pulse'
+                                     : 'border-gray-300 dark:border-neutral-600 hover:border-agro-green'
+                               }`}
+                             >
+                               {task.completed ? <Check size={16} /> : task.status === 'review' ? <Eye size={16} /> : <Circle size={0} className="opacity-0" />}
+                             </button>
                           </div>
                           
+                          <div className="flex-1 min-w-0">
+                             <div className="flex items-center gap-2 mb-1">
+                                <p className={`font-bold text-sm ${task.completed ? 'text-gray-500 line-through' : 'text-gray-800 dark:text-white'} truncate`}>
+                                  {task.title}
+                                </p>
+                                {task.status === 'review' && (
+                                   <span className="bg-yellow-100 text-yellow-700 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase">Em Aprovação</span>
+                                )}
+                             </div>
+                             
+                             <div className="flex flex-wrap gap-2 items-center">
+                                {/* Assigned User Avatar */}
+                                {assignedUser && (
+                                   <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 pr-2 rounded-full overflow-hidden">
+                                      <div className="w-5 h-5 bg-blue-100 text-blue-600 flex items-center justify-center text-[9px] font-bold">
+                                         {assignedUser.avatar}
+                                      </div>
+                                      <span className="text-[9px] font-bold text-gray-500">{assignedUser.name.split(' ')[0]}</span>
+                                   </div>
+                                )}
+
+                                {(linkedField || linkedStock) && (
+                                   <>
+                                      {linkedField && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-gray-100 dark:bg-neutral-800 text-gray-500 px-2 py-1 rounded-md">
+                                           <MapPin size={8} /> {linkedField.name}
+                                        </span>
+                                      )}
+                                      {linkedStock && task.plannedQuantity && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-1 rounded-md">
+                                           <Package size={8} /> {task.plannedQuantity}{linkedStock.unit}
+                                        </span>
+                                      )}
+                                   </>
+                                )}
+                             </div>
+                          </div>
+                          
+                          {/* Delete Action (Only for Admin or Uncompleted) */}
                           <button 
-                            onClick={() => onDeleteTask(task.id)}
+                            onClick={(e) => { e.stopPropagation(); onDeleteTask(task.id); }}
                             className="text-gray-300 hover:text-red-400 transition-colors p-2"
                           >
                             <Trash2 size={18} />
@@ -637,68 +684,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
         </div>
       )}
 
-      {/* 7. Quick Action Modal */}
-      {selectedMachine && quickAction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-6" onClick={() => setSelectedMachine(null)}>
-           <div className="bg-white dark:bg-neutral-900 w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
-                {quickAction === 'hours' ? 'Registar Horas' : 'Abastecimento'}
-              </h3>
-              <p className="text-xs text-gray-400 uppercase font-bold mb-6">{selectedMachine.name}</p>
-
-              {quickAction === 'hours' ? (
-                <div className="mb-6 bg-gray-50 dark:bg-neutral-800 p-4 rounded-[2rem]">
-                   <input 
-                     type="number"
-                     autoFocus
-                     value={hoursInput}
-                     onChange={(e) => setHoursInput(e.target.value)}
-                     className="w-full text-center text-5xl font-black bg-transparent outline-none text-gray-900 dark:text-white"
-                   />
-                   <p className="text-center text-xs font-bold text-gray-400 mt-2 uppercase">Total Horas</p>
-                </div>
-              ) : (
-                <div className="space-y-4 mb-6">
-                   <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem]">
-                     <label className="text-xs font-bold text-gray-400 uppercase ml-1">Litros</label>
-                     <input 
-                       type="number"
-                       autoFocus
-                       value={fuelLiters}
-                       onChange={(e) => setFuelLiters(e.target.value)}
-                       className="w-full text-2xl font-black bg-transparent outline-none mt-1 text-gray-900 dark:text-white"
-                       placeholder="0"
-                     />
-                   </div>
-                   <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem]">
-                     <label className="text-xs font-bold text-gray-400 uppercase ml-1">Custo Total (€)</label>
-                     <input 
-                       type="number"
-                       value={fuelCost}
-                       onChange={(e) => setFuelCost(e.target.value)}
-                       className="w-full text-xl font-bold bg-transparent outline-none mt-1 text-gray-900 dark:text-white"
-                       placeholder="0.00"
-                     />
-                   </div>
-                </div>
-              )}
-
-              <button 
-                onClick={handleConfirmQuickAction}
-                className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-lg active:scale-95 transition-transform"
-              >
-                Confirmar
-              </button>
-           </div>
-        </div>
-      )}
-
       {/* 8. Advanced Agro-Weather Modal */}
       {isWeatherModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWeatherModalOpen(false)}>
-          <div className="bg-white dark:bg-neutral-900 w-full max-w-sm h-[75vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
-             {/* Modal Header */}
-             <div className="flex justify-between items-center px-6 pt-6 pb-2">
+           <div className="bg-white dark:bg-neutral-900 w-full max-w-sm h-[75vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
+             
+             {/* Header */}
+             <div className="flex justify-between items-center px-6 pt-6 pb-4">
                <div>
                  <h3 className="text-xl font-black dark:text-white">Meteorologia</h3>
                  <p className="text-xs font-bold text-gray-400 uppercase">Suporte à Decisão</p>
@@ -708,120 +700,105 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                </button>
              </div>
 
-             {/* Tab Switcher */}
+             {/* Tabs */}
              <div className="px-6 mb-4">
                 <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl">
                    <button 
                      onClick={() => setWeatherTab('general')}
-                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase transition-all ${weatherTab === 'general' ? 'bg-white dark:bg-neutral-700 text-agro-green shadow-sm' : 'text-gray-400'}`}
+                     className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all ${
+                       weatherTab === 'general' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green dark:text-white' : 'text-gray-400'
+                     }`}
                    >
                      Geral
                    </button>
                    <button 
                      onClick={() => setWeatherTab('spray')}
-                     className={`flex-1 py-2.5 rounded-xl text-xs font-bold uppercase transition-all ${weatherTab === 'spray' ? 'bg-white dark:bg-neutral-700 text-blue-600 shadow-sm' : 'text-gray-400'}`}
+                     className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all ${
+                       weatherTab === 'spray' ? 'bg-white dark:bg-neutral-700 shadow text-blue-500 dark:text-blue-400' : 'text-gray-400'
+                     }`}
                    >
                      Pulverização
                    </button>
                 </div>
              </div>
-             
+
              {/* Content */}
              <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
                 
-                {/* TAB: GENERAL FORECAST */}
-                {weatherTab === 'general' && (
+                {weatherTab === 'general' ? (
                   <div className="space-y-3">
-                    {weather.map((day, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
-                          <div className="flex items-center gap-4">
-                            <span className="w-10 font-bold text-gray-400 uppercase text-xs">{day.day}</span>
-                            {getWeatherIcon(day.condition, 24)}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-right">
-                                <span className="text-xs font-bold text-gray-500 capitalize block">{getWeatherLabel(day.condition)}</span>
-                                {day.description && <span className="text-[10px] text-gray-400 hidden sm:block">{day.description}</span>}
+                      {weather.map((day, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl">
+                            <div className="flex items-center gap-4">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-gray-900 dark:text-white text-sm">{day.day}</span>
+                                <span className="text-[10px] text-gray-400 font-bold uppercase">{getWeatherLabel(day.condition)}</span>
+                              </div>
+                              {getWeatherIcon(day.condition, 24)}
                             </div>
-                            <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
-                          </div>
-                      </div>
-                    ))}
+                            <div className="flex items-center gap-4">
+                               <div className="text-right">
+                                  <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
+                                     <Wind size={10} /> {day.windSpeed}
+                                  </div>
+                                  <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
+                                     <Droplets size={10} /> {day.humidity}%
+                                  </div>
+                               </div>
+                               <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
+                            </div>
+                        </div>
+                      ))}
                   </div>
-                )}
-
-                {/* TAB: SPRAYING WINDOW (NEW FEATURE) */}
-                {weatherTab === 'spray' && (
-                  <div className="space-y-4 animate-slide-up">
-                     
-                     {/* Legend */}
-                     <div className="flex justify-between px-2 pb-2 border-b border-gray-100 dark:border-neutral-800 text-[10px] font-bold uppercase text-gray-400">
-                        <span className="flex items-center gap-1"><Circle size={8} className="text-green-500 fill-green-500"/> Ideal</span>
-                        <span className="flex items-center gap-1"><Circle size={8} className="text-yellow-500 fill-yellow-500"/> Marginal</span>
-                        <span className="flex items-center gap-1"><Circle size={8} className="text-red-500 fill-red-500"/> Risco</span>
+                ) : (
+                  <div className="space-y-4">
+                     <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                        <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
+                           <span className="font-bold">Nota:</span> Condições ideais para aplicação de fitofármacos: Vento &lt; 10km/h, Temp &lt; 25°C, Sem chuva.
+                        </p>
                      </div>
 
-                     {/* Timeline */}
                      <div className="space-y-3">
                         {sprayForecast.map((slot, idx) => (
-                           <div 
-                             key={idx} 
-                             className={`relative p-4 rounded-2xl border-l-4 shadow-sm bg-white dark:bg-neutral-800 ${
-                               slot.status === 'ideal' ? 'border-l-green-500' : 
-                               slot.status === 'warning' ? 'border-l-yellow-500' : 
-                               'border-l-red-500 bg-red-50/50 dark:bg-red-900/10'
-                             }`}
-                           >
-                              <div className="flex justify-between items-start mb-2">
+                           <div key={idx} className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-2xl relative overflow-hidden">
+                              {/* Status Indicator Bar */}
+                              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${
+                                 slot.status === 'ideal' ? 'bg-green-500' : 
+                                 slot.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}></div>
+
+                              <div className="flex flex-col items-center min-w-[50px]">
                                  <span className="text-lg font-black text-gray-900 dark:text-white">{slot.time}</span>
-                                 {slot.status === 'ideal' ? (
-                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
-                                       <CheckCircle2 size={12} /> Luz Verde
-                                    </span>
-                                 ) : slot.status === 'warning' ? (
-                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
-                                       <AlertTriangle size={12} /> Atenção
-                                    </span>
-                                 ) : (
-                                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1">
-                                       <ShieldAlert size={12} /> Não Tratar
-                                    </span>
-                                 )}
                               </div>
 
-                              <div className="grid grid-cols-3 gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
-                                 <div className={`flex items-center gap-1 ${slot.wind > 15 ? 'text-red-500 font-bold' : ''}`}>
-                                    <Wind size={14} /> {slot.wind} km/h
+                              <div className="flex-1 min-w-0">
+                                 <div className="flex items-center gap-2 mb-1">
+                                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
+                                       slot.status === 'ideal' ? 'bg-green-100 text-green-700' : 
+                                       slot.status === 'warning' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+                                    }`}>
+                                       {slot.status === 'ideal' ? 'Recomendado' : slot.status === 'warning' ? 'Atenção' : 'Não Recomendado'}
+                                    </span>
                                  </div>
-                                 <div className={`flex items-center gap-1 ${slot.temp > 27 ? 'text-red-500 font-bold' : ''}`}>
-                                    <Thermometer size={14} /> {slot.temp}°C
-                                 </div>
-                                 <div className={`flex items-center gap-1 ${slot.rainProb > 50 ? 'text-red-500 font-bold' : ''}`}>
-                                    <CloudRain size={14} /> {slot.rainProb}%
-                                 </div>
+                                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{slot.reason}</p>
                               </div>
 
-                              <p className={`text-xs font-medium border-t pt-2 border-gray-100 dark:border-neutral-700 ${
-                                 slot.status === 'ideal' ? 'text-green-600' : 
-                                 slot.status === 'warning' ? 'text-yellow-600' : 
-                                 'text-red-500'
-                              }`}>
-                                 {slot.reason}
-                              </p>
+                              <div className="text-right">
+                                 <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
+                                    <Wind size={10} /> {slot.wind}km/h
+                                 </div>
+                                 <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
+                                    <Thermometer size={10} /> {slot.temp}°
+                                 </div>
+                              </div>
                            </div>
                         ))}
                      </div>
-                     
-                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl flex gap-3 items-start mt-4">
-                        <Droplets className="text-blue-500 mt-0.5 shrink-0" size={16} />
-                        <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                           <strong>Dica Técnica:</strong> A janela ideal considera vento &lt;10km/h para evitar deriva e temperatura &lt;25°C para evitar evaporação do fitofármaco.
-                        </p>
-                     </div>
                   </div>
                 )}
+
              </div>
-          </div>
+           </div>
         </div>
       )}
     </div>

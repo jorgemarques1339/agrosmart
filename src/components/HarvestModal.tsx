@@ -26,7 +26,7 @@ const HarvestModal: React.FC<HarvestModalProps> = ({ isOpen, onClose, field, onC
       const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
       // Normalize crop name for ID (e.g. "Uva Alvarinho" -> "UVA")
       const cropCode = field.crop.split(' ')[0].toUpperCase().substring(0, 4);
-      setBatchId(`LOTE-${cropCode}-${year}-${random}`);
+      setBatchId(`AGRO-${year}-${cropCode}-${random}`);
       setQuantity('');
     }
   }, [isOpen, field]);
@@ -41,6 +41,8 @@ const HarvestModal: React.FC<HarvestModalProps> = ({ isOpen, onClose, field, onC
       batchId,
       date
     });
+    // Nota: O fechamento (onClose) é gerido pelo pai após o sucesso
+    // ou podemos fechar aqui, mas o pai deve abrir o TraceabilityModal de seguida.
     onClose();
   };
 
@@ -147,7 +149,7 @@ const HarvestModal: React.FC<HarvestModalProps> = ({ isOpen, onClose, field, onC
                  : 'bg-agro-green text-white shadow-agro-green/30'
             }`}
           >
-            <Save size={24} /> Confirmar Stock
+            <Save size={24} /> Confirmar & Gerar QR
           </button>
 
         </div>

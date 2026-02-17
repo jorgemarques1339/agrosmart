@@ -1,17 +1,18 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   LayoutDashboard, Sprout, PawPrint, Package, 
   Tractor, Wallet, Settings, Bell, X,
   FileText, Wifi, Plus, Save,
   Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown,
-  Truck, FileCheck, WifiOff, CloudOff // Added offline icons
+  Truck, FileCheck, WifiOff, CloudOff, ArrowRight, QrCode, Calendar,
+  Lock, Users
 } from 'lucide-react';
 import mqtt from 'mqtt';
 import jsPDF from 'jspdf'; 
 import autoTable from 'jspdf-autotable'; 
 
-import { AppState, Field, StockItem, FieldLog, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee } from './types';
+import { AppState, Field, StockItem, FieldLog, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee, ProductBatch, UserProfile } from './types';
 import { loadState, saveState } from './services/storageService';
 import { INITIAL_WEATHER } from './constants';
 
@@ -25,6 +26,11 @@ import SettingsModal from './components/SettingsModal';
 import NotificationsModal, { TabId } from './components/NotificationsModal';
 import FieldNotebook from './components/FieldNotebook';
 import InstallPrompt from './components/InstallPrompt';
+import VoiceAssistant, { VoiceActionType } from './components/VoiceAssistant';
+import TraceabilityModal from './components/TraceabilityModal';
+import PublicProductPage from './components/PublicProductPage';
+import TeamManager from './components/TeamManager'; // New
+import TaskProofModal from './components/TaskProofModal'; // New
 
 // API Configuration
 const WEATHER_API_KEY = 'c7f76605724ecafb54933077ede4166a';
@@ -35,7 +41,7 @@ const LON = -8.723;
 const MQTT_BROKER_URL = 'wss://broker.emqx.io:8084/mqtt';
 const MQTT_TOPIC_SCAN = 'oriva/scan/sim';
 
-// Component for IoT Pairing Wizard (Global)
+// ... [IoTPairingWizard Component] ...
 const IoTPairingWizard = ({ onClose, fields, onPair }: { onClose: () => void, fields: Field[], onPair: (fieldId: string, sensor: Sensor) => void }) => {
   const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'found'>('idle');
   const [foundDevices, setFoundDevices] = useState<Sensor[]>([]);
@@ -298,6 +304,7 @@ const CultivationView = ({
   fields, 
   stocks,
   employees,
+  harvests,
   toggleIrrigation, 
   onAddLog,
   onUseStock,
@@ -306,11 +313,14 @@ const CultivationView = ({
   onModalChange,
   operatorName,
   onRegisterSale,
-  onHarvest // New Prop
+  onHarvest,
+  onViewTraceability,
+  onDeleteField // New prop
 }: { 
   fields: Field[], 
   stocks: StockItem[],
   employees: Employee[],
+  harvests: ProductBatch[], 
   toggleIrrigation: (id: string, s: boolean) => void,
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => void,
   onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void,
@@ -319,11 +329,17 @@ const CultivationView = ({
   onModalChange?: (isOpen: boolean) => void,
   operatorName: string,
   onRegisterSale: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void,
-  onHarvest: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void
+  onHarvest: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void,
+  onViewTraceability: (batch: ProductBatch) => void,
+  onDeleteField: (id: string) => void // New prop
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotebookOpen, setIsNotebookOpen] = useState(false);
   const [showIoTWizard, setShowIoTWizard] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false); 
+  
+  // Track open Field Detail modals to hide nav
+  const [anyFieldOpen, setAnyFieldOpen] = useState(false);
   
   // --- e-GUIAS MODAL STATE ---
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -346,9 +362,9 @@ const CultivationView = ({
 
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || showGuideModal);
+      onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || showGuideModal || anyFieldOpen || showHistoryModal);
     }
-  }, [isModalOpen, isNotebookOpen, showIoTWizard, showGuideModal, onModalChange]);
+  }, [isModalOpen, isNotebookOpen, showIoTWizard, showGuideModal, anyFieldOpen, showHistoryModal, onModalChange]);
 
   const handleSubmit = () => {
     if (newName && newArea) {
@@ -458,7 +474,7 @@ const CultivationView = ({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pt-4">
+    <div className="space-y-6 animate-fade-in pt-4 pb-24">
       <div className="flex justify-between items-start px-2 mb-4 md:mb-6">
         
         {/* Lado Esquerdo: Registo e e-Guias */}
@@ -522,10 +538,76 @@ const CultivationView = ({
             onUseStock={onUseStock}
             onRegisterSensor={onRegisterSensor}
             onRegisterSale={onRegisterSale}
-            onHarvest={onHarvest} // Pass down
+            onHarvest={onHarvest} 
+            onModalChange={setAnyFieldOpen} 
+            onDelete={onDeleteField} // Pass delete handler
           />
         ))}
       </div>
+
+      {/* --- NEW BUTTON: FINISHED HARVESTS --- */}
+      {harvests && harvests.length > 0 && (
+        <button 
+          onClick={() => setShowHistoryModal(true)}
+          className="w-full py-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-[2rem] shadow-sm flex items-center justify-center gap-2 text-gray-500 hover:text-agro-green transition-all mt-4"
+        >
+           <FileCheck size={20} />
+           <span className="font-bold text-sm">Colheitas Finalizadas ({harvests.length})</span>
+        </button>
+      )}
+
+      {/* --- HARVEST HISTORY MODAL --- */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowHistoryModal(false)}>
+          <div 
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[80vh] overflow-y-auto custom-scrollbar" 
+            onClick={e => e.stopPropagation()}
+          >
+             <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
+                     <FileCheck className="text-agro-green" size={24} /> Histórico de Colheita
+                  </h3>
+                  <p className="text-xs font-bold text-gray-400 uppercase mt-1">Passaportes Digitais</p>
+                </div>
+                <button onClick={() => setShowHistoryModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                  <X size={20} className="dark:text-white" />
+                </button>
+             </div>
+
+             <div className="space-y-4">
+                {harvests.slice().reverse().map((batch) => (
+                   <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm">
+                         <QrCode size={24} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                         <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
+                         <p className="text-[10px] text-gray-400 font-mono mb-1">{batch.batchId}</p>
+                         <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
+                               <Package size={10} /> {batch.quantity} {batch.unit}
+                            </span>
+                            <span className="text-[10px] font-bold bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded flex items-center gap-1">
+                               <Calendar size={10} /> {new Date(batch.harvestDate).toLocaleDateString()}
+                            </span>
+                         </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                           setShowHistoryModal(false);
+                           onViewTraceability(batch);
+                        }}
+                        className="p-3 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600"
+                      >
+                         <ArrowRight size={20} />
+                      </button>
+                   </div>
+                ))}
+             </div>
+          </div>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)}>
@@ -773,14 +855,32 @@ const CultivationView = ({
 };
 
 const App = () => {
+  // 1. PUBLIC PAGE ROUTING LOGIC
+  const [viewMode, setViewMode] = useState<'app' | 'public'>('app');
+  const [publicBatchId, setPublicBatchId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const batchId = params.get('batchId');
+    if (batchId) {
+      setPublicBatchId(batchId);
+      setViewMode('public');
+    }
+  }, []);
+
   const [state, setState] = useState<AppState>(loadState());
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
-  const [userName, setUserName] = useState('Agricultor');
+  const [currentUserId, setCurrentUserId] = useState<string>('u1'); // Default Admin
   
   // Modals Global States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isChildModalOpen, setIsChildModalOpen] = useState(false); // Track child modals to hide Nav
+  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
+  const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false); // New
+  const [taskProofTask, setTaskProofTask] = useState<Task | null>(null); // New
+  
+  // Traceability Modal State
+  const [traceabilityBatch, setTraceabilityBatch] = useState<ProductBatch | null>(null);
 
   // Weather Data
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>(INITIAL_WEATHER);
@@ -795,13 +895,53 @@ const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSolarMode, setIsSolarMode] = useState(false);
 
+  // Derived Current User
+  const currentUser = useMemo(() => {
+    return state.users?.find(u => u.id === currentUserId) || { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
+  }, [state.users, currentUserId]);
+
+  const userName = currentUser.name;
+
+  // --- HANDLER PARA COMANDOS DE VOZ ---
+  const handleVoiceCommand = useCallback((action: VoiceActionType) => {
+    switch (action.type) {
+      case 'NAVIGATE':
+        setActiveTab(action.target);
+        break;
+      case 'OPEN_MODAL':
+        if (action.target === 'new_task') {
+          setActiveTab('dashboard');
+        } else if (action.target === 'new_animal') {
+          setActiveTab('animal');
+        } else if (action.target === 'add_stock') {
+          setActiveTab('stocks');
+        }
+        break;
+      case 'IOT_CONTROL':
+        if (action.action === 'irrigation_on') {
+          const fieldWithIrrigation = state.fields.find(f => f.irrigationStatus === false);
+          if (fieldWithIrrigation) {
+            setState(prev => ({
+              ...prev,
+              fields: prev.fields.map(f => f.id === fieldWithIrrigation.id ? { ...f, irrigationStatus: true } : f)
+            }));
+          }
+        } else if (action.action === 'irrigation_off' || action.action === 'stop_all') {
+          setState(prev => ({
+            ...prev,
+            fields: prev.fields.map(f => ({ ...f, irrigationStatus: false }))
+          }));
+        }
+        break;
+    }
+  }, [state.fields]);
+
   // --- ONLINE/OFFLINE EVENT LISTENERS ---
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       setShowOnlineSuccess(true);
       setTimeout(() => setShowOnlineSuccess(false), 3000);
-      // Try to re-fetch weather when online
       fetchWeather();
     };
     const handleOffline = () => setIsOnline(false);
@@ -818,7 +958,6 @@ const App = () => {
   const fetchWeather = async () => {
     // Only attempt fetch if online
     if (!navigator.onLine) {
-      // Try to load cached weather from localStorage
       const cachedWeather = localStorage.getItem('oriva_cached_weather');
       const cachedHourly = localStorage.getItem('oriva_cached_hourly');
       if (cachedWeather) setWeatherData(JSON.parse(cachedWeather));
@@ -891,14 +1030,12 @@ const App = () => {
 
     } catch (error) {
       console.error("Erro ao obter meteorologia:", error);
-      // Fallback to cache if request fails despite being "online"
       const cachedWeather = localStorage.getItem('oriva_cached_weather');
       if (cachedWeather) setWeatherData(JSON.parse(cachedWeather));
     }
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchWeather();
   }, []);
 
@@ -929,6 +1066,12 @@ const App = () => {
     count += state.animals.filter(a => a.status === 'sick').length;
     count += state.fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
     count += state.stocks.filter(s => s.quantity <= s.minStock).length;
+    
+    // Admin only task reviews
+    if (currentUser.role === 'admin') {
+       count += state.tasks.filter(t => t.status === 'review').length;
+    }
+
     count += state.machines.filter(m => {
        const hoursSince = m.engineHours - m.lastServiceHours;
        const overdue = hoursSince > m.serviceInterval;
@@ -937,16 +1080,21 @@ const App = () => {
     }).length;
 
     return count;
-  }, [weatherData, state]);
+  }, [weatherData, state, currentUser]);
 
+  // ... [Handlers: toggleTask, addTask, etc.] ...
   const toggleTask = (id: string) => {
     setState(prev => ({
       ...prev,
-      tasks: prev.tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t)
+      tasks: prev.tasks.map(t => {
+        if (t.id !== id) return t;
+        // Simple toggle for unassigned tasks or if admin
+        return { ...t, completed: !t.completed, status: !t.completed ? 'done' : 'pending' };
+      })
     }));
   };
 
-  const addTask = (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number) => {
+  const handleAddTask = (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number, assignedTo?: string) => {
     const newTask: Task = {
       id: Date.now().toString(),
       title,
@@ -955,7 +1103,9 @@ const App = () => {
       completed: false,
       relatedFieldId,
       relatedStockId,
-      plannedQuantity
+      plannedQuantity,
+      assignedTo,
+      status: 'pending' // Default status
     };
     setState(prev => ({ ...prev, tasks: [...prev.tasks, newTask] }));
   };
@@ -964,8 +1114,18 @@ const App = () => {
     setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
   };
 
+  const handleDeleteField = (id: string) => {
+    if (currentUser.role !== 'admin') {
+      alert("Apenas administradores podem eliminar campos.");
+      return;
+    }
+    setState(prev => ({
+      ...prev,
+      fields: prev.fields.filter(f => f.id !== id)
+    }));
+  };
+
   const handleAddLog = (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => {
-    // ... (Existing log adding logic)
     if (stockId && log.quantity) {
        const stockItem = state.stocks.find(s => s.id === stockId);
        if (!stockItem) return;
@@ -1020,6 +1180,29 @@ const App = () => {
     }
   };
 
+  // Team Connect Handlers
+  const handleSubmitProof = (taskId: string, image: string) => {
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status: 'review', proofImage: image } : t)
+    }));
+  };
+
+  const handleReviewTask = (taskId: string, approved: boolean, feedback?: string) => {
+    setState(prev => ({
+      ...prev,
+      tasks: prev.tasks.map(t => {
+        if (t.id !== taskId) return t;
+        if (approved) {
+          return { ...t, status: 'done', completed: true, feedback };
+        } else {
+          // Send back to pending for redo
+          return { ...t, status: 'pending', completed: false, feedback, proofImage: undefined };
+        }
+      })
+    }));
+  };
+
   const handleRegisterSale = (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => {
     setState(prev => {
       const stockItem = prev.stocks.find(s => s.id === saleData.stockId);
@@ -1071,11 +1254,9 @@ const App = () => {
   // --- HARVEST LOGIC ---
   const handleHarvest = (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => {
     setState(prev => {
-      // 1. Find Field to get Crop Name
       const field = prev.fields.find(f => f.id === fieldId);
       if (!field) return prev;
 
-      // 2. Create New Stock Item
       const newStockItem: StockItem = {
         id: Date.now().toString(),
         name: `${field.crop} - ${data.batchId}`,
@@ -1083,27 +1264,34 @@ const App = () => {
         quantity: data.quantity,
         unit: data.unit,
         minStock: 0,
-        pricePerUnit: 0 // To be set later or upon sale
+        pricePerUnit: 0 
       };
 
-      // 3. Add Log to Field
-      const newLog: FieldLog = {
-        id: Date.now().toString(),
-        date: data.date,
-        type: 'harvest',
-        description: `Colheita Realizada: Lote ${data.batchId}`,
+      // Create ProductBatch for Traceability
+      const newBatch: ProductBatch = {
+        batchId: data.batchId,
+        crop: field.crop,
+        harvestDate: data.date,
+        origin: 'Quinta do Oriva, Laundos', // Mocked location name
+        coordinates: field.coordinates,
         quantity: data.quantity,
-        unit: data.unit
+        unit: data.unit,
+        stats: {
+          sunDays: 120, // Mocked stats based on prompt
+          waterSavedLitres: 4500,
+          harvestMethod: 'Manual'
+        },
+        farmerName: userName
       };
+      
+      // Open Modal
+      setTraceabilityBatch(newBatch);
 
       return {
         ...prev,
         stocks: [...prev.stocks, newStockItem],
-        fields: prev.fields.map(f => 
-          f.id === fieldId 
-            ? { ...f, logs: [...(f.logs || []), newLog] } 
-            : f
-        )
+        harvests: [newBatch, ...(prev.harvests || [])], // Save to history
+        fields: prev.fields.filter(f => f.id !== fieldId) // REMOVIDO: Filtra o campo para fora do array
       };
     });
   };
@@ -1142,7 +1330,6 @@ const App = () => {
      }));
   };
 
-  // ... (Other handlers: addAnimal, updateAnimal, etc. kept same)
   const addAnimal = (animal: Omit<Animal, 'id'>) => {
     setState(prev => ({ ...prev, animals: [...prev.animals, { ...animal, id: Date.now().toString() }] }));
   };
@@ -1199,7 +1386,23 @@ const App = () => {
     setIsChildModalOpen(isOpen);
   };
 
-  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationsOpen;
+  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationsOpen || isTeamManagerOpen || !!taskProofTask;
+
+  // RENDER PUBLIC PAGE IF BATCH ID PRESENT
+  if (viewMode === 'public' && publicBatchId) {
+    return <PublicProductPage batchId={publicBatchId} />;
+  }
+
+  // --- RENDER PERMISSION DENIED ---
+  const AccessDenied = ({ title }: { title: string }) => (
+    <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-fade-in">
+       <div className="w-24 h-24 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
+          <Lock size={40} className="text-gray-400" />
+       </div>
+       <h3 className="text-xl font-black dark:text-white mb-2">Acesso Restrito</h3>
+       <p className="text-gray-500 max-w-xs">A secção <strong>{title}</strong> está disponível apenas para administradores.</p>
+    </div>
+  );
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black overflow-hidden transition-colors duration-300">
@@ -1228,16 +1431,19 @@ const App = () => {
             tasks={state.tasks}
             fields={state.fields}
             machines={state.machines || []} 
-            stocks={state.stocks} 
+            stocks={state.stocks}
+            users={state.users}
+            currentUser={currentUser}
             onToggleTask={toggleTask}
-            onAddTask={addTask}
+            onAddTask={handleAddTask}
             onDeleteTask={deleteTask}
             onWeatherClick={() => setIsNotificationsOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onModalChange={handleChildModalChange}
             onUpdateMachineHours={updateMachineHours} 
-            onAddMachineLog={addMachineLog} 
+            onAddMachineLog={addMachineLog}
+            onTaskClick={(task) => setTaskProofTask(task)} // Open proof modal
             alertCount={alertCount}
           />
         )}
@@ -1247,8 +1453,8 @@ const App = () => {
             onAddProduction={addProduction} 
             onAddAnimal={addAnimal}
             onUpdateAnimal={updateAnimal} 
-            onScheduleTask={addTask}
-            onModalChange={handleChildModalChange} // Pass modal change handler
+            onScheduleTask={(title, type, date) => handleAddTask(title, type as any, date)}
+            onModalChange={handleChildModalChange}
           />
         )}
         {activeTab === 'cultivation' && (
@@ -1256,6 +1462,7 @@ const App = () => {
             fields={state.fields}
             stocks={state.stocks} 
             employees={state.employees || []}
+            harvests={state.harvests || []} 
             toggleIrrigation={toggleIrrigation}
             onAddLog={handleAddLog}
             onUseStock={handleUseStockOnField}
@@ -1264,17 +1471,23 @@ const App = () => {
             onModalChange={handleChildModalChange}
             operatorName={userName}
             onRegisterSale={handleRegisterSale}
-            onHarvest={handleHarvest} // Pass logic here
+            onHarvest={handleHarvest} 
+            onViewTraceability={setTraceabilityBatch}
+            onDeleteField={handleDeleteField} // Pass down delete function
           />
         )}
         {activeTab === 'stocks' && (
-          <StockManager 
-            stocks={state.stocks}
-            onUpdateStock={handleUpdateStock}
-            onAddStock={handleAddStock}
-            onEditStock={handleEditStock}
-            onModalChange={handleChildModalChange}
-          />
+          currentUser.role === 'admin' ? (
+            <StockManager 
+              stocks={state.stocks}
+              onUpdateStock={handleUpdateStock}
+              onAddStock={handleAddStock}
+              onEditStock={handleEditStock}
+              onModalChange={handleChildModalChange}
+            />
+          ) : (
+            <AccessDenied title="Stocks & Armazém" />
+          )
         )}
         {activeTab === 'machines' && (
           <MachineManager 
@@ -1287,14 +1500,21 @@ const App = () => {
           />
         )}
         {activeTab === 'finance' && (
-          <FinanceManager 
-            transactions={state.transactions}
-            stocks={state.stocks}
-            onAddTransaction={handleAddTransaction}
-            onModalChange={handleChildModalChange}
-          />
+          currentUser.role === 'admin' ? (
+            <FinanceManager 
+              transactions={state.transactions}
+              stocks={state.stocks}
+              onAddTransaction={handleAddTransaction}
+              onModalChange={handleChildModalChange}
+            />
+          ) : (
+            <AccessDenied title="Finanças" />
+          )
         )}
       </main>
+
+      {/* VOICE ASSISTANT FAB */}
+      <VoiceAssistant onCommand={handleVoiceCommand} />
 
       {/* Bottom Navigation */}
       <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${
@@ -1304,20 +1524,30 @@ const App = () => {
            { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
            { id: 'cultivation', icon: Sprout, label: 'Cultivo' },
            { id: 'animal', icon: PawPrint, label: 'Animais' },
-           { id: 'stocks', icon: Package, label: 'Stock' },
+           { id: 'stocks', icon: Package, label: 'Stock', restricted: currentUser.role !== 'admin' },
            { id: 'machines', icon: Tractor, label: 'Frota' },
-           { id: 'finance', icon: Wallet, label: 'Finanças' },
+           { id: 'finance', icon: Wallet, label: 'Finanças', restricted: currentUser.role !== 'admin' },
          ].map(tab => (
            <button
              key={tab.id}
              onClick={() => setActiveTab(tab.id as any)}
-             className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl ${
+             className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl relative ${
                activeTab === tab.id 
                  ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1' 
                  : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-transparent p-2 mb-1'
              }`}
            >
-             <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+             {tab.restricted ? (
+               <div className="relative">
+                 <tab.icon size={22} strokeWidth={2} className="opacity-50" />
+                 <div className="absolute -top-1 -right-1 bg-gray-200 dark:bg-neutral-700 rounded-full p-0.5">
+                    <Lock size={8} className="text-gray-500" />
+                 </div>
+               </div>
+             ) : (
+               <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+             )}
+             
              {activeTab === tab.id && (
                <span className="text-[9px] font-bold mt-1 animate-fade-in whitespace-nowrap leading-none">
                  {tab.label}
@@ -1333,7 +1563,7 @@ const App = () => {
         onClose={() => setIsSettingsOpen(false)}
         onResetData={() => setState(loadState())} 
         currentName={userName}
-        onSaveName={setUserName}
+        onSaveName={() => {}} // Name managed by Team Profile now
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         isSolarMode={isSolarMode}
@@ -1350,6 +1580,45 @@ const App = () => {
         machines={state.machines}
         onNavigate={(tab) => setActiveTab(tab as TabId)}
       />
+
+      {/* TEAM CONNECT MODAL (Opened from Settings Button for now - could be in Settings Menu) */}
+      {isSettingsOpen && (
+         <button 
+           onClick={() => { setIsSettingsOpen(false); setIsTeamManagerOpen(true); }}
+           className="fixed top-24 right-6 z-[160] bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg animate-slide-left flex items-center gap-2"
+         >
+            <Users size={16} /> Equipa
+         </button>
+      )}
+
+      {isTeamManagerOpen && (
+        <TeamManager 
+          users={state.users}
+          currentUser={currentUser}
+          onSwitchUser={(id) => setCurrentUserId(id)}
+          onClose={() => setIsTeamManagerOpen(false)}
+        />
+      )}
+
+      {taskProofTask && (
+        <TaskProofModal 
+          isOpen={!!taskProofTask}
+          onClose={() => setTaskProofTask(null)}
+          task={taskProofTask}
+          currentUser={currentUser}
+          onSubmitProof={handleSubmitProof}
+          onReviewTask={handleReviewTask}
+        />
+      )}
+
+      {/* TRACEABILITY MODAL (GENERATOR) */}
+      {traceabilityBatch && (
+        <TraceabilityModal 
+          isOpen={!!traceabilityBatch} 
+          onClose={() => setTraceabilityBatch(null)} 
+          batch={traceabilityBatch} 
+        />
+      )}
 
       <InstallPrompt />
 
