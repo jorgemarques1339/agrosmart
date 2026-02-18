@@ -1434,6 +1434,7 @@ const App = () => {
             stocks={state.stocks}
             users={state.users}
             currentUser={currentUser}
+            animals={state.animals} // PASSING ANIMALS PROP
             onToggleTask={toggleTask}
             onAddTask={handleAddTask}
             onDeleteTask={deleteTask}
@@ -1444,6 +1445,7 @@ const App = () => {
             onUpdateMachineHours={updateMachineHours} 
             onAddMachineLog={addMachineLog}
             onTaskClick={(task) => setTaskProofTask(task)} // Open proof modal
+            onNavigate={(tab) => setActiveTab(tab as TabId)} // Pass navigation handler
             alertCount={alertCount}
           />
         )}
