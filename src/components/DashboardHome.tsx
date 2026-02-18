@@ -137,7 +137,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
     <div className="space-y-8 animate-fade-in pb-28 pt-2">
       
       {/* 1. HEADER: ORIVA SMART REDESIGN */}
-      <div className="flex justify-between items-center px-4 sm:px-6 pt-6 pb-2">
+      <div className="flex justify-between items-center px-4 sm:px-6 pt-2 pb-2">
         
         {/* Left Side: Text & Avatar */}
         <div className="flex items-center gap-3">
@@ -170,7 +170,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
            >
               <span className="hidden sm:block text-[10px] font-bold text-gray-600 dark:text-gray-300 tracking-wide">Alertas</span>
               <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-white/80 dark:bg-black/40 flex items-center justify-center shadow-inner">
-                 <div className={`w-2 h-2 rounded-full ${alertCount > 0 ? 'bg-red-500 shadow-[0_0_8px_red] animate-pulse' : 'bg-gray-300'}`}></div>
+                 <span className={`text-xs ${alertCount > 0 ? 'animate-pulse' : 'grayscale opacity-40'}`}>🔔</span>
               </div>
            </button>
 
