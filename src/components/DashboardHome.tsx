@@ -136,37 +136,56 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
   return (
     <div className="space-y-8 animate-fade-in pb-28 pt-2">
       
-      {/* 1. HEADER: GREETINGS & NOTIFICATIONS */}
-      <div className="flex justify-between items-end px-4">
-        <div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Visão Geral</p>
-          <h1 className="text-4xl font-black italic text-gray-900 dark:text-white leading-none">
-            Olá, {userName.split(' ')[0]}
-          </h1>
+      {/* 1. HEADER: ORIVA SMART REDESIGN */}
+      <div className="flex justify-between items-center px-4 sm:px-6 pt-6 pb-2">
+        
+        {/* Left Side: Text & Avatar */}
+        <div className="flex items-center gap-3">
+           {/* Avatar de Status (Centro Esquerdo) */}
+           <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full border-[2px] sm:border-[3px] border-emerald-400 shadow-[0_0_10px_#34d399] sm:shadow-[0_0_15px_#34d399] animate-pulse overflow-hidden shrink-0 flex items-center justify-center bg-black/5">
+              <img 
+                src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1932&auto=format&fit=crop" 
+                alt="Farm Status" 
+                className="absolute inset-0 w-full h-full object-cover opacity-60"
+              />
+              <div className="relative z-10 flex items-center justify-center">
+                 <Activity className="text-emerald-500 drop-shadow-[0_0_5px_rgba(52,211,153,1)]" size={20} strokeWidth={2.5} />
+              </div>
+           </div>
+
+           <div className="flex flex-col justify-center">
+              <span className="text-[10px] sm:text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider leading-none mb-0.5">Olá, {userName.split(' ')[0]}</span>
+              <h1 className="text-xl sm:text-2xl font-black italic tracking-tighter text-gray-900 dark:text-white leading-none">
+                OrivaSmart
+              </h1>
+           </div>
         </div>
-        <div className="flex gap-3">
+
+        {/* Right Side: Side-by-Side Glass Pills */}
+        <div className="flex flex-row gap-2 items-center">
+           {/* Notifications */}
            <button 
-             onClick={onOpenNotifications} 
-             className={`relative w-14 h-14 rounded-full flex items-center justify-center transition-all active:scale-90 border-2 ${
-                alertCount > 0 
-                  ? 'bg-red-50 border-red-100 text-red-600 animate-pulse shadow-red-200' 
-                  : 'bg-white border-gray-100 text-gray-400 shadow-sm dark:bg-neutral-800 dark:border-neutral-700'
-             }`}
+             onClick={onOpenNotifications}
+             className="group flex items-center gap-0 sm:gap-2 pl-1.5 sm:pl-3 pr-1.5 py-1.5 rounded-full bg-white/60 dark:bg-neutral-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm active:scale-95 transition-all"
            >
-              <Bell size={24} className={alertCount > 0 ? 'fill-current' : ''} />
-              {alertCount > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-red-600 border-2 border-white rounded-full flex items-center justify-center text-[9px] font-black text-white">
-                  {alertCount}
-                </span>
-              )}
+              <span className="hidden sm:block text-[10px] font-bold text-gray-600 dark:text-gray-300 tracking-wide">Alertas</span>
+              <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-white/80 dark:bg-black/40 flex items-center justify-center shadow-inner">
+                 <div className={`w-2 h-2 rounded-full ${alertCount > 0 ? 'bg-red-500 shadow-[0_0_8px_red] animate-pulse' : 'bg-gray-300'}`}></div>
+              </div>
            </button>
+
+           {/* Settings */}
            <button 
-             onClick={onOpenSettings} 
-             className="w-14 h-14 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-black shadow-xl active:scale-90 transition-transform"
+             onClick={onOpenSettings}
+             className="group flex items-center gap-0 sm:gap-2 pl-1.5 sm:pl-3 pr-1.5 py-1.5 rounded-full bg-white/60 dark:bg-neutral-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm active:scale-95 transition-all"
            >
-              <Settings size={24} />
+              <span className="hidden sm:block text-[10px] font-bold text-gray-600 dark:text-gray-300 tracking-wide">Definições</span>
+              <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-white/80 dark:bg-black/40 flex items-center justify-center shadow-inner group-hover:rotate-90 transition-transform">
+                 <Settings size={14} className="text-gray-600 dark:text-gray-300" />
+              </div>
            </button>
         </div>
+
       </div>
 
       {/* 2. WEATHER HERO (Compact Version) */}
