@@ -1,170 +1,254 @@
 <!DOCTYPE html>
 <html lang="pt-PT">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Oriva Enterprise</title>
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/628/628283.png">
-    <script type="module" src="/src/main.tsx"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    <style>
-      /* Custom Scrollbar for sleek look */
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
-      }
-      
-      /* Leaflet Fixes */
-      .leaflet-container {
-        width: 100%;
-        height: 100%;
-        border-radius: 1.5rem;
-        z-index: 0;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Oriva Enterprise</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/628/628283.png">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <style>
+    /* Custom Scrollbar for sleek look */
+    ::-webkit-scrollbar {
+      width: 0px;
+      background: transparent;
+    }
+
+    /* Leaflet Fixes */
+    .leaflet-container {
+      width: 100%;
+      height: 100%;
+      border-radius: 1.5rem;
+      z-index: 0;
+    }
+
+    /* --- ANIMATION UTILITIES --- */
+    @keyframes fade-in {
+      from {
+        opacity: 0;
       }
 
-      /* --- ANIMATION UTILITIES --- */
-      @keyframes fade-in {
-        from { opacity: 0; }
-        to { opacity: 1; }
+      to {
+        opacity: 1;
       }
-      .animate-fade-in {
-        animation: fade-in 0.4s ease-out forwards;
+    }
+
+    .animate-fade-in {
+      animation: fade-in 0.4s ease-out forwards;
+    }
+
+    @keyframes slide-up {
+      from {
+        transform: translateY(20px);
+        opacity: 0;
       }
 
-      @keyframes slide-up {
-        from { transform: translateY(20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+      to {
+        transform: translateY(0);
+        opacity: 1;
       }
-      .animate-slide-up {
-        animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-slide-up {
+      animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes slide-down {
+      from {
+        transform: translateY(-20px);
+        opacity: 0;
       }
 
-      @keyframes slide-down {
-        from { transform: translateY(-20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
+      to {
+        transform: translateY(0);
+        opacity: 1;
       }
-      .animate-slide-down {
-        animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-slide-down {
+      animation: slide-down 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes scale-up {
+      from {
+        transform: scale(0.95);
+        opacity: 0;
       }
 
-      @keyframes scale-up {
-        from { transform: scale(0.95); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
+      to {
+        transform: scale(1);
+        opacity: 1;
       }
-      .animate-scale-up {
-        animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-scale-up {
+      animation: scale-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes pulse-slow {
+
+      0%,
+      100% {
+        opacity: 1;
       }
 
-      @keyframes pulse-slow {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.8; }
+      50% {
+        opacity: 0.8;
       }
-      .animate-pulse-slow {
-        animation: pulse-slow 3s ease-in-out infinite;
+    }
+
+    .animate-pulse-slow {
+      animation: pulse-slow 3s ease-in-out infinite;
+    }
+
+    /* Stagger Delays helper classes */
+    .delay-100 {
+      animation-delay: 100ms;
+    }
+
+    .delay-200 {
+      animation-delay: 200ms;
+    }
+
+    .delay-300 {
+      animation-delay: 300ms;
+    }
+
+    /* Scanning Animation */
+    @keyframes scan {
+      0% {
+        top: 0%;
+        opacity: 0;
       }
 
-      /* Stagger Delays helper classes */
-      .delay-100 { animation-delay: 100ms; }
-      .delay-200 { animation-delay: 200ms; }
-      .delay-300 { animation-delay: 300ms; }
-
-      /* Scanning Animation */
-      @keyframes scan {
-        0% { top: 0%; opacity: 0; }
-        10% { opacity: 1; }
-        90% { opacity: 1; }
-        100% { top: 100%; opacity: 0; }
-      }
-      .animate-scan {
-        animation: scan 2s linear infinite;
+      10% {
+        opacity: 1;
       }
 
-      body {
-        -webkit-tap-highlight-color: transparent;
-        background-color: #FDFDF5; /* Light Mode BG */
-        transition: background-color 0.3s ease;
-      }
-      
-      html.dark body {
-        background-color: #0A0A0A;
+      90% {
+        opacity: 1;
       }
 
-      /* --- SOLAR MODE (HIGH CONTRAST) --- */
-      html.solar body {
-        background-color: #FFFFFF !important;
-        color: #000000 !important;
+      100% {
+        top: 100%;
+        opacity: 0;
       }
-      html.solar * {
-        box-shadow: none !important;
-        text-shadow: none !important;
-        backdrop-filter: none !important;
-        animation: none !important; /* Disable animations in solar mode */
-        transition: none !important;
-      }
-      html.solar .bg-white, html.solar .bg-gray-50, html.solar .bg-gray-100 {
-        background-color: #FFFFFF !important;
-        border: 2px solid #000000 !important;
-        color: #000000 !important;
-      }
-      html.solar h1, html.solar h2, html.solar h3, html.solar h4, html.solar p, html.solar span, html.solar div {
-        font-weight: 700 !important;
-        letter-spacing: 0.5px;
-      }
-      html.solar .text-gray-400, html.solar .text-gray-500, html.solar .text-gray-600 {
-        color: #000000 !important;
-      }
-      html.solar .bg-agro-green {
-        background-color: #000000 !important;
-        color: #FFFF00 !important;
-        border: 2px solid #000000 !important;
-      }
-      html.solar input, html.solar select {
-        background-color: #FFFFFF !important;
-        border: 3px solid #000000 !important;
-        color: #000000 !important;
-        font-weight: 900 !important;
-      }
-      html.solar svg {
-        stroke-width: 3px !important;
-        stroke: #000000 !important;
-      }
-      html.solar .text-white {
-        color: #000000 !important;
-      }
-      html.solar .bg-agro-green .text-white {
-        color: #FFFF00 !important;
-      }
+    }
 
-    </style>
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            colors: {
-              agro: {
-                bg: '#FDFDF5',
-                green: '#3E6837',
-                border: '#E0E4D6',
-                darkBg: '#0A0A0A',
-                darkGreen: '#4ade80',
-                darkBorder: '#262626'
-              }
-            },
-            borderRadius: {
-              'deep': '2.5rem'
-            },
-            fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-            },
-            animation: {
-              'spin-slow': 'spin 8s linear infinite',
+    .animate-scan {
+      animation: scan 2s linear infinite;
+    }
+
+    body {
+      -webkit-tap-highlight-color: transparent;
+      background-color: #FDFDF5;
+      /* Light Mode BG */
+      transition: background-color 0.3s ease;
+    }
+
+    html.dark body {
+      background-color: #0A0A0A;
+    }
+
+    /* --- SOLAR MODE (HIGH CONTRAST) --- */
+    html.solar body {
+      background-color: #FFFFFF !important;
+      color: #000000 !important;
+    }
+
+    html.solar * {
+      box-shadow: none !important;
+      text-shadow: none !important;
+      backdrop-filter: none !important;
+      animation: none !important;
+      /* Disable animations in solar mode */
+      transition: none !important;
+    }
+
+    html.solar .bg-white,
+    html.solar .bg-gray-50,
+    html.solar .bg-gray-100 {
+      background-color: #FFFFFF !important;
+      border: 2px solid #000000 !important;
+      color: #000000 !important;
+    }
+
+    html.solar h1,
+    html.solar h2,
+    html.solar h3,
+    html.solar h4,
+    html.solar p,
+    html.solar span,
+    html.solar div {
+      font-weight: 700 !important;
+      letter-spacing: 0.5px;
+    }
+
+    html.solar .text-gray-400,
+    html.solar .text-gray-500,
+    html.solar .text-gray-600 {
+      color: #000000 !important;
+    }
+
+    html.solar .bg-agro-green {
+      background-color: #000000 !important;
+      color: #FFFF00 !important;
+      border: 2px solid #000000 !important;
+    }
+
+    html.solar input,
+    html.solar select {
+      background-color: #FFFFFF !important;
+      border: 3px solid #000000 !important;
+      color: #000000 !important;
+      font-weight: 900 !important;
+    }
+
+    html.solar svg {
+      stroke-width: 3px !important;
+      stroke: #000000 !important;
+    }
+
+    html.solar .text-white {
+      color: #000000 !important;
+    }
+
+    html.solar .bg-agro-green .text-white {
+      color: #FFFF00 !important;
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            agro: {
+              bg: '#FDFDF5',
+              green: '#3E6837',
+              border: '#E0E4D6',
+              darkBg: '#0A0A0A',
+              darkGreen: '#4ade80',
+              darkBorder: '#262626'
             }
+          },
+          borderRadius: {
+            'deep': '2.5rem'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          animation: {
+            'spin-slow': 'spin 8s linear infinite',
           }
         }
       }
-    </script>
+    }
+  </script>
   <script type="importmap">
 {
   "imports": {
@@ -177,20 +261,22 @@
     "leaflet": "https://esm.sh/leaflet@^1.9.4",
     "mqtt": "https://esm.sh/mqtt@^5.15.0",
     "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2"
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2",
     "qrcode.react": "https://esm.sh/qrcode.react@^3.1.0"
   }
 }
 </script>
+  <script type="module" src="/src/main.tsx"></script>
 </head>
-  <body>
-    <div id="root"></div>
-    <script>
-      // ROBUST OFFLINE SERVICE WORKER GENERATION
-      // This creates a blob-based SW that aggressively caches all critical assets.
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          const swCode = `
+
+<body>
+  <div id="root"></div>
+  <script>
+    // ROBUST OFFLINE SERVICE WORKER GENERATION
+    // This creates a blob-based SW that aggressively caches all critical assets.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
             const CACHE_NAME = 'oriva-enterprise-v1-offline';
             const URLS_TO_CACHE = [
               '/',
@@ -265,18 +351,19 @@
             });
           `;
 
-          const blob = new Blob([swCode], { type: 'application/javascript' });
-          const swUrl = URL.createObjectURL(blob);
+        const blob = new Blob([swCode], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(blob);
 
-          navigator.serviceWorker.register(swUrl)
-            .then(registration => {
-              console.log('Oriva SW registered with scope: ', registration.scope);
-            })
-            .catch(err => {
-              console.log('Oriva SW registration failed: ', err);
-            });
-        });
-      }
-    </script>
-  </body>
+        navigator.serviceWorker.register(swUrl)
+          .then(registration => {
+            console.log('Oriva SW registered with scope: ', registration.scope);
+          })
+          .catch(err => {
+            console.log('Oriva SW registration failed: ', err);
+          });
+      });
+    }
+  </script>
+</body>
+
 </html>

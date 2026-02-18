@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  LayoutDashboard, Sprout, PawPrint, Package, 
+import {
+  LayoutDashboard, Sprout, PawPrint, Package,
   Tractor, Wallet, Settings, Bell, X,
   FileText, Wifi, Plus, Save,
   Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown,
@@ -9,8 +9,8 @@ import {
   Lock, Users
 } from 'lucide-react';
 import mqtt from 'mqtt';
-import jsPDF from 'jspdf'; 
-import autoTable from 'jspdf-autotable'; 
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { AppState, Field, StockItem, FieldLog, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee, ProductBatch, UserProfile } from './types';
 import { loadState, saveState } from './services/storageService';
@@ -59,14 +59,14 @@ const IoTPairingWizard = ({ onClose, fields, onPair }: { onClose: () => void, fi
 
     setScanStatus('scanning');
     setFoundDevices([]);
-    
+
     // Conectar ao Broker Público
     const client = mqtt.connect(MQTT_BROKER_URL);
 
     client.on('connect', () => {
       console.log('Connected to MQTT Broker');
       client.subscribe(MQTT_TOPIC_SCAN);
-      
+
       // SIMULAÇÃO: Como não há sensores reais, a própria app publica mensagens "fake"
       setTimeout(() => {
         const mockSensor1: Sensor = {
@@ -122,7 +122,7 @@ const IoTPairingWizard = ({ onClose, fields, onPair }: { onClose: () => void, fi
       onPair(selectedFieldId, {
         ...selectedDevice,
         name: customDeviceName || selectedDevice.name,
-        status: 'online', 
+        status: 'online',
         signalStrength: Math.abs(selectedDevice.signalStrength)
       });
       onClose();
@@ -132,160 +132,160 @@ const IoTPairingWizard = ({ onClose, fields, onPair }: { onClose: () => void, fi
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-4" onClick={onClose}>
       <div className="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-scale-up border border-white/20" onClick={e => e.stopPropagation()}>
-        
+
         <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-black dark:text-white">Emparelhar Sensor</h3>
-            <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-              <X size={20} className="dark:text-white" />
-            </button>
+          <h3 className="text-xl font-black dark:text-white">Emparelhar Sensor</h3>
+          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+            <X size={20} className="dark:text-white" />
+          </button>
         </div>
 
         {/* STATE 1: IDLE */}
         {scanStatus === 'idle' && (
-            <div className="text-center py-4">
-              <div className="w-24 h-24 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-6 relative">
-                  <Radio size={40} className="text-gray-400" />
-                  <div className="absolute top-0 right-0 p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
-                    <Signal size={16} className="text-blue-600" />
-                  </div>
+          <div className="text-center py-4">
+            <div className="w-24 h-24 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-6 relative">
+              <Radio size={40} className="text-gray-400" />
+              <div className="absolute top-0 right-0 p-2 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                <Signal size={16} className="text-blue-600" />
               </div>
-              <p className="text-sm text-gray-500 font-medium mb-6 px-4">
-                  Aproxime o dispositivo para iniciar a descoberta via LoRaWAN / Bluetooth.
-              </p>
-              <button 
-                onClick={startScanning}
-                className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
-              >
-                  Iniciar Scan
-              </button>
             </div>
+            <p className="text-sm text-gray-500 font-medium mb-6 px-4">
+              Aproxime o dispositivo para iniciar a descoberta via LoRaWAN / Bluetooth.
+            </p>
+            <button
+              onClick={startScanning}
+              className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+            >
+              Iniciar Scan
+            </button>
+          </div>
         )}
 
         {/* STATE 2: SCANNING */}
         {scanStatus === 'scanning' && (
-            <div className="py-8 flex flex-col items-center">
-              <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
-                  {/* Radar Animation */}
-                  <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
-                  <div className="absolute inset-4 bg-green-500/20 rounded-full animate-ping delay-100"></div>
-                  <div className="absolute inset-8 bg-green-500/20 rounded-full animate-ping delay-200"></div>
-                  <div className="relative z-10 w-16 h-16 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-lg">
-                    <Loader2 size={32} className="animate-spin text-agro-green" />
-                  </div>
-              </div>
-              <h4 className="font-bold text-gray-900 dark:text-white mb-2">A procurar dispositivos...</h4>
-              <p className="text-xs text-gray-500 mb-6">Mantenha o sensor ligado e próximo.</p>
-              
-              {/* Live Results List during scan */}
-              <div className="w-full space-y-2">
-                  {foundDevices.map(device => (
-                    <div key={device.id} className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl flex items-center gap-3 animate-slide-up">
-                        <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl">
-                          {device.type === 'moisture' ? <Droplets size={16} /> : <Activity size={16} />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-bold dark:text-white">{device.name}</p>
-                          <p className="text-[10px] text-gray-400 font-mono">{device.id}</p>
-                        </div>
-                        <span className="text-[10px] font-bold text-green-600">Encontrado</span>
-                    </div>
-                  ))}
+          <div className="py-8 flex flex-col items-center">
+            <div className="relative w-32 h-32 mb-8 flex items-center justify-center">
+              {/* Radar Animation */}
+              <div className="absolute inset-0 bg-green-500/20 rounded-full animate-ping"></div>
+              <div className="absolute inset-4 bg-green-500/20 rounded-full animate-ping delay-100"></div>
+              <div className="absolute inset-8 bg-green-500/20 rounded-full animate-ping delay-200"></div>
+              <div className="relative z-10 w-16 h-16 bg-white dark:bg-neutral-800 rounded-full flex items-center justify-center shadow-lg">
+                <Loader2 size={32} className="animate-spin text-agro-green" />
               </div>
             </div>
+            <h4 className="font-bold text-gray-900 dark:text-white mb-2">A procurar dispositivos...</h4>
+            <p className="text-xs text-gray-500 mb-6">Mantenha o sensor ligado e próximo.</p>
+
+            {/* Live Results List during scan */}
+            <div className="w-full space-y-2">
+              {foundDevices.map(device => (
+                <div key={device.id} className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl flex items-center gap-3 animate-slide-up">
+                  <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl">
+                    {device.type === 'moisture' ? <Droplets size={16} /> : <Activity size={16} />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-bold dark:text-white">{device.name}</p>
+                    <p className="text-[10px] text-gray-400 font-mono">{device.id}</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-green-600">Encontrado</span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* STATE 3: RESULTS & CONFIGURE */}
         {scanStatus === 'found' && (
-            <div className="space-y-4">
-              {foundDevices.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-gray-500 font-bold mb-4">Nenhum dispositivo encontrado.</p>
-                    <button onClick={startScanning} className="text-agro-green font-bold text-sm">Tentar Novamente</button>
-                  </div>
-              ) : (
+          <div className="space-y-4">
+            {foundDevices.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-gray-500 font-bold mb-4">Nenhum dispositivo encontrado.</p>
+                <button onClick={startScanning} className="text-agro-green font-bold text-sm">Tentar Novamente</button>
+              </div>
+            ) : (
+              <>
+                {!selectedDevice ? (
                   <>
-                    {!selectedDevice ? (
-                        <>
-                          <p className="text-xs font-bold text-gray-400 uppercase mb-2">Selecione um dispositivo</p>
-                          <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
-                              {foundDevices.map(device => (
-                                <button 
-                                  key={device.id}
-                                  onClick={() => { setSelectedDevice(device); setCustomDeviceName(device.name); }}
-                                  className="w-full bg-gray-50 dark:bg-neutral-800 hover:bg-green-50 dark:hover:bg-green-900/10 p-3 rounded-2xl flex items-center gap-3 border-2 border-transparent hover:border-agro-green transition-all text-left"
-                                >
-                                    <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl shadow-sm">
-                                      {device.type === 'moisture' ? <Droplets size={18} /> : <Activity size={18} />}
-                                    </div>
-                                    <div className="flex-1">
-                                      <p className="text-sm font-bold dark:text-white">{device.name}</p>
-                                      <div className="flex items-center gap-2 mt-0.5">
-                                          <span className="text-[10px] text-gray-400 font-mono">{device.id}</span>
-                                          <span className="text-[10px] font-bold text-green-600 flex items-center gap-0.5">
-                                            <Signal size={8} /> {Math.abs(device.signalStrength)}%
-                                          </span>
-                                      </div>
-                                    </div>
-                                    <ChevronDown className="-rotate-90 text-gray-300" size={16} />
-                                </button>
-                              ))}
+                    <p className="text-xs font-bold text-gray-400 uppercase mb-2">Selecione um dispositivo</p>
+                    <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+                      {foundDevices.map(device => (
+                        <button
+                          key={device.id}
+                          onClick={() => { setSelectedDevice(device); setCustomDeviceName(device.name); }}
+                          className="w-full bg-gray-50 dark:bg-neutral-800 hover:bg-green-50 dark:hover:bg-green-900/10 p-3 rounded-2xl flex items-center gap-3 border-2 border-transparent hover:border-agro-green transition-all text-left"
+                        >
+                          <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl shadow-sm">
+                            {device.type === 'moisture' ? <Droplets size={18} /> : <Activity size={18} />}
                           </div>
-                        </>
-                    ) : (
-                        <div className="animate-slide-up space-y-4">
-                          <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/30">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-green-100 dark:bg-green-800 rounded-xl text-green-700 dark:text-green-300">
-                                    <CheckCircle2 size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-bold text-green-800 dark:text-green-200">Pronto a Associar</p>
-                                    <p className="text-xs text-green-600 dark:text-green-400">ID: {selectedDevice.id}</p>
-                                </div>
-                              </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-bold dark:text-white">{device.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-gray-400 font-mono">{device.id}</span>
+                              <span className="text-[10px] font-bold text-green-600 flex items-center gap-0.5">
+                                <Signal size={8} /> {Math.abs(device.signalStrength)}%
+                              </span>
+                            </div>
                           </div>
-
-                          <div>
-                              <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Sensor</label>
-                              <input 
-                                value={customDeviceName}
-                                onChange={(e) => setCustomDeviceName(e.target.value)}
-                                className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
-                              />
-                          </div>
-
-                          <div>
-                              <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Associar a Parcela</label>
-                              <select 
-                                value={selectedFieldId}
-                                onChange={(e) => setSelectedFieldId(e.target.value)}
-                                className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green appearance-none"
-                              >
-                                <option value="">Selecione...</option>
-                                {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                              </select>
-                          </div>
-
-                          <div className="flex gap-3 pt-2">
-                              <button 
-                                onClick={() => setSelectedDevice(null)}
-                                className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-2xl font-bold text-gray-600 dark:text-gray-300"
-                              >
-                                Voltar
-                              </button>
-                              <button 
-                                onClick={confirmPairing}
-                                disabled={!selectedFieldId}
-                                className={`flex-1 py-4 bg-agro-green text-white rounded-2xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform flex items-center justify-center gap-2 ${!selectedFieldId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                              >
-                                <Save size={18} /> Guardar
-                              </button>
-                          </div>
-                        </div>
-                    )}
+                          <ChevronDown className="-rotate-90 text-gray-300" size={16} />
+                        </button>
+                      ))}
+                    </div>
                   </>
-              )}
-            </div>
+                ) : (
+                  <div className="animate-slide-up space-y-4">
+                    <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-2xl border border-green-100 dark:border-green-900/30">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-800 rounded-xl text-green-700 dark:text-green-300">
+                          <CheckCircle2 size={20} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-green-800 dark:text-green-200">Pronto a Associar</p>
+                          <p className="text-xs text-green-600 dark:text-green-400">ID: {selectedDevice.id}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Sensor</label>
+                      <input
+                        value={customDeviceName}
+                        onChange={(e) => setCustomDeviceName(e.target.value)}
+                        className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Associar a Parcela</label>
+                      <select
+                        value={selectedFieldId}
+                        onChange={(e) => setSelectedFieldId(e.target.value)}
+                        className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green appearance-none"
+                      >
+                        <option value="">Selecione...</option>
+                        {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={() => setSelectedDevice(null)}
+                        className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-2xl font-bold text-gray-600 dark:text-gray-300"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        onClick={confirmPairing}
+                        disabled={!selectedFieldId}
+                        className={`flex-1 py-4 bg-agro-green text-white rounded-2xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform flex items-center justify-center gap-2 ${!selectedFieldId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <Save size={18} /> Guardar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -300,12 +300,12 @@ const CROP_TYPES = [
   { label: 'Pastagem', emoji: '🌿' }
 ];
 
-const CultivationView = ({ 
-  fields, 
+const CultivationView = ({
+  fields,
   stocks,
   employees,
   harvests,
-  toggleIrrigation, 
+  toggleIrrigation,
   onAddLog,
   onUseStock,
   onAddField,
@@ -316,11 +316,11 @@ const CultivationView = ({
   onHarvest,
   onViewTraceability,
   onDeleteField // New prop
-}: { 
-  fields: Field[], 
+}: {
+  fields: Field[],
   stocks: StockItem[],
   employees: Employee[],
-  harvests: ProductBatch[], 
+  harvests: ProductBatch[],
   toggleIrrigation: (id: string, s: boolean) => void,
   onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => void,
   onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void,
@@ -336,11 +336,11 @@ const CultivationView = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotebookOpen, setIsNotebookOpen] = useState(false);
   const [showIoTWizard, setShowIoTWizard] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false); 
-  
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+
   // Track open Field Detail modals to hide nav
   const [anyFieldOpen, setAnyFieldOpen] = useState(false);
-  
+
   // --- e-GUIAS MODAL STATE ---
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [saleStep, setSaleStep] = useState(1);
@@ -355,7 +355,7 @@ const CultivationView = ({
     price: '',
     fieldId: ''
   });
-  
+
   const [newName, setNewName] = useState('');
   const [newArea, setNewArea] = useState('');
   const [selectedCrop, setSelectedCrop] = useState(CROP_TYPES[0]);
@@ -388,7 +388,7 @@ const CultivationView = ({
     // 1. Validar e Encontrar Stock e Campo
     const selectedStock = stocks.find(s => s.id === saleData.stockId);
     const selectedField = fields.find(f => f.id === saleData.fieldId);
-    
+
     if (!selectedStock || !selectedField) return;
 
     // 2. Registar Venda na App (Lógica)
@@ -403,7 +403,7 @@ const CultivationView = ({
 
     // 3. Gerar PDF
     const doc = new jsPDF();
-    
+
     // Header
     doc.setFontSize(22);
     doc.setTextColor(62, 104, 55); // Agro Green
@@ -465,7 +465,7 @@ const CultivationView = ({
     doc.text("Este documento não substitui a fatura oficial. Válido para circulação.", 14, finalY);
     doc.text(`Emitido via OrivaSmart App`, 14, finalY + 5);
 
-    doc.save(`Guia_Transporte_${saleData.clientName.replace(/\s/g,'_')}.pdf`);
+    doc.save(`Guia_Transporte_${saleData.clientName.replace(/\s/g, '_')}.pdf`);
 
     // Reset Form & Close
     setShowGuideModal(false);
@@ -476,60 +476,60 @@ const CultivationView = ({
   return (
     <div className="space-y-6 animate-fade-in pt-4 pb-24">
       <div className="flex justify-between items-start px-2 mb-4 md:mb-6">
-        
+
         {/* Lado Esquerdo: Registo e e-Guias */}
         <div className="flex gap-3">
-           <div className="flex flex-col items-center gap-1">
-             <button 
-               onClick={() => setIsNotebookOpen(true)}
-               className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 shadow-md border border-gray-100 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-transform"
-               title="Caderno de Campo"
-             >
-               <FileText size={22} />
-             </button>
-             <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
-           </div>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setIsNotebookOpen(true)}
+              className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 shadow-md border border-gray-100 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-transform"
+              title="Caderno de Campo"
+            >
+              <FileText size={22} />
+            </button>
+            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
+          </div>
 
-           <div className="flex flex-col items-center gap-1">
-             <button 
-               onClick={() => setShowGuideModal(true)}
-               className="w-12 h-12 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center active:scale-95 transition-transform"
-               title="Emitir Guia"
-             >
-               <Truck size={22} />
-             </button>
-             <span className="text-[10px] font-bold text-orange-500 dark:text-orange-400">e-Guias</span>
-           </div>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setShowGuideModal(true)}
+              className="w-12 h-12 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center active:scale-95 transition-transform"
+              title="Emitir Guia"
+            >
+              <Truck size={22} />
+            </button>
+            <span className="text-[10px] font-bold text-orange-500 dark:text-orange-400">e-Guias</span>
+          </div>
         </div>
 
         {/* Lado Direito: IoT e Novo */}
         <div className="flex gap-3">
-           <div className="flex flex-col items-center gap-1">
-             <button 
-               onClick={() => setShowIoTWizard(true)}
-               className="w-12 h-12 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-95 transition-transform"
-               title="Adicionar Sensor IoT"
-             >
-               <Wifi size={22} />
-             </button>
-             <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">IoT</span>
-           </div>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setShowIoTWizard(true)}
+              className="w-12 h-12 rounded-full bg-blue-500 text-white shadow-lg shadow-blue-500/30 flex items-center justify-center active:scale-95 transition-transform"
+              title="Adicionar Sensor IoT"
+            >
+              <Wifi size={22} />
+            </button>
+            <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">IoT</span>
+          </div>
 
-           <div className="flex flex-col items-center gap-1">
-             <button 
-               onClick={() => setIsModalOpen(true)}
-               className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
-             >
-               <Plus size={24} />
-             </button>
-             <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
-           </div>
+          <div className="flex flex-col items-center gap-1">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="w-12 h-12 rounded-full bg-agro-green text-white shadow-lg shadow-agro-green/30 flex items-center justify-center active:scale-95 transition-transform"
+            >
+              <Plus size={24} />
+            </button>
+            <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
+          </div>
         </div>
       </div>
 
       <div className="flex flex-col gap-4 md:gap-6">
         {fields.map(field => (
-          <FieldCard 
+          <FieldCard
             key={field.id}
             field={field}
             stocks={stocks}
@@ -538,81 +538,81 @@ const CultivationView = ({
             onUseStock={onUseStock}
             onRegisterSensor={onRegisterSensor}
             onRegisterSale={onRegisterSale}
-            onHarvest={onHarvest} 
-            onModalChange={setAnyFieldOpen} 
-            onDelete={onDeleteField} // Pass delete handler
+            onHarvest={onHarvest}
+            onModalChange={setAnyFieldOpen}
+            onDelete={onDeleteField}
           />
         ))}
       </div>
 
       {/* --- NEW BUTTON: FINISHED HARVESTS --- */}
       {harvests && harvests.length > 0 && (
-        <button 
+        <button
           onClick={() => setShowHistoryModal(true)}
           className="w-full py-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-[2rem] shadow-sm flex items-center justify-center gap-2 text-gray-500 hover:text-agro-green transition-all mt-4"
         >
-           <FileCheck size={20} />
-           <span className="font-bold text-sm">Colheitas Finalizadas ({harvests.length})</span>
+          <FileCheck size={20} />
+          <span className="font-bold text-sm">Colheitas Finalizadas ({harvests.length})</span>
         </button>
       )}
 
       {/* --- HARVEST HISTORY MODAL --- */}
       {showHistoryModal && (
         <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowHistoryModal(false)}>
-          <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[80vh] overflow-y-auto custom-scrollbar" 
+          <div
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[80vh] overflow-y-auto custom-scrollbar"
             onClick={e => e.stopPropagation()}
           >
-             <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
-                     <FileCheck className="text-agro-green" size={24} /> Histórico de Colheita
-                  </h3>
-                  <p className="text-xs font-bold text-gray-400 uppercase mt-1">Passaportes Digitais</p>
-                </div>
-                <button onClick={() => setShowHistoryModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                  <X size={20} className="dark:text-white" />
-                </button>
-             </div>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
+                  <FileCheck className="text-agro-green" size={24} /> Histórico de Colheita
+                </h3>
+                <p className="text-xs font-bold text-gray-400 uppercase mt-1">Passaportes Digitais</p>
+              </div>
+              <button onClick={() => setShowHistoryModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
 
-             <div className="space-y-4">
-                {harvests.slice().reverse().map((batch) => (
-                   <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-center gap-4">
-                      <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm">
-                         <QrCode size={24} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                         <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
-                         <p className="text-[10px] text-gray-400 font-mono mb-1">{batch.batchId}</p>
-                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
-                               <Package size={10} /> {batch.quantity} {batch.unit}
-                            </span>
-                            <span className="text-[10px] font-bold bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded flex items-center gap-1">
-                               <Calendar size={10} /> {new Date(batch.harvestDate).toLocaleDateString()}
-                            </span>
-                         </div>
-                      </div>
-                      <button 
-                        onClick={() => {
-                           setShowHistoryModal(false);
-                           onViewTraceability(batch);
-                        }}
-                        className="p-3 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600"
-                      >
-                         <ArrowRight size={20} />
-                      </button>
-                   </div>
-                ))}
-             </div>
+            <div className="space-y-4">
+              {harvests.slice().reverse().map((batch) => (
+                <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-center gap-4">
+                  <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm">
+                    <QrCode size={24} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
+                    <p className="text-[10px] text-gray-400 font-mono mb-1">{batch.batchId}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Package size={10} /> {batch.quantity} {batch.unit}
+                      </span>
+                      <span className="text-[10px] font-bold bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Calendar size={10} /> {new Date(batch.harvestDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setShowHistoryModal(false);
+                      onViewTraceability(batch);
+                    }}
+                    className="p-3 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600"
+                  >
+                    <ArrowRight size={20} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)}>
-          <div 
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20" 
+          <div
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
@@ -625,7 +625,7 @@ const CultivationView = ({
             <div className="space-y-5">
               <div>
                 <label className="text-xs font-bold uppercase text-gray-400 ml-2">Nome do Campo</label>
-                <input 
+                <input
                   autoFocus
                   className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white border-2 border-transparent focus:border-agro-green outline-none text-lg font-bold"
                   placeholder="Ex: Vinha Norte"
@@ -637,7 +637,7 @@ const CultivationView = ({
               <div>
                 <label className="text-xs font-bold uppercase text-gray-400 ml-2">Área (Hectares)</label>
                 <div className="relative">
-                  <input 
+                  <input
                     type="number"
                     inputMode="decimal"
                     className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-lg font-bold"
@@ -658,11 +658,10 @@ const CultivationView = ({
                     <button
                       key={crop.label}
                       onClick={() => setSelectedCrop(crop)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all border-2 ${
-                        selectedCrop.label === crop.label
-                          ? 'bg-agro-green/10 border-agro-green'
-                          : 'bg-gray-5 dark:bg-neutral-800 border-transparent hover:bg-gray-100 dark:hover:bg-neutral-700'
-                      }`}
+                      className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all border-2 ${selectedCrop.label === crop.label
+                        ? 'bg-agro-green/10 border-agro-green'
+                        : 'bg-gray-5 dark:bg-neutral-800 border-transparent hover:bg-gray-100 dark:hover:bg-neutral-700'
+                        }`}
                     >
                       <span className="text-2xl mb-1">{crop.emoji}</span>
                       <span className={`text-[10px] font-bold ${selectedCrop.label === crop.label ? 'text-agro-green' : 'text-gray-500'}`}>
@@ -673,14 +672,13 @@ const CultivationView = ({
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={handleSubmit}
                 disabled={!newName || !newArea}
-                className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-lg flex items-center justify-center gap-2 mt-4 transition-all ${
-                  !newName || !newArea 
-                    ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' 
-                    : 'bg-agro-green text-white active:scale-95 shadow-agro-green/30'
-                }`}
+                className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-lg flex items-center justify-center gap-2 mt-4 transition-all ${!newName || !newArea
+                  ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed'
+                  : 'bg-agro-green text-white active:scale-95 shadow-agro-green/30'
+                  }`}
               >
                 <Save size={20} />
                 Criar Cultivo
@@ -693,14 +691,14 @@ const CultivationView = ({
       {/* --- e-GUIAS MODAL (GLOBAL) --- */}
       {showGuideModal && (
         <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowGuideModal(false)}>
-          <div 
+          <div
             className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[95vh] overflow-y-auto custom-scrollbar"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-6">
               <div>
                 <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
-                   <Truck className="text-orange-500" size={24} /> Expedição
+                  <Truck className="text-orange-500" size={24} /> Expedição
                 </h3>
                 <p className="text-xs font-bold text-gray-400 uppercase mt-1">Comercialização & Guia</p>
               </div>
@@ -711,119 +709,119 @@ const CultivationView = ({
 
             {saleStep === 1 ? (
               <div className="space-y-5">
-                 {/* Field Selector (Location) */}
-                 <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Local de Carga (Parcela)</label>
-                    <select 
-                      value={saleData.fieldId}
-                      onChange={(e) => setSaleData({...saleData, fieldId: e.target.value})}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
-                    >
-                      <option value="">Selecione o local...</option>
-                      {fields.map(f => (
-                        <option key={f.id} value={f.id}>{f.name}</option>
-                      ))}
-                    </select>
-                 </div>
+                {/* Field Selector (Location) */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Local de Carga (Parcela)</label>
+                  <select
+                    value={saleData.fieldId}
+                    onChange={(e) => setSaleData({ ...saleData, fieldId: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                  >
+                    <option value="">Selecione o local...</option>
+                    {fields.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-                 {/* Stock Selector */}
-                 <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">O que vai vender?</label>
-                    <select 
-                      value={saleData.stockId}
-                      onChange={(e) => setSaleData({...saleData, stockId: e.target.value})}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
-                    >
-                      <option value="">Selecione o produto...</option>
-                      {stocks.filter(s => s.quantity > 0).map(s => (
-                        <option key={s.id} value={s.id}>{s.name} ({s.quantity} {s.unit})</option>
-                      ))}
-                    </select>
-                 </div>
+                {/* Stock Selector */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">O que vai vender?</label>
+                  <select
+                    value={saleData.stockId}
+                    onChange={(e) => setSaleData({ ...saleData, stockId: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                  >
+                    <option value="">Selecione o produto...</option>
+                    {stocks.filter(s => s.quantity > 0).map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.quantity} {s.unit})</option>
+                    ))}
+                  </select>
+                </div>
 
-                 {/* Quantidade & Preço */}
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade</label>
-                       <input 
-                         type="number"
-                         placeholder="0"
-                         className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                         value={saleData.quantity}
-                         onChange={(e) => setSaleData({...saleData, quantity: e.target.value})}
-                       />
-                    </div>
-                    <div>
-                       <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço Un. (€)</label>
-                       <input 
-                         type="number"
-                         placeholder="0.00"
-                         className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                         value={saleData.price}
-                         onChange={(e) => setSaleData({...saleData, price: e.target.value})}
-                       />
-                    </div>
-                 </div>
+                {/* Quantidade & Preço */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      value={saleData.quantity}
+                      onChange={(e) => setSaleData({ ...saleData, quantity: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço Un. (€)</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      value={saleData.price}
+                      onChange={(e) => setSaleData({ ...saleData, price: e.target.value })}
+                    />
+                  </div>
+                </div>
 
-                 <button 
-                   onClick={() => setSaleStep(2)}
-                   disabled={!saleData.stockId || !saleData.quantity || !saleData.price || !saleData.fieldId}
-                   className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!saleData.stockId || !saleData.quantity || !saleData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
-                 >
-                   Próximo: Dados de Transporte
-                 </button>
+                <button
+                  onClick={() => setSaleStep(2)}
+                  disabled={!saleData.stockId || !saleData.quantity || !saleData.price || !saleData.fieldId}
+                  className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!saleData.stockId || !saleData.quantity || !saleData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
+                >
+                  Próximo: Dados de Transporte
+                </button>
               </div>
             ) : (
               <div className="space-y-5 animate-slide-up">
-                 {/* Client Info */}
-                 <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Cliente</label>
-                    <input 
-                      placeholder="Nome do Cliente"
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 mb-2"
-                      value={saleData.clientName}
-                      onChange={(e) => setSaleData({...saleData, clientName: e.target.value})}
+                {/* Client Info */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Cliente</label>
+                  <input
+                    placeholder="Nome do Cliente"
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 mb-2"
+                    value={saleData.clientName}
+                    onChange={(e) => setSaleData({ ...saleData, clientName: e.target.value })}
+                  />
+                  <input
+                    placeholder="NIF (Opcional)"
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                    value={saleData.clientNif}
+                    onChange={(e) => setSaleData({ ...saleData, clientNif: e.target.value })}
+                  />
+                </div>
+
+                {/* Transport Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Matrícula</label>
+                    <input
+                      placeholder="AA-00-BB"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none uppercase focus:ring-2 focus:ring-orange-500"
+                      value={saleData.plate}
+                      onChange={(e) => setSaleData({ ...saleData, plate: e.target.value })}
                     />
-                    <input 
-                      placeholder="NIF (Opcional)"
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
+                    <input
+                      type="date"
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.clientNif}
-                      onChange={(e) => setSaleData({...saleData, clientNif: e.target.value})}
+                      value={saleData.date}
+                      onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
                     />
-                 </div>
+                  </div>
+                </div>
 
-                 {/* Transport Info */}
-                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Matrícula</label>
-                       <input 
-                         placeholder="AA-00-BB"
-                         className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none uppercase focus:ring-2 focus:ring-orange-500"
-                         value={saleData.plate}
-                         onChange={(e) => setSaleData({...saleData, plate: e.target.value})}
-                       />
-                    </div>
-                    <div>
-                       <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
-                       <input 
-                         type="date"
-                         className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                         value={saleData.date}
-                         onChange={(e) => setSaleData({...saleData, date: e.target.value})}
-                       />
-                    </div>
-                 </div>
-
-                 <div className="flex gap-3 pt-2">
-                    <button onClick={() => setSaleStep(1)} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
-                    <button 
-                      onClick={generateGuidePDF}
-                      disabled={!saleData.clientName || !saleData.plate}
-                      className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!saleData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
-                    >
-                      <FileCheck size={20} /> Emitir Guia & Registar
-                    </button>
-                 </div>
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setSaleStep(1)} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
+                  <button
+                    onClick={generateGuidePDF}
+                    disabled={!saleData.clientName || !saleData.plate}
+                    className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!saleData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
+                  >
+                    <FileCheck size={20} /> Emitir Guia & Registar
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -831,7 +829,7 @@ const CultivationView = ({
       )}
 
       {/* FIELD NOTEBOOK COMPONENT */}
-      <FieldNotebook 
+      <FieldNotebook
         isOpen={isNotebookOpen}
         onClose={() => setIsNotebookOpen(false)}
         fields={fields}
@@ -842,7 +840,7 @@ const CultivationView = ({
       />
 
       {showIoTWizard && (
-        <IoTPairingWizard 
+        <IoTPairingWizard
           onClose={() => setShowIoTWizard(false)}
           fields={fields}
           onPair={(fieldId: string, sensor: Sensor) => {
@@ -871,14 +869,14 @@ const App = () => {
   const [state, setState] = useState<AppState>(loadState());
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [currentUserId, setCurrentUserId] = useState<string>('u1'); // Default Admin
-  
+
   // Modals Global States
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isChildModalOpen, setIsChildModalOpen] = useState(false);
   const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false); // New
   const [taskProofTask, setTaskProofTask] = useState<Task | null>(null); // New
-  
+
   // Traceability Modal State
   const [traceabilityBatch, setTraceabilityBatch] = useState<ProductBatch | null>(null);
 
@@ -986,7 +984,7 @@ const App = () => {
         if (id >= 200 && id < 300) return 'storm';
         if (id >= 300 && id < 600) return 'rain';
         if (id >= 801) return 'cloudy';
-        return 'sunny'; 
+        return 'sunny';
       };
 
       const dailyData: WeatherForecast[] = [];
@@ -1010,17 +1008,17 @@ const App = () => {
         const hour = date.getHours();
 
         if (dateNum !== todayDate && !processedDays.has(dayName)) {
-            if (hour >= 11 && hour <= 15) {
-              dailyData.push({
-                day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
-                temp: Math.round(item.main.temp),
-                condition: mapCondition(item.weather[0].id),
-                description: item.weather[0].description,
-                windSpeed: Math.round(item.wind.speed * 3.6),
-                humidity: item.main.humidity
-              });
-              processedDays.add(dayName);
-            }
+          if (hour >= 11 && hour <= 15) {
+            dailyData.push({
+              day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+              temp: Math.round(item.main.temp),
+              condition: mapCondition(item.weather[0].id),
+              description: item.weather[0].description,
+              windSpeed: Math.round(item.wind.speed * 3.6),
+              humidity: item.main.humidity
+            });
+            processedDays.add(dayName);
+          }
         }
       });
 
@@ -1044,13 +1042,13 @@ const App = () => {
   }, [isDarkMode]);
 
   useEffect(() => {
-     if(isSolarMode) {
-        document.documentElement.classList.add('solar-mode');
-        document.documentElement.classList.remove('dark'); 
-     } else {
-        document.documentElement.classList.remove('solar-mode');
-        if(isDarkMode) document.documentElement.classList.add('dark');
-     }
+    if (isSolarMode) {
+      document.documentElement.classList.add('solar-mode');
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.remove('solar-mode');
+      if (isDarkMode) document.documentElement.classList.add('dark');
+    }
   }, [isSolarMode, isDarkMode]);
 
   useEffect(() => {
@@ -1059,24 +1057,24 @@ const App = () => {
 
   const alertCount = useMemo(() => {
     let count = 0;
-    
+
     if (weatherData.length > 0 && (weatherData[0].condition === 'rain' || weatherData[0].condition === 'storm')) {
       count++;
     }
     count += state.animals.filter(a => a.status === 'sick').length;
     count += state.fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
     count += state.stocks.filter(s => s.quantity <= s.minStock).length;
-    
+
     // Admin only task reviews
     if (currentUser.role === 'admin') {
-       count += state.tasks.filter(t => t.status === 'review').length;
+      count += state.tasks.filter(t => t.status === 'review').length;
     }
 
     count += state.machines.filter(m => {
-       const hoursSince = m.engineHours - m.lastServiceHours;
-       const overdue = hoursSince > m.serviceInterval;
-       const inspectionDue = (new Date(m.nextInspectionDate).getTime() - new Date().getTime()) < (30 * 24 * 60 * 60 * 1000);
-       return overdue || inspectionDue;
+      const hoursSince = m.engineHours - m.lastServiceHours;
+      const overdue = hoursSince > m.serviceInterval;
+      const inspectionDue = (new Date(m.nextInspectionDate).getTime() - new Date().getTime()) < (30 * 24 * 60 * 60 * 1000);
+      return overdue || inspectionDue;
     }).length;
 
     return count;
@@ -1127,53 +1125,53 @@ const App = () => {
 
   const handleAddLog = (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => {
     if (stockId && log.quantity) {
-       const stockItem = state.stocks.find(s => s.id === stockId);
-       if (!stockItem) return;
+      const stockItem = state.stocks.find(s => s.id === stockId);
+      if (!stockItem) return;
 
-       const newStocks = state.stocks.map(s => 
-         s.id === stockId ? { ...s, quantity: Math.max(0, s.quantity - (log.quantity || 0)) } : s
-       );
+      const newStocks = state.stocks.map(s =>
+        s.id === stockId ? { ...s, quantity: Math.max(0, s.quantity - (log.quantity || 0)) } : s
+      );
 
-       const newLog: FieldLog = { ...log, id: Date.now().toString() };
+      const newLog: FieldLog = { ...log, id: Date.now().toString() };
 
-       const totalCost = (log.quantity || 0) * stockItem.pricePerUnit;
-       const newTransaction: Transaction = {
-          id: Date.now().toString(),
-          date: log.date,
-          type: 'expense',
-          amount: totalCost,
-          category: 'Campo',
-          description: `${log.description} (${log.quantity}${stockItem.unit})`
-       };
+      const totalCost = (log.quantity || 0) * stockItem.pricePerUnit;
+      const newTransaction: Transaction = {
+        id: Date.now().toString(),
+        date: log.date,
+        type: 'expense',
+        amount: totalCost,
+        category: 'Campo',
+        description: `${log.description} (${log.quantity}${stockItem.unit})`
+      };
 
-       setState(prev => ({
-         ...prev,
-         stocks: newStocks,
-         fields: prev.fields.map(f => f.id === fieldId ? { ...f, logs: [...(f.logs || []), newLog] } : f),
-         transactions: [newTransaction, ...prev.transactions]
-       }));
+      setState(prev => ({
+        ...prev,
+        stocks: newStocks,
+        fields: prev.fields.map(f => f.id === fieldId ? { ...f, logs: [...(f.logs || []), newLog] } : f),
+        transactions: [newTransaction, ...prev.transactions]
+      }));
 
     } else {
       const newLog: FieldLog = { ...log, id: Date.now().toString() };
-      
+
       let newTransactions = [...state.transactions];
       if (log.type === 'labor' && log.cost && log.cost > 0) {
-         newTransactions = [{
-            id: Date.now().toString(),
-            date: log.date,
-            type: 'expense',
-            amount: log.cost,
-            category: 'Salários',
-            description: `${log.description} (${log.hoursWorked}h)`
-         }, ...newTransactions];
+        newTransactions = [{
+          id: Date.now().toString(),
+          date: log.date,
+          type: 'expense',
+          amount: log.cost,
+          category: 'Salários',
+          description: `${log.description} (${log.hoursWorked}h)`
+        }, ...newTransactions];
       }
 
       setState(prev => ({
         ...prev,
-        fields: prev.fields.map(f => 
-          f.id === fieldId 
-          ? { ...f, logs: [...(f.logs || []), newLog] } 
-          : f
+        fields: prev.fields.map(f =>
+          f.id === fieldId
+            ? { ...f, logs: [...(f.logs || []), newLog] }
+            : f
         ),
         transactions: newTransactions
       }));
@@ -1208,9 +1206,9 @@ const App = () => {
       const stockItem = prev.stocks.find(s => s.id === saleData.stockId);
       if (!stockItem) return prev;
 
-      const newStocks = prev.stocks.map(s => 
-        s.id === saleData.stockId 
-          ? { ...s, quantity: Math.max(0, s.quantity - saleData.quantity) } 
+      const newStocks = prev.stocks.map(s =>
+        s.id === saleData.stockId
+          ? { ...s, quantity: Math.max(0, s.quantity - saleData.quantity) }
           : s
       );
 
@@ -1264,7 +1262,7 @@ const App = () => {
         quantity: data.quantity,
         unit: data.unit,
         minStock: 0,
-        pricePerUnit: 0 
+        pricePerUnit: 0
       };
 
       // Create ProductBatch for Traceability
@@ -1283,7 +1281,7 @@ const App = () => {
         },
         farmerName: userName
       };
-      
+
       // Open Modal
       setTraceabilityBatch(newBatch);
 
@@ -1303,31 +1301,31 @@ const App = () => {
     }));
   };
 
-  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => {};
+  const handleUseStockOnField = (fieldId: string, stockId: string, quantity: number, date: string) => { };
 
   const addField = (fieldData: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => {
-     const newField: Field = {
-       id: Date.now().toString(),
-       ...fieldData,
-       yieldPerHa: 0,
-       coordinates: [41.442, -8.723], 
-       polygon: [],
-       irrigationStatus: false,
-       humidity: 50,
-       temp: 20,
-       healthScore: 100,
-       harvestWindow: 'N/A',
-       history: [],
-       logs: []
-     };
-     setState(prev => ({ ...prev, fields: [...prev.fields, newField] }));
+    const newField: Field = {
+      id: Date.now().toString(),
+      ...fieldData,
+      yieldPerHa: 0,
+      coordinates: [41.442, -8.723],
+      polygon: [],
+      irrigationStatus: false,
+      humidity: 50,
+      temp: 20,
+      healthScore: 100,
+      harvestWindow: 'N/A',
+      history: [],
+      logs: []
+    };
+    setState(prev => ({ ...prev, fields: [...prev.fields, newField] }));
   };
 
   const handleRegisterSensor = (fieldId: string, sensor: Sensor) => {
-     setState(prev => ({
-        ...prev,
-        fields: prev.fields.map(f => f.id === fieldId ? { ...f, sensors: [...(f.sensors || []), sensor] } : f)
-     }));
+    setState(prev => ({
+      ...prev,
+      fields: prev.fields.map(f => f.id === fieldId ? { ...f, sensors: [...(f.sensors || []), sensor] } : f)
+    }));
   };
 
   const addAnimal = (animal: Omit<Animal, 'id'>) => {
@@ -1360,12 +1358,12 @@ const App = () => {
         ...prev,
         machines: prev.machines.map(m => m.id === machineId ? { ...m, logs: [...m.logs, { ...log, id: Date.now().toString() }] } : m),
         transactions: log.cost ? [{
-           id: Date.now().toString(),
-           date: log.date,
-           type: 'expense',
-           amount: log.cost,
-           category: log.type === 'fuel' ? 'Combustível' : 'Manutenção',
-           description: `${log.description} (${machineName})`
+          id: Date.now().toString(),
+          date: log.date,
+          type: 'expense',
+          amount: log.cost,
+          category: log.type === 'fuel' ? 'Combustível' : 'Manutenção',
+          description: `${log.description} (${machineName})`
         }, ...prev.transactions] : prev.transactions
       };
     });
@@ -1382,6 +1380,9 @@ const App = () => {
   const handleEditStock = (id: string, updates: Partial<StockItem>) => {
     setState(prev => ({ ...prev, stocks: prev.stocks.map(s => s.id === id ? { ...s, ...updates } : s) }));
   };
+  const handleDeleteStock = (id: string) => {
+    setState(prev => ({ ...prev, stocks: prev.stocks.filter(s => s.id !== id) }));
+  };
   const handleChildModalChange = (isOpen: boolean) => {
     setIsChildModalOpen(isOpen);
   };
@@ -1396,41 +1397,41 @@ const App = () => {
   // --- RENDER PERMISSION DENIED ---
   const AccessDenied = ({ title }: { title: string }) => (
     <div className="flex flex-col items-center justify-center h-[60vh] text-center p-6 animate-fade-in">
-       <div className="w-24 h-24 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
-          <Lock size={40} className="text-gray-400" />
-       </div>
-       <h3 className="text-xl font-black dark:text-white mb-2">Acesso Restrito</h3>
-       <p className="text-gray-500 max-w-xs">A secção <strong>{title}</strong> está disponível apenas para administradores.</p>
+      <div className="w-24 h-24 bg-gray-100 dark:bg-neutral-800 rounded-full flex items-center justify-center mb-6">
+        <Lock size={40} className="text-gray-400" />
+      </div>
+      <h3 className="text-xl font-black dark:text-white mb-2">Acesso Restrito</h3>
+      <p className="text-gray-500 max-w-xs">A secção <strong>{title}</strong> está disponível apenas para administradores.</p>
     </div>
   );
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black overflow-hidden transition-colors duration-300">
-      
+
       {/* OFFLINE INDICATOR BANNER */}
       {!isOnline && (
         <div className="absolute top-0 left-0 right-0 z-[100] bg-orange-500 text-white text-[10px] font-bold text-center py-1 uppercase tracking-widest flex items-center justify-center gap-2 animate-slide-down shadow-md">
-           <WifiOff size={12} /> Modo Offline • Dados Guardados no Dispositivo
+          <WifiOff size={12} /> Modo Offline • Dados Guardados no Dispositivo
         </div>
       )}
-      
+
       {/* ONLINE RESTORED BANNER */}
       {showOnlineSuccess && (
         <div className="absolute top-0 left-0 right-0 z-[100] bg-green-500 text-white text-[10px] font-bold text-center py-1 uppercase tracking-widest flex items-center justify-center gap-2 animate-slide-down shadow-md">
-           <Wifi size={12} /> Conexão Restaurada • Sincronizado
+          <Wifi size={12} /> Conexão Restaurada • Sincronizado
         </div>
       )}
 
       {/* Scrollable Content Area */}
       <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md md:max-w-5xl mx-auto relative px-4 md:px-8 pb-28 ${(!isOnline || isSyncing || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (
-          <DashboardHome 
+          <DashboardHome
             userName={userName}
-            weather={weatherData} 
+            weather={weatherData}
             hourlyForecast={detailedForecast}
             tasks={state.tasks}
             fields={state.fields}
-            machines={state.machines || []} 
+            machines={state.machines || []}
             stocks={state.stocks}
             users={state.users}
             currentUser={currentUser}
@@ -1442,7 +1443,7 @@ const App = () => {
             onOpenSettings={() => setIsSettingsOpen(true)}
             onOpenNotifications={() => setIsNotificationsOpen(true)}
             onModalChange={handleChildModalChange}
-            onUpdateMachineHours={updateMachineHours} 
+            onUpdateMachineHours={updateMachineHours}
             onAddMachineLog={addMachineLog}
             onTaskClick={(task) => setTaskProofTask(task)} // Open proof modal
             onNavigate={(tab) => setActiveTab(tab as TabId)} // Pass navigation handler
@@ -1450,21 +1451,21 @@ const App = () => {
           />
         )}
         {activeTab === 'animal' && (
-          <AnimalCard 
-            animals={state.animals} 
-            onAddProduction={addProduction} 
+          <AnimalCard
+            animals={state.animals}
+            onAddProduction={addProduction}
             onAddAnimal={addAnimal}
-            onUpdateAnimal={updateAnimal} 
+            onUpdateAnimal={updateAnimal}
             onScheduleTask={(title, type, date) => handleAddTask(title, type as any, date)}
             onModalChange={handleChildModalChange}
           />
         )}
         {activeTab === 'cultivation' && (
-          <CultivationView 
+          <CultivationView
             fields={state.fields}
-            stocks={state.stocks} 
+            stocks={state.stocks}
             employees={state.employees || []}
-            harvests={state.harvests || []} 
+            harvests={state.harvests || []}
             toggleIrrigation={toggleIrrigation}
             onAddLog={handleAddLog}
             onUseStock={handleUseStockOnField}
@@ -1473,18 +1474,19 @@ const App = () => {
             onModalChange={handleChildModalChange}
             operatorName={userName}
             onRegisterSale={handleRegisterSale}
-            onHarvest={handleHarvest} 
+            onHarvest={handleHarvest}
             onViewTraceability={setTraceabilityBatch}
             onDeleteField={handleDeleteField} // Pass down delete function
           />
         )}
         {activeTab === 'stocks' && (
           currentUser.role === 'admin' ? (
-            <StockManager 
+            <StockManager
               stocks={state.stocks}
               onUpdateStock={handleUpdateStock}
               onAddStock={handleAddStock}
               onEditStock={handleEditStock}
+              onDeleteStock={handleDeleteStock}
               onModalChange={handleChildModalChange}
             />
           ) : (
@@ -1492,7 +1494,7 @@ const App = () => {
           )
         )}
         {activeTab === 'machines' && (
-          <MachineManager 
+          <MachineManager
             machines={state.machines}
             stocks={state.stocks}
             onUpdateHours={updateMachineHours}
@@ -1503,7 +1505,7 @@ const App = () => {
         )}
         {activeTab === 'finance' && (
           currentUser.role === 'admin' ? (
-            <FinanceManager 
+            <FinanceManager
               transactions={state.transactions}
               stocks={state.stocks}
               onAddTransaction={handleAddTransaction}
@@ -1519,60 +1521,58 @@ const App = () => {
       <VoiceAssistant onCommand={handleVoiceCommand} />
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${
-         shouldHideNav ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
-      }`}>
-         {[
-           { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
-           { id: 'cultivation', icon: Sprout, label: 'Cultivo' },
-           { id: 'animal', icon: PawPrint, label: 'Animais' },
-           { id: 'stocks', icon: Package, label: 'Stock', restricted: currentUser.role !== 'admin' },
-           { id: 'machines', icon: Tractor, label: 'Frota' },
-           { id: 'finance', icon: Wallet, label: 'Finanças', restricted: currentUser.role !== 'admin' },
-         ].map(tab => (
-           <button
-             key={tab.id}
-             onClick={() => setActiveTab(tab.id as any)}
-             className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl relative ${
-               activeTab === tab.id 
-                 ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1' 
-                 : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-transparent p-2 mb-1'
-             }`}
-           >
-             {tab.restricted ? (
-               <div className="relative">
-                 <tab.icon size={22} strokeWidth={2} className="opacity-50" />
-                 <div className="absolute -top-1 -right-1 bg-gray-200 dark:bg-neutral-700 rounded-full p-0.5">
-                    <Lock size={8} className="text-gray-500" />
-                 </div>
-               </div>
-             ) : (
-               <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
-             )}
-             
-             {activeTab === tab.id && (
-               <span className="text-[9px] font-bold mt-1 animate-fade-in whitespace-nowrap leading-none">
-                 {tab.label}
-               </span>
-             )}
-           </button>
-         ))}
+      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${shouldHideNav ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+        }`}>
+        {[
+          { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
+          { id: 'cultivation', icon: Sprout, label: 'Cultivo' },
+          { id: 'animal', icon: PawPrint, label: 'Animais' },
+          { id: 'stocks', icon: Package, label: 'Stock', restricted: currentUser.role !== 'admin' },
+          { id: 'machines', icon: Tractor, label: 'Frota' },
+          { id: 'finance', icon: Wallet, label: 'Finanças', restricted: currentUser.role !== 'admin' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl relative ${activeTab === tab.id
+              ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1'
+              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-transparent p-2 mb-1'
+              }`}
+          >
+            {tab.restricted ? (
+              <div className="relative">
+                <tab.icon size={22} strokeWidth={2} className="opacity-50" />
+                <div className="absolute -top-1 -right-1 bg-gray-200 dark:bg-neutral-700 rounded-full p-0.5">
+                  <Lock size={8} className="text-gray-500" />
+                </div>
+              </div>
+            ) : (
+              <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+            )}
+
+            {activeTab === tab.id && (
+              <span className="text-[9px] font-bold mt-1 animate-fade-in whitespace-nowrap leading-none">
+                {tab.label}
+              </span>
+            )}
+          </button>
+        ))}
       </nav>
 
       {/* Global Modals */}
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
+      <SettingsModal
+        isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onResetData={() => setState(loadState())} 
+        onResetData={() => setState(loadState())}
         currentName={userName}
-        onSaveName={() => {}} // Name managed by Team Profile now
+        onSaveName={() => { }} // Name managed by Team Profile now
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         isSolarMode={isSolarMode}
         onToggleSolarMode={() => setIsSolarMode(!isSolarMode)}
       />
-      
-      <NotificationsModal 
+
+      <NotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         weather={weatherData}
@@ -1585,16 +1585,16 @@ const App = () => {
 
       {/* TEAM CONNECT MODAL (Opened from Settings Button for now - could be in Settings Menu) */}
       {isSettingsOpen && (
-         <button 
-           onClick={() => { setIsSettingsOpen(false); setIsTeamManagerOpen(true); }}
-           className="fixed top-24 right-6 z-[160] bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg animate-slide-left flex items-center gap-2"
-         >
-            <Users size={16} /> Equipa
-         </button>
+        <button
+          onClick={() => { setIsSettingsOpen(false); setIsTeamManagerOpen(true); }}
+          className="fixed top-24 right-6 z-[160] bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg animate-slide-left flex items-center gap-2"
+        >
+          <Users size={16} /> Equipa
+        </button>
       )}
 
       {isTeamManagerOpen && (
-        <TeamManager 
+        <TeamManager
           users={state.users}
           currentUser={currentUser}
           onSwitchUser={(id) => setCurrentUserId(id)}
@@ -1603,7 +1603,7 @@ const App = () => {
       )}
 
       {taskProofTask && (
-        <TaskProofModal 
+        <TaskProofModal
           isOpen={!!taskProofTask}
           onClose={() => setTaskProofTask(null)}
           task={taskProofTask}
@@ -1615,10 +1615,10 @@ const App = () => {
 
       {/* TRACEABILITY MODAL (GENERATOR) */}
       {traceabilityBatch && (
-        <TraceabilityModal 
-          isOpen={!!traceabilityBatch} 
-          onClose={() => setTraceabilityBatch(null)} 
-          batch={traceabilityBatch} 
+        <TraceabilityModal
+          isOpen={!!traceabilityBatch}
+          onClose={() => setTraceabilityBatch(null)}
+          batch={traceabilityBatch}
         />
       )}
 
