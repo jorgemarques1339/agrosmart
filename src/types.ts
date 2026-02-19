@@ -36,7 +36,7 @@ export interface Task {
   relatedStockId?: string; // Que produto vai ser usado?
   plannedQuantity?: number; // Quanto vai ser usado?
   resourceDeducted?: boolean; // Flag para saber se já descontou do stock
-  
+
   // Team Connect Fields
   assignedTo?: string; // ID do User
   status?: 'pending' | 'review' | 'done'; // Workflow status
@@ -66,7 +66,7 @@ export interface Animal {
   age: string; // Display string e.g. "4 Anos"
   weight: number; // Current weight in kg
   status: 'healthy' | 'sick' | 'pregnancy' | 'attention';
-  
+
   // Reproduction & Lineage (New)
   reproductionStatus?: 'empty' | 'pregnant' | 'heat' | 'post-partum';
   conceptionDate?: string; // ISO Date if pregnant
@@ -94,9 +94,12 @@ export interface Employee {
 export interface FieldLog {
   id: string;
   date: string;
-  type: 'observation' | 'treatment' | 'harvest' | 'fertilization' | 'irrigation' | 'labor'; // Added 'labor'
+  type: 'observation' | 'treatment' | 'harvest' | 'fertilization' | 'irrigation' | 'labor' | 'analysis'; // Added 'analysis'
+
+
   description: string;
-  
+  attachments?: string[]; // URLs or Base64
+
   // Technical / Legal Fields (Optional but recommended for Notebook)
   productName?: string; // Nome Comercial
   apv?: string; // Autorização de Venda
@@ -104,16 +107,18 @@ export interface FieldLog {
   target?: string; // Praga/Doença Alvo
   safetyDays?: number; // Intervalo Segurança (Dias)
   operator?: string; // Aplicador (Texto livre ou nome do funcionário)
-  
+
   // Labor Specifics
   employeeId?: string;
   hoursWorked?: number;
   hourlyRate?: number;
 
-  cost?: number; 
-  quantity?: number; 
+  cost?: number;
+  quantity?: number;
   unit?: string;
 }
+
+export type RegistryType = FieldLog['type'];
 
 export interface FieldHistory {
   time: string;
@@ -154,11 +159,12 @@ export interface StockItem {
   id: string;
   name: string;
   // Expanded categories to support legacy data and new requirements
-  category: 'Fertilizante' | 'Semente' | 'Fito' | 'Combustível' | 'Ração' | 'Medicamento' | 'Colheita' | 'Outro'; 
+  category: 'Fertilizante' | 'Semente' | 'Fito' | 'Combustível' | 'Ração' | 'Medicamento' | 'Colheita' | 'Outro';
   quantity: number;
   unit: string;
   minStock: number;
   pricePerUnit: number;
+  supplier?: string;
 }
 
 export interface Transaction {
@@ -223,6 +229,17 @@ export interface AppState {
   stocks: StockItem[];
   transactions: Transaction[];
   machines: Machine[];
-  employees: Employee[]; 
+  employees: Employee[];
   harvests: ProductBatch[];
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'critical' | 'info' | 'task' | 'success';
+  timestamp: string;
+  read: boolean;
+  actionLink?: string;
+  relatedId?: string;
 }

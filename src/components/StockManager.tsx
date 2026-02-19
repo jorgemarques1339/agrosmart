@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, AlertTriangle, TrendingUp, Zap, Droplets, Leaf, Info, X, Save, Package, Warehouse } from 'lucide-react';
+import { Plus, Minus, AlertTriangle, TrendingUp, Zap, Droplets, Leaf, Info, X, Save, Package, Warehouse, Truck } from 'lucide-react';
 import clsx from 'clsx';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { StockItem } from '../types';
@@ -14,6 +14,7 @@ interface StockManagerProps {
   onEditStock: (id: string, updates: Partial<StockItem>) => void;
   onDeleteStock?: (id: string) => void;
   onModalChange?: (isOpen: boolean) => void;
+  onOpenGuide?: () => void;
 }
 
 const MAX_CAPACITY = 1000;
@@ -78,8 +79,59 @@ const EliteSilo = ({ item, onUpdate }: { item: StockItem; onUpdate: (delta: numb
             transition={{ type: 'spring', bounce: 0.1, duration: 1.5 }}
             className={clsx("absolute bottom-0 w-full", style.liquid)}
           >
-            <div className={clsx("absolute top-0 w-full h-1 blur-[1px]", style.surface)}></div>
-            <div className={clsx("absolute top-0 w-full h-px", style.surface, style.glow)}></div>
+            {/* --- LIVING LIQUID EFFECT --- */}
+
+            {/* 1. Deep Wave (Slow, Darker) */}
+            <motion.div
+              className="absolute -top-6 -left-[60%] w-[220%] h-24 bg-black/10 rounded-[35%]"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, ease: "linear", duration: 7 }}
+            />
+
+            {/* 2. Main Surface Wave (Faster, Lighter) */}
+            <motion.div
+              className="absolute -top-6 -left-[60%] w-[220%] h-24 bg-white/20 rounded-[40%]"
+              animate={{ rotate: -360 }}
+              transition={{ repeat: Infinity, ease: "linear", duration: 5 }}
+            />
+
+            {/* 3. Meniscus Highlight (The "Glint" on top) */}
+            <motion.div
+              className="absolute top-0 left-0 w-full h-1 bg-white/40 blur-[2px]"
+              animate={{ opacity: [0.3, 0.6, 0.3] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            />
+
+            {/* 4. Suspended Micro-Particles (Texture) */}
+            <motion.div
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+            >
+              {[...Array(5)].map((_, i) => (
+                <motion.div
+                  key={i}
+                  className="absolute bg-white/30 rounded-full"
+                  style={{
+                    width: Math.random() * 2 + 1 + 'px',
+                    height: Math.random() * 2 + 1 + 'px',
+                    left: Math.random() * 100 + '%',
+                    top: Math.random() * 100 + '%',
+                  }}
+                  animate={{
+                    y: [0, -20, 0],
+                    x: [0, Math.random() * 10 - 5, 0],
+                    opacity: [0, 0.8, 0]
+                  }}
+                  transition={{
+                    duration: 4 + Math.random() * 4,
+                    repeat: Infinity,
+                    ease: "easeInOut",
+                    delay: Math.random() * 2
+                  }}
+                />
+              ))}
+            </motion.div>
           </motion.div>
         </div>
 
@@ -97,83 +149,164 @@ const EliteSilo = ({ item, onUpdate }: { item: StockItem; onUpdate: (delta: numb
   );
 };
 
-// --- COMPACT HORIZONTAL INVENTORY ROW (LIST VIEW) ---
-const InventoryRow = ({ item, onUpdate, onDelete }: { item: StockItem; onUpdate: (delta: number) => void; onDelete?: (id: string) => void }) => {
-  const [data] = useState(generateMockData(item.quantity));
+const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete }: {
+  item: StockItem | null,
+  isOpen: boolean,
+  onClose: () => void,
+  onUpdate: (delta: number) => void,
+  onEdit: (updates: Partial<StockItem>) => void,
+  onDelete?: (id: string) => void
+}) => {
+  if (!isOpen || !item) return null;
+
+  const [editPrice, setEditPrice] = useState(item.pricePerUnit.toString());
+  const [editSupplier, setEditSupplier] = useState(item.supplier || '');
+
+  useEffect(() => {
+    setEditPrice(item.pricePerUnit.toString());
+    setEditSupplier(item.supplier || '');
+  }, [item]);
+
+  const handleSave = () => {
+    onEdit({
+      pricePerUnit: Number(editPrice),
+      supplier: editSupplier
+    });
+    onClose();
+  };
 
   return (
-    <div className="bg-white dark:bg-neutral-800 rounded-[1.5rem] p-3 shadow-sm border border-gray-100 dark:border-neutral-700/50 flex items-center justify-between gap-3 md:gap-6 group hover:border-agro-green/30 transition-all active:scale-[0.99]">
-
-      {/* 1. Identity (Icon + Name) */}
-      <div className="flex items-center gap-3 min-w-0 flex-1 md:flex-initial md:w-1/3">
-        <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gray-50 dark:bg-neutral-900 flex items-center justify-center shadow-inner text-gray-400 flex-shrink-0">
-          {item.name.toLowerCase().includes('gasóleo') ? <Zap size={18} className="text-amber-500" /> :
-            item.name.toLowerCase().includes('água') ? <Droplets size={18} className="text-blue-500" /> :
-              <Leaf size={18} className="text-green-500" />}
-        </div>
-        <div className="overflow-hidden min-w-0">
-          <h4 className="font-bold text-gray-900 dark:text-white text-sm md:text-lg truncate leading-tight">{item.name}</h4>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide truncate">{item.category}</p>
-        </div>
-      </div>
-
-      {/* 2. Mini Sparkline (Hidden on smallest screens if needed, or compact) */}
-      <div className="hidden md:block w-32 h-10 opacity-30 group-hover:opacity-100 transition-opacity">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id={`grad-${item.id}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#8884d8" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#8884d8" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="val" stroke="#8884d8" strokeWidth={2} fill={`url(#grad-${item.id})`} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* 3. Controls (Right Aligned) */}
-      <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-        <button
-          onClick={() => onUpdate(-10)}
-          className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#eee] dark:bg-[#1a1a1a] shadow-inner flex items-center justify-center text-gray-500 hover:text-red-500 active:scale-90 transition-all"
-        >
-          <Minus size={14} strokeWidth={3} />
-        </button>
-
-        <div className="text-center min-w-[3rem] md:min-w-[4rem]">
-          <span className="block text-lg md:text-xl font-black text-gray-800 dark:text-white leading-none">{item.quantity}</span>
-          <span className="text-[8px] md:text-[9px] font-bold text-gray-400 uppercase">{item.unit}</span>
-        </div>
-
-        <button
-          onClick={() => onUpdate(10)}
-          className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-[#eee] dark:bg-[#1a1a1a] shadow-inner flex items-center justify-center text-gray-500 hover:text-green-500 active:scale-90 transition-all"
-        >
-          <Plus size={14} strokeWidth={3} />
-        </button>
-
-        {/* Delete Button */}
-        {onDelete && (
-          <button
-            onClick={() => {
-              if (window.confirm('Tem a certeza que deseja eliminar este item?')) {
-                onDelete(item.id);
-              }
-            }}
-            className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-500 flex items-center justify-center active:scale-90 transition-all ml-1 md:opacity-0 group-hover:opacity-100"
-            title="Eliminar Item"
-          >
-            <X size={14} strokeWidth={3} />
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl border border-white/10"
+      >
+        {/* Header */}
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <span className="text-[10px] font-bold text-agro-green uppercase tracking-wider">{item.category}</span>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white leading-none mt-1">{item.name}</h3>
+          </div>
+          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+            <X size={20} className="text-gray-900 dark:text-white" />
           </button>
-        )}
+        </div>
+
+        {/* Stock Management */}
+        <div className="mb-8">
+          <label className="text-[10px] font-bold uppercase text-gray-400 mb-2 block">Gestão de Stock ({item.unit})</label>
+          <div className="flex items-center justify-between bg-gray-50 dark:bg-neutral-800 rounded-2xl p-2 md:p-3">
+            <button
+              onClick={() => onUpdate(-10)}
+              className="w-12 h-12 rounded-xl bg-white dark:bg-neutral-700 shadow-sm flex items-center justify-center text-red-500 active:scale-90 transition-all"
+            >
+              <Minus size={20} strokeWidth={3} />
+            </button>
+            <div className="text-center">
+              <span className="text-3xl font-black text-gray-900 dark:text-white block leading-none">{item.quantity}</span>
+            </div>
+            <button
+              onClick={() => onUpdate(10)}
+              className="w-12 h-12 rounded-xl bg-white dark:bg-neutral-700 shadow-sm flex items-center justify-center text-green-500 active:scale-90 transition-all"
+            >
+              <Plus size={20} strokeWidth={3} />
+            </button>
+          </div>
+        </div>
+
+        {/* Details Form */}
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Fornecedor</label>
+            <div className="relative">
+              <Package size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={editSupplier}
+                onChange={(e) => setEditSupplier(e.target.value)}
+                placeholder="Nome do Fornecedor"
+                className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço / Un (€)</label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
+              <input
+                type="number"
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex gap-3">
+          {onDelete && (
+            <button
+              onClick={() => {
+                if (window.confirm('Eliminar produto?')) {
+                  onDelete(item.id);
+                  onClose();
+                }
+              }}
+              className="p-4 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-500 active:scale-95 transition-all"
+              title="Eliminar"
+            >
+              <TrendingUp className="rotate-180" size={20} />
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            className="flex-1 py-4 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Save size={18} /> Guardar Alterações
+          </button>
+        </div>
+
+      </motion.div>
+    </div>
+  );
+};
+
+// --- COMPACT VISUAL ROW (NAME + CATEGORY ONLY) ---
+// User request: "fique somente o nome do produto e a categoria"
+const InventoryRow = ({ item, onClick }: { item: StockItem; onClick: () => void }) => {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white dark:bg-neutral-800 rounded-[1.5rem] p-4 shadow-sm border border-gray-100 dark:border-neutral-700/50 flex items-center justify-between gap-4 group hover:border-agro-green/50 cursor-pointer active:scale-[0.98] transition-all"
+    >
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 rounded-2xl bg-gray-50 dark:bg-neutral-900 flex items-center justify-center shadow-inner text-gray-400 flex-shrink-0 group-hover:bg-agro-green/10 group-hover:text-agro-green transition-colors">
+          {item.name.toLowerCase().includes('gasóleo') ? <Zap size={20} /> :
+            item.name.toLowerCase().includes('água') ? <Droplets size={20} /> :
+              <Leaf size={20} />}
+        </div>
+        <div>
+          <h4 className="font-bold text-gray-900 dark:text-white text-sm md:text-lg leading-tight group-hover:text-agro-green transition-colors">{item.name}</h4>
+          <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wide">{item.category}</p>
+        </div>
+      </div>
+
+      {/* Right chevron or minimal indicator */}
+      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-400 group-hover:bg-agro-green group-hover:text-white transition-all">
+        <Plus size={16} strokeWidth={3} className={item.quantity === 0 ? "opacity-50" : ""} />
       </div>
     </div>
   );
 };
 
-const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDeleteStock, onModalChange }: StockManagerProps) => {
+const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDeleteStock, onModalChange, onOpenGuide }: StockManagerProps) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
+
   const [newItem, setNewItem] = useState({
     name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: ''
   });
@@ -181,8 +314,8 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
   const lowStockItems = stocks.filter(s => s.quantity <= s.minStock);
 
   useEffect(() => {
-    if (onModalChange) onModalChange(isAddModalOpen);
-  }, [isAddModalOpen, onModalChange]);
+    if (onModalChange) onModalChange(isAddModalOpen || !!selectedItem);
+  }, [isAddModalOpen, selectedItem, onModalChange]);
 
   const handleCreate = () => {
     if (newItem.name && newItem.quantity && newItem.pricePerUnit) {
@@ -209,17 +342,29 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
             <Warehouse size={24} className="text-gray-900 dark:text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black italic text-gray-900 dark:text-white tracking-tight uppercase">Armazém</h1>
+            <h1 className="text-xl md:text-3xl font-black italic text-gray-900 dark:text-white tracking-tight uppercase">Armazém</h1>
             <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Gestão de Stocks</p>
           </div>
         </div>
 
-        {lowStockItems.length > 0 && (
-          <div className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full shadow-lg shadow-red-500/30 animate-pulse">
-            <AlertTriangle size={16} strokeWidth={3} />
-            <span className="font-bold text-xs uppercase hidden md:inline">{lowStockItems.length} Críticos</span>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {onOpenGuide && (
+            <button
+              onClick={onOpenGuide}
+              className="flex items-center gap-2 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-4 py-2 rounded-full shadow-sm active:scale-95 transition-transform"
+            >
+              <Truck size={18} strokeWidth={2.5} />
+              <span className="font-bold text-xs uppercase">Guias</span>
+            </button>
+          )}
+
+          {lowStockItems.length > 0 && (
+            <div className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-full shadow-lg shadow-red-500/30 animate-pulse">
+              <AlertTriangle size={16} strokeWidth={3} />
+              <span className="font-bold text-xs uppercase hidden md:inline">{lowStockItems.length} Críticos</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2. AI INSIGHT (MOVED TO TOP) */}
@@ -239,10 +384,6 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
 
       {/* 3. VOLUMETRIC VISUALIZATION (SMALLER) */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between px-4">
-          <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Tanques Volumétricos</h3>
-          <span className="text-[9px] font-mono text-gray-400 bg-gray-100 dark:bg-white/5 px-2 py-0.5 rounded">LIVE</span>
-        </div>
         <div className="flex gap-4 overflow-x-auto pb-6 pt-2 px-4 snap-x custom-scrollbar">
           {stocks.map(item => (
             <EliteSilo key={item.id} item={item} onUpdate={(delta) => onUpdateStock(item.id, delta)} />
@@ -260,7 +401,7 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
             className="flex items-center gap-2 bg-agro-green text-white px-4 py-2 rounded-full shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
           >
             <Plus size={16} strokeWidth={3} />
-            <span className="font-bold text-[10px] uppercase">Novo Item</span>
+            <span className="font-bold text-[8px] uppercase">Novo Item</span>
           </button>
         </div>
 
@@ -269,8 +410,7 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
             <InventoryRow
               key={item.id}
               item={item}
-              onUpdate={(delta) => onUpdateStock(item.id, delta)}
-              onDelete={onDeleteStock}
+              onClick={() => setSelectedItem(item)}
             />
           ))}
         </div>
@@ -368,6 +508,20 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
               </div>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- DETAILS MODAL --- */}
+      <AnimatePresence>
+        {selectedItem && (
+          <ProductDetailsModal
+            item={selectedItem}
+            isOpen={!!selectedItem}
+            onClose={() => setSelectedItem(null)}
+            onUpdate={(delta) => onUpdateStock(selectedItem.id, delta)}
+            onEdit={(updates) => onEditStock(selectedItem.id, updates)}
+            onDelete={onDeleteStock}
+          />
         )}
       </AnimatePresence>
 

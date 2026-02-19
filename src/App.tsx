@@ -12,7 +12,7 @@ import mqtt from 'mqtt';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import { AppState, Field, StockItem, FieldLog, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee, ProductBatch, UserProfile } from './types';
+import { AppState, Field, StockItem, FieldLog, RegistryType, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee, ProductBatch, UserProfile, Notification } from './types';
 import { loadState, saveState } from './services/storageService';
 import { INITIAL_WEATHER } from './constants';
 
@@ -30,7 +30,8 @@ import VoiceAssistant, { VoiceActionType } from './components/VoiceAssistant';
 import TraceabilityModal from './components/TraceabilityModal';
 import PublicProductPage from './components/PublicProductPage';
 import TeamManager from './components/TeamManager'; // New
-import TaskProofModal from './components/TaskProofModal'; // New
+import TaskProofModal from './components/TaskProofModal';
+import { NotificationCenter } from './components/NotificationCenter'; // New
 
 // API Configuration
 const WEATHER_API_KEY = 'c7f76605724ecafb54933077ede4166a';
@@ -341,20 +342,6 @@ const CultivationView = ({
   // Track open Field Detail modals to hide nav
   const [anyFieldOpen, setAnyFieldOpen] = useState(false);
 
-  // --- e-GUIAS MODAL STATE ---
-  const [showGuideModal, setShowGuideModal] = useState(false);
-  const [saleStep, setSaleStep] = useState(1);
-  const [saleData, setSaleData] = useState({
-    stockId: '',
-    quantity: '',
-    clientName: '',
-    clientNif: '',
-    destination: '',
-    plate: '',
-    date: new Date().toISOString().split('T')[0],
-    price: '',
-    fieldId: ''
-  });
 
   const [newName, setNewName] = useState('');
   const [newArea, setNewArea] = useState('');
@@ -362,9 +349,9 @@ const CultivationView = ({
 
   useEffect(() => {
     if (onModalChange) {
-      onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || showGuideModal || anyFieldOpen || showHistoryModal);
+      onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal);
     }
-  }, [isModalOpen, isNotebookOpen, showIoTWizard, showGuideModal, anyFieldOpen, showHistoryModal, onModalChange]);
+  }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, onModalChange]);
 
   const handleSubmit = () => {
     if (newName && newArea) {
@@ -381,97 +368,6 @@ const CultivationView = ({
     }
   };
 
-  // --- e-GUIAS PDF GENERATION ---
-  const generateGuidePDF = () => {
-    if (!onRegisterSale) return;
-
-    // 1. Validar e Encontrar Stock e Campo
-    const selectedStock = stocks.find(s => s.id === saleData.stockId);
-    const selectedField = fields.find(f => f.id === saleData.fieldId);
-
-    if (!selectedStock || !selectedField) return;
-
-    // 2. Registar Venda na App (Lógica)
-    onRegisterSale({
-      stockId: saleData.stockId,
-      quantity: parseFloat(saleData.quantity),
-      pricePerUnit: parseFloat(saleData.price),
-      clientName: saleData.clientName,
-      date: saleData.date,
-      fieldId: selectedField.id
-    });
-
-    // 3. Gerar PDF
-    const doc = new jsPDF();
-
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(62, 104, 55); // Agro Green
-    doc.text("GUIA DE TRANSPORTE", 105, 20, { align: 'center' });
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Documento de Acompanhamento de Mercadorias", 105, 26, { align: 'center' });
-
-    doc.setDrawColor(200);
-    doc.line(14, 32, 196, 32);
-
-    // Section 1: Expedidor
-    doc.setFontSize(12);
-    doc.setTextColor(0);
-    doc.setFont("helvetica", "bold");
-    doc.text("EXPEDIDOR (Quinta):", 14, 42);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text("Oriva Farms Enterprise", 14, 48);
-    doc.text(`Local Carga: ${selectedField.name} (${selectedField.coordinates.join(', ')})`, 14, 53);
-    doc.text(`Data/Hora: ${new Date().toLocaleString()}`, 14, 58);
-
-    // Section 2: Destinatário
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("DESTINATÁRIO:", 110, 42);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(saleData.clientName, 110, 48);
-    doc.text(`NIF: ${saleData.clientNif || 'N/A'}`, 110, 53);
-    doc.text(`Descarga: ${saleData.destination || 'Morada do Cliente'}`, 110, 58);
-
-    // Section 3: Transporte
-    doc.setFillColor(240, 240, 240);
-    doc.rect(14, 65, 182, 15, 'F');
-    doc.text(`Viatura: ${saleData.plate.toUpperCase()}`, 20, 75);
-    doc.text(`Data Início: ${saleData.date}`, 120, 75);
-
-    // Table
-    const tableRows = [[
-      selectedStock.name,
-      `${saleData.quantity} ${selectedStock.unit}`,
-      `${saleData.price} €`,
-      `${(parseFloat(saleData.quantity) * parseFloat(saleData.price)).toFixed(2)} €`
-    ]];
-
-    autoTable(doc, {
-      startY: 85,
-      head: [['Mercadoria', 'Quantidade', 'Preço Unit.', 'Total']],
-      body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [62, 104, 55] },
-    });
-
-    // Footer / Disclaimer
-    const finalY = (doc as any).lastAutoTable.finalY + 20;
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Este documento não substitui a fatura oficial. Válido para circulação.", 14, finalY);
-    doc.text(`Emitido via OrivaSmart App`, 14, finalY + 5);
-
-    doc.save(`Guia_Transporte_${saleData.clientName.replace(/\s/g, '_')}.pdf`);
-
-    // Reset Form & Close
-    setShowGuideModal(false);
-    setSaleStep(1);
-    setSaleData({ stockId: '', quantity: '', clientName: '', clientNif: '', destination: '', plate: '', date: new Date().toISOString().split('T')[0], price: '', fieldId: '' });
-  };
 
   return (
     <div className="space-y-6 animate-fade-in pt-4 pb-24">
@@ -479,27 +375,12 @@ const CultivationView = ({
 
         {/* Lado Esquerdo: Registo e e-Guias */}
         <div className="flex gap-3">
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => setIsNotebookOpen(true)}
-              className="w-12 h-12 rounded-full bg-white dark:bg-neutral-800 text-gray-600 dark:text-gray-300 shadow-md border border-gray-100 dark:border-neutral-700 flex items-center justify-center active:scale-95 transition-transform"
-              title="Caderno de Campo"
-            >
-              <FileText size={22} />
-            </button>
-            <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">Registo</span>
+          <div>
+            <h1 className="text-xl md:text-3xl font-black italic text-gray-900 dark:text-white tracking-tight uppercase">Cultivos</h1>
+            <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">Gestão de Parcelas</p>
           </div>
 
-          <div className="flex flex-col items-center gap-1">
-            <button
-              onClick={() => setShowGuideModal(true)}
-              className="w-12 h-12 rounded-full bg-orange-500 text-white shadow-lg shadow-orange-500/30 flex items-center justify-center active:scale-95 transition-transform"
-              title="Emitir Guia"
-            >
-              <Truck size={22} />
-            </button>
-            <span className="text-[10px] font-bold text-orange-500 dark:text-orange-400">e-Guias</span>
-          </div>
+          {/* e-Guias button removed */}
         </div>
 
         {/* Lado Direito: IoT e Novo */}
@@ -688,145 +569,6 @@ const CultivationView = ({
         </div>
       )}
 
-      {/* --- e-GUIAS MODAL (GLOBAL) --- */}
-      {showGuideModal && (
-        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowGuideModal(false)}>
-          <div
-            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[95vh] overflow-y-auto custom-scrollbar"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
-                  <Truck className="text-orange-500" size={24} /> Expedição
-                </h3>
-                <p className="text-xs font-bold text-gray-400 uppercase mt-1">Comercialização & Guia</p>
-              </div>
-              <button onClick={() => setShowGuideModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                <X size={20} className="dark:text-white" />
-              </button>
-            </div>
-
-            {saleStep === 1 ? (
-              <div className="space-y-5">
-                {/* Field Selector (Location) */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Local de Carga (Parcela)</label>
-                  <select
-                    value={saleData.fieldId}
-                    onChange={(e) => setSaleData({ ...saleData, fieldId: e.target.value })}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
-                  >
-                    <option value="">Selecione o local...</option>
-                    {fields.map(f => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Stock Selector */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">O que vai vender?</label>
-                  <select
-                    value={saleData.stockId}
-                    onChange={(e) => setSaleData({ ...saleData, stockId: e.target.value })}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
-                  >
-                    <option value="">Selecione o produto...</option>
-                    {stocks.filter(s => s.quantity > 0).map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.quantity} {s.unit})</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Quantidade & Preço */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade</label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.quantity}
-                      onChange={(e) => setSaleData({ ...saleData, quantity: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço Un. (€)</label>
-                    <input
-                      type="number"
-                      placeholder="0.00"
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.price}
-                      onChange={(e) => setSaleData({ ...saleData, price: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setSaleStep(2)}
-                  disabled={!saleData.stockId || !saleData.quantity || !saleData.price || !saleData.fieldId}
-                  className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!saleData.stockId || !saleData.quantity || !saleData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
-                >
-                  Próximo: Dados de Transporte
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-5 animate-slide-up">
-                {/* Client Info */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Cliente</label>
-                  <input
-                    placeholder="Nome do Cliente"
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 mb-2"
-                    value={saleData.clientName}
-                    onChange={(e) => setSaleData({ ...saleData, clientName: e.target.value })}
-                  />
-                  <input
-                    placeholder="NIF (Opcional)"
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                    value={saleData.clientNif}
-                    onChange={(e) => setSaleData({ ...saleData, clientNif: e.target.value })}
-                  />
-                </div>
-
-                {/* Transport Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Matrícula</label>
-                    <input
-                      placeholder="AA-00-BB"
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none uppercase focus:ring-2 focus:ring-orange-500"
-                      value={saleData.plate}
-                      onChange={(e) => setSaleData({ ...saleData, plate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
-                    <input
-                      type="date"
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.date}
-                      onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button onClick={() => setSaleStep(1)} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
-                  <button
-                    onClick={generateGuidePDF}
-                    disabled={!saleData.clientName || !saleData.plate}
-                    className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!saleData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
-                  >
-                    <FileCheck size={20} /> Emitir Guia & Registar
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* FIELD NOTEBOOK COMPONENT */}
       <FieldNotebook
@@ -848,6 +590,8 @@ const CultivationView = ({
           }}
         />
       )}
+
+
     </div>
   );
 };
@@ -866,6 +610,30 @@ const App = () => {
     }
   }, []);
 
+  const [showRegistryModal, setShowRegistryModal] = useState(false);
+  const [registryType, setRegistryType] = useState<RegistryType>('observation');
+
+  // --- NOTIFICATIONS STATE ---
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([
+    { id: '1', title: 'Rega Automática', message: 'Setor A (Vinha) ativado por 45min devido a baixa humidade.', type: 'info', timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(), read: false },
+    { id: '2', title: 'Alerta de Praga', message: 'Detetada possível infeção de míldio na zona Norte. Verificar imagens de satélite.', type: 'critical', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), read: false, actionLink: 'ai' },
+    { id: '3', title: 'Manutenção', message: 'Trator John Deere requer mudança de óleo em 5h de uso.', type: 'task', timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), read: true, actionLink: 'machines' }
+  ]);
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const handleClearHistory = () => {
+    setNotifications(prev => prev.filter(n => !n.read)); // Keep only unread? Or clear all read? User asked "Clear History", usually implies read ones.
+  };
+
+  // --- DGAV PDF EXPORT ---ab, setActiveTab] = useState<TabId>('dashboard');
   const [state, setState] = useState<AppState>(loadState());
   const [activeTab, setActiveTab] = useState<TabId>('dashboard');
   const [currentUserId, setCurrentUserId] = useState<string>('u1'); // Default Admin
@@ -879,6 +647,21 @@ const App = () => {
 
   // Traceability Modal State
   const [traceabilityBatch, setTraceabilityBatch] = useState<ProductBatch | null>(null);
+
+  // --- e-GUIAS MODAL STATE ---
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [saleStep, setSaleStep] = useState(1);
+  const [saleData, setSaleData] = useState({
+    stockId: '',
+    quantity: '',
+    clientName: '',
+    clientNif: '',
+    destination: '',
+    plate: '',
+    date: new Date().toISOString().split('T')[0],
+    price: '',
+    fieldId: ''
+  });
 
   // Weather Data
   const [weatherData, setWeatherData] = useState<WeatherForecast[]>(INITIAL_WEATHER);
@@ -1387,7 +1170,97 @@ const App = () => {
     setIsChildModalOpen(isOpen);
   };
 
-  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationsOpen || isTeamManagerOpen || !!taskProofTask;
+  // --- e-GUIAS PDF GENERATION ---
+  const generateGuidePDF = () => {
+    // 1. Validar e Encontrar Stock e Campo
+    const selectedStock = state.stocks.find(s => s.id === saleData.stockId);
+    const selectedField = state.fields.find(f => f.id === saleData.fieldId);
+
+    if (!selectedStock || !selectedField) return;
+
+    // 2. Registar Venda na App (Lógica)
+    handleRegisterSale({
+      stockId: saleData.stockId,
+      quantity: parseFloat(saleData.quantity),
+      pricePerUnit: parseFloat(saleData.price),
+      clientName: saleData.clientName,
+      date: saleData.date,
+      fieldId: selectedField.id
+    });
+
+    // 3. Gerar PDF
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(62, 104, 55); // Agro Green
+    doc.text("GUIA DE TRANSPORTE", 105, 20, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text("Documento de Acompanhamento de Mercadorias", 105, 26, { align: 'center' });
+
+    doc.setDrawColor(200);
+    doc.line(14, 32, 196, 32);
+
+    // Section 1: Expedidor
+    doc.setFontSize(12);
+    doc.setTextColor(0);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXPEDIDOR (Quinta):", 14, 42);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Oriva Farms Enterprise", 14, 48);
+    doc.text(`Local Carga: ${selectedField.name} (${selectedField.coordinates.join(', ')})`, 14, 53);
+    doc.text(`Data/Hora: ${new Date().toLocaleString()}`, 14, 58);
+
+    // Section 2: Destinatário
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("DESTINATÁRIO:", 110, 42);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(saleData.clientName, 110, 48);
+    doc.text(`NIF: ${saleData.clientNif || 'N/A'}`, 110, 53);
+    doc.text(`Descarga: ${saleData.destination || 'Morada do Cliente'}`, 110, 58);
+
+    // Section 3: Transporte
+    doc.setFillColor(240, 240, 240);
+    doc.rect(14, 65, 182, 15, 'F');
+    doc.text(`Viatura: ${saleData.plate.toUpperCase()}`, 20, 75);
+    doc.text(`Data Início: ${saleData.date}`, 120, 75);
+
+    // Table
+    const tableRows = [[
+      selectedStock.name,
+      `${saleData.quantity} ${selectedStock.unit}`,
+      `${saleData.price} €`,
+      `${(parseFloat(saleData.quantity) * parseFloat(saleData.price)).toFixed(2)} €`
+    ]];
+
+    autoTable(doc, {
+      startY: 85,
+      head: [['Mercadoria', 'Quantidade', 'Preço Unit.', 'Total']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [62, 104, 55] },
+    });
+
+    // Footer / Disclaimer
+    const finalY = (doc as any).lastAutoTable.finalY + 20;
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text("Este documento não substitui a fatura oficial. Válido para circulação.", 14, finalY);
+    doc.text(`Emitido via OrivaSmart App`, 14, finalY + 5);
+
+    doc.save(`Guia_Transporte_${saleData.clientName.replace(/\s/g, '_')}.pdf`);
+
+    // Reset Form & Close
+    setShowGuideModal(false);
+    setSaleStep(1);
+    setSaleData({ stockId: '', quantity: '', clientName: '', clientNif: '', destination: '', plate: '', date: new Date().toISOString().split('T')[0], price: '', fieldId: '' });
+  };
+
+  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationCenterOpen || isTeamManagerOpen || !!taskProofTask || showGuideModal;
 
   // RENDER PUBLIC PAGE IF BATCH ID PRESENT
   if (viewMode === 'public' && publicBatchId) {
@@ -1441,7 +1314,7 @@ const App = () => {
             onDeleteTask={deleteTask}
             onWeatherClick={() => setIsNotificationsOpen(true)}
             onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenNotifications={() => setIsNotificationsOpen(true)}
+            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
             onModalChange={handleChildModalChange}
             onUpdateMachineHours={updateMachineHours}
             onAddMachineLog={addMachineLog}
@@ -1488,6 +1361,7 @@ const App = () => {
               onEditStock={handleEditStock}
               onDeleteStock={handleDeleteStock}
               onModalChange={handleChildModalChange}
+              onOpenGuide={() => setShowGuideModal(true)}
             />
           ) : (
             <AccessDenied title="Stocks & Armazém" />
@@ -1621,6 +1495,160 @@ const App = () => {
           batch={traceabilityBatch}
         />
       )}
+
+      {/* --- e-GUIAS MODAL (GLOBAL) --- */}
+      {showGuideModal && (
+        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowGuideModal(false)}>
+          <div
+            className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[95vh] overflow-y-auto custom-scrollbar"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
+                  <Truck className="text-orange-500" size={24} /> Expedição
+                </h3>
+                <p className="text-xs font-bold text-gray-400 uppercase mt-1">Comercialização & Guia</p>
+              </div>
+              <button onClick={() => setShowGuideModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            {saleStep === 1 ? (
+              <div className="space-y-5">
+                {/* Field Selector (Location) */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Local de Carga (Parcela)</label>
+                  <select
+                    value={saleData.fieldId}
+                    onChange={(e) => setSaleData({ ...saleData, fieldId: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                  >
+                    <option value="">Selecione o local...</option>
+                    {state.fields.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Stock Selector */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">O que vai vender?</label>
+                  <select
+                    value={saleData.stockId}
+                    onChange={(e) => setSaleData({ ...saleData, stockId: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
+                  >
+                    <option value="">Selecione o produto...</option>
+                    {state.stocks.filter(s => s.quantity > 0).map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.quantity} {s.unit})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Quantidade & Preço */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade</label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      value={saleData.quantity}
+                      onChange={(e) => setSaleData({ ...saleData, quantity: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço Un. (€)</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      value={saleData.price}
+                      onChange={(e) => setSaleData({ ...saleData, price: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSaleStep(2)}
+                  disabled={!saleData.stockId || !saleData.quantity || !saleData.price || !saleData.fieldId}
+                  className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!saleData.stockId || !saleData.quantity || !saleData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
+                >
+                  Próximo: Dados de Transporte
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-5 animate-slide-up">
+                {/* Client Info */}
+                <div>
+                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Cliente</label>
+                  <input
+                    placeholder="Nome do Cliente"
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 mb-2"
+                    value={saleData.clientName}
+                    onChange={(e) => setSaleData({ ...saleData, clientName: e.target.value })}
+                  />
+                  <input
+                    placeholder="NIF (Opcional)"
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                    value={saleData.clientNif}
+                    onChange={(e) => setSaleData({ ...saleData, clientNif: e.target.value })}
+                  />
+                </div>
+
+                {/* Transport Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Matrícula</label>
+                    <input
+                      placeholder="AA-00-BB"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none uppercase focus:ring-2 focus:ring-orange-500"
+                      value={saleData.plate}
+                      onChange={(e) => setSaleData({ ...saleData, plate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
+                    <input
+                      type="date"
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
+                      value={saleData.date}
+                      onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button onClick={() => setSaleStep(1)} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
+                  <button
+                    onClick={generateGuidePDF}
+                    disabled={!saleData.clientName || !saleData.plate}
+                    className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!saleData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
+                  >
+                    <FileCheck size={20} /> Emitir Guia & Registar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* NOTIFICATION CENTER */}
+      <NotificationCenter
+        isOpen={isNotificationCenterOpen}
+        onClose={() => setIsNotificationCenterOpen(false)}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onClearHistory={handleClearHistory}
+        onNavigate={(path) => {
+          setActiveTab(path as any);
+          setIsNotificationCenterOpen(false);
+        }}
+      />
 
       <InstallPrompt />
 
