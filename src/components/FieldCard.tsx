@@ -6,7 +6,7 @@ import {
   Coins, TrendingUp, TrendingDown, Wallet, Cpu, Signal,
   ShieldAlert, FileText, List, Workflow,
   Radio, Package, Wheat, Leaf, BarChart3, ScanEye, X, ArrowLeft,
-  Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon
+  Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon, Navigation
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
@@ -19,6 +19,9 @@ import PestDetection from './PestDetection';
 import AutomationHub from './AutomationHub';
 import HarvestModal from './HarvestModal';
 import FieldRegistryModal, { RegistryType } from './FieldRegistryModal';
+import { useStore } from '../store/useStore';
+import { calculateMildioRisk } from '../utils/diseaseModel';
+import MissionControl from './MissionControl';
 
 interface FieldCardProps {
   field: Field;
@@ -215,7 +218,7 @@ const ActionMenu = ({
 
 const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onModalChange, onDelete, onAddLog, stocks = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'finance' | 'ai' | 'gallery'>('sensors');
+  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions'>('sensors');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
@@ -224,6 +227,9 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   // Registry Modal State
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [registryType, setRegistryType] = useState<RegistryType>('observation');
+
+  const detailedForecast = useStore(state => state.detailedForecast);
+  const diseaseRisk = useMemo(() => calculateMildioRisk(field, detailedForecast), [field, detailedForecast]);
 
   // --- DGAV PDF EXPORT ---
   const handleExportDGAV = () => {
@@ -601,11 +607,11 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                 {/* SEGMENTED TABS */}
                 <div className="flex p-1.5 bg-gray-200/50 dark:bg-white/5 rounded-[1.5rem] backdrop-blur-sm sticky top-0 md:relative z-40 mx-auto max-w-lg shadow-inner">
                   {[
-                    { id: 'sensors', label: 'Telemetria', icon: Activity },
+                    { id: 'sensors', label: 'Dados ou Telemetria', icon: Activity },
+                    { id: 'missions', label: 'Veículos Autónomos', icon: Navigation },
                     { id: 'journal', label: 'Diário', icon: FileText },
                     { id: 'gallery', label: 'Galeria', icon: ImageIcon },
-                    { id: 'finance', label: 'Finanças', icon: Coins },
-                    { id: 'ai', label: 'Agro-Vision', icon: ScanEye },
+                    { id: 'ai', label: 'Oriva-Vision', icon: ScanEye },
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -636,7 +642,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                       className="space-y-6"
                     >
                       {/* Panoramic Map */}
-                      <div className="h-64 md:h-[450px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/50 dark:border-white/5 relative group">
+                      <div className="h-48 md:h-[300px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/50 dark:border-white/5 relative group">
                         <MapContainerAny
                           center={field.coordinates}
                           zoom={15}
@@ -644,23 +650,41 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                           dragging={true}
                           style={{ height: '100%', width: '100%' }}
                         >
-                          <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+                          <TileLayer
+                            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                            crossOrigin="anonymous"
+                          />
                           <Polygon positions={field.polygon} pathOptions={{ color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.3, weight: 3 }} />
                         </MapContainerAny>
 
                         {/* Map HUD Overlay */}
-                        <div className="absolute top-6 left-6 right-6 flex justify-between pointer-events-none">
-                          <div className="bg-black/40 backdrop-blur-xl px-5 py-3 rounded-2xl text-white border border-white/10">
-                            <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Área Monitorizada</p>
-                            <p className="text-2xl font-black">{field.areaHa} <span className="text-sm font-bold opacity-70">HA</span></p>
-                          </div>
-                          <div className="bg-black/40 backdrop-blur-xl px-5 py-3 rounded-2xl text-white border border-white/10 flex items-center gap-3">
-                            <Wifi size={18} className={field.irrigationStatus ? 'text-green-400' : 'text-gray-400'} />
-                            <div>
-                              <p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Status Rega</p>
-                              <p className="text-sm font-black uppercase">{field.irrigationStatus ? 'ATIVA' : 'STANDBY'}</p>
+                        <div className="absolute top-6 left-6 right-6 flex justify-end gap-2 pointer-events-none">
+                          <div className="flex gap-2">
+                            <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5">
+                              <div className="flex items-center gap-1.5 opacity-70">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                <span className="text-[8px] font-black uppercase tracking-widest">Mapas Offline</span>
+                              </div>
+                              <p className="text-xl font-black">{field.areaHa} <span className="text-sm font-bold opacity-70">HA</span></p>
+                            </div>
+
+                            <div className={clsx(
+                              "bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5",
+                              financialData.netMargin < 0 ? "border-red-500/50" : "border-agro-green/50"
+                            )}>
+                              <div className="flex items-center gap-1.5 opacity-70">
+                                <Coins size={10} className="text-yellow-400" />
+                                <span className="text-[8px] font-black uppercase tracking-widest">Lucro Est.</span>
+                              </div>
+                              <p className={clsx(
+                                "text-lg font-black",
+                                financialData.netMargin < 0 ? "text-red-400" : "text-agro-green"
+                              )}>
+                                {financialData.netMargin.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}
+                              </p>
                             </div>
                           </div>
+
                         </div>
                       </div>
 
@@ -757,25 +781,6 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
 
 
 
-                  {/* Finance Tab (Moved to align logic) */}
-                  {activeTab === 'finance' && (
-                    <motion.div
-                      key="finance"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className="space-y-6"
-                    >
-                      {/* Finance content placeholder or current implementation can stay if it was separate, 
-                           but based on view_file I don't see Finance content fully implemented in the view range. 
-                           I will just insert Gallery after Journal and keep Finance where it is if it exists later 
-                           or relies on generic rendering. 
-                           Wait, I need to check where Finance view is. 
-                           The view_file output stopped at Journal. 
-                           I'll insert Gallery BEFORE Journal ends or nicely after.
-                       */}
-                    </motion.div>
-                  )}
 
                   {/* Gallery Tab */}
                   {activeTab === 'gallery' && (
@@ -873,27 +878,35 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                     </motion.div>
                   )}
 
-                  {/* Finance & AI Tabs (Simplified for brevity but using same aesthetics) */}
-                  {activeTab === 'finance' && (
-                    <motion.div key="finance" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <div className={`rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[350px] ${financialData.netMargin >= 0
-                        ? 'bg-gradient-to-br from-[#3E6837] to-[#1A2E1A]'
-                        : 'bg-gradient-to-br from-red-600 to-red-900'
-                        }`}>
-                        <div className="relative z-10">
-                          <p className="text-sm font-bold uppercase tracking-widest opacity-80 mb-2">Lucro Líquido Estimado</p>
-                          <h2 className="text-7xl font-black tracking-tighter">
-                            {financialData.netMargin.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}
-                          </h2>
-                        </div>
-                        <Wallet className="absolute -right-10 -bottom-10 w-64 h-64 opacity-10 rotate-12" />
-                      </div>
-                    </motion.div>
-                  )}
 
                   {activeTab === 'ai' && (
                     <motion.div key="ai" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <PestDetection />
+                      <PestDetection
+                        diseaseRisk={diseaseRisk}
+                        onSaveDiagnostic={(diagnostic) => {
+                          onAddLog(field.id, {
+                            date: new Date().toISOString().split('T')[0],
+                            type: 'observation',
+                            description: `Oriva Vision: ${diagnostic.disease?.name} detetado (${diagnostic.confidence}% conf.). Tratamento: ${diagnostic.disease?.treatment.immediate}`,
+                            operator: 'AI Engine',
+                            target: diagnostic.disease?.name,
+                            attachments: [] // Em sistema real, aqui iria a foto do scan
+                          });
+                          alert('Diagnóstico guardado no Caderno de Campo com sucesso!');
+                        }}
+                      />
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'missions' && (
+                    <motion.div
+                      key="missions"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      className="h-[600px] overflow-hidden"
+                    >
+                      <MissionControl field={field} />
                     </motion.div>
                   )}
 

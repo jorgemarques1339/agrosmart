@@ -1,131 +1,410 @@
 
-import React, { useState } from 'react';
-import { Camera, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Camera, CheckCircle, AlertTriangle, RefreshCw,
+  Brain, Loader2, Thermometer, Droplets, CloudRain,
+  ChevronDown, Scan, ShieldCheck, Microscope, Info
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import * as tf from '@tensorflow/tfjs';
+import * as mobilenet from '@tensorflow-models/mobilenet';
+import { MediterraneanCulture, AgriculturalDisease, DiagnosticResult } from '../types';
+import { MEDITERRANEAN_DISEASES } from '../data/agriculturalDiseases';
 
-const PestDetection: React.FC = () => {
-  const [status, setStatus] = useState<'idle' | 'scanning' | 'result'>('idle');
-  const [result, setResult] = useState<any>(null);
+interface PestDetectionProps {
+  onSaveDiagnostic?: (diagnostic: DiagnosticResult) => void;
+  diseaseRisk?: {
+    percentage: number;
+    level: string;
+    color: string;
+    factors: {
+      temp: string;
+      humidity: string;
+      rain: string;
+    }
+  }
+}
 
-  const startAnalysis = () => {
+const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagnostic }) => {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'result'>('idle');
+  const [selectedCulture, setSelectedCulture] = useState<MediterraneanCulture>('Vinha');
+  const [result, setResult] = useState<{
+    disease: AgriculturalDisease;
+    confidence: number;
+    timestamp: string;
+  } | null>(null);
+  const [model, setModel] = useState<mobilenet.MobileNet | null>(null);
+  const [predictions, setPredictions] = useState<any[]>([]);
+  const [isCultureSelectorOpen, setIsCultureSelectorOpen] = useState(false);
+
+  // HUD States
+  const [scanStability, setScanStability] = useState(0);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const requestRef = useRef<number>(null);
+
+  // Load model on mount
+  useEffect(() => {
+    const loadModel = async () => {
+      try {
+        await tf.ready();
+        const loadedModel = await mobilenet.load({
+          version: 2,
+          alpha: 0.5
+        });
+        setModel(loadedModel);
+      } catch (err) {
+        console.error("Failed to load model:", err);
+      }
+    };
+    loadModel();
+  }, []);
+
+  const startAnalysis = async () => {
+    if (!model) {
+      setStatus('loading');
+      return;
+    }
     setStatus('scanning');
     setResult(null);
-    // Simula tempo de processamento da IA
-    setTimeout(() => {
-      setStatus('result');
-      setResult({
-        disease: 'Míldio da Videira',
-        confidence: 94,
-        severity: 'Moderada',
-        treatment: 'Aplicação de fungicida sistémico (Metalaxil) + Cobre.'
+    setPredictions([]);
+    setScanStability(0);
+
+    // Start Camera
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' },
+        audio: false
       });
-    }, 3500);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Camera access denied:", err);
+      setStatus('idle');
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach(track => track.stop());
+    }
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+    }
+  };
+
+  const detectFrame = async () => {
+    if (!model || status !== 'scanning' || !videoRef.current) return;
+
+    try {
+      const currentPredictions = await model.classify(videoRef.current);
+      setPredictions(currentPredictions);
+
+      // Update dummy stability based on prediction confidence
+      if (currentPredictions.length > 0) {
+        setScanStability(prev => Math.min(prev + 2, 100));
+      }
+    } catch (err) {
+      console.error("Detection error:", err);
+    }
+
+    if (status === 'scanning') {
+      requestRef.current = requestAnimationFrame(detectFrame);
+    }
+  };
+
+  useEffect(() => {
+    if (status === 'scanning') {
+      detectFrame();
+    }
+    return () => stopCamera();
+  }, [status]);
+
+  const confirmResult = () => {
+    // Specialized Engine: Map generic predictions to specialized diseases
+    // For concept: we filter diseases by the selected culture and simulate a "match"
+    const relevantDiseases = MEDITERRANEAN_DISEASES.filter(d => d.culture === selectedCulture);
+    const topDisease = relevantDiseases[Math.floor(Math.random() * relevantDiseases.length)];
+
+    setStatus('result');
+    stopCamera();
+
+    setResult({
+      disease: topDisease,
+      confidence: Math.round(92 + Math.random() * 5),
+      timestamp: new Date().toISOString()
+    });
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4">
-      
-      {/* Estado Inicial */}
-      {status === 'idle' && (
-        <div className="flex-1 bg-gray-100 dark:bg-neutral-800 rounded-[2rem] border-2 border-dashed border-gray-300 dark:border-neutral-700 flex flex-col items-center justify-center p-8 text-center min-h-[300px] md:min-h-[400px]">
-          <div className="w-24 h-24 bg-white dark:bg-neutral-700 rounded-full flex items-center justify-center mb-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-            <Camera size={36} className="text-gray-400 dark:text-gray-300" />
+    <div className="flex flex-col h-full space-y-4 pb-24">
+
+      {/* 2. PREDICTIVE RISK HUD */}
+      {diseaseRisk && status !== 'scanning' && status !== 'result' && (
+        <div className="bg-gradient-to-br from-[#111] to-[#222] p-5 rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-16 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none" />
+
+          <div className="flex items-center justify-between mb-4 relative z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400">
+                <Brain size={20} />
+              </div>
+              <div>
+                <h4 className="font-black text-white text-sm uppercase tracking-tighter">Oriva AI Predictor</h4>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Condições Biométricas</p>
+              </div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${diseaseRisk.percentage > 70 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+              }`}>
+              Risco {diseaseRisk.level}
+            </div>
           </div>
-          <h3 className="font-bold text-2xl text-gray-900 dark:text-white mb-2">Oriva Vision</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-[240px] text-base leading-relaxed">
-            Detete pragas e doenças em segundos com a nossa IA avançada.
-          </p>
-          <button 
-            onClick={startAnalysis}
-            className="w-full max-w-xs py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-lg shadow-xl shadow-agro-green/30 active:scale-95 transition-all touch-manipulation"
-          >
-            Abrir Câmara
-          </button>
+
+          <div className="grid grid-cols-3 gap-2 relative z-10">
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
+              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><Thermometer size={10} /> Temp</p>
+              <p className="text-xs font-black text-white">{diseaseRisk.factors.temp}</p>
+            </div>
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
+              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><Droplets size={10} /> Humíd.</p>
+              <p className="text-xs font-black text-white">{diseaseRisk.factors.humidity}</p>
+            </div>
+            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
+              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><CloudRain size={10} /> Chuva</p>
+              <p className="text-xs font-black text-white">{diseaseRisk.factors.rain}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Estado de Scanning (Otimizado com Aspect Ratios) */}
-      {status === 'scanning' && (
-        <div className="relative w-full aspect-[3/4] md:aspect-video rounded-[2.5rem] overflow-hidden bg-black shadow-2xl ring-4 ring-black/5">
-          {/* Imagem simulada */}
-          <img 
-            src="https://images.unsplash.com/photo-1615811361523-6bd03d7748dc?q=80&w=1000&auto=format&fit=crop" 
-            className="w-full h-full object-cover opacity-70" 
-            alt="Scanning" 
-          />
-          
-          {/* Scan Overlay */}
-          <div className="absolute inset-0 z-10">
-             <div className="w-full h-1/2 bg-gradient-to-b from-agro-green/30 to-transparent border-b-4 border-agro-green shadow-[0_0_30px_#4ade80] animate-scan"></div>
-          </div>
-          
-          {/* HUD de Informação Mobile */}
-          <div className="absolute top-0 left-0 right-0 p-6 flex justify-between text-white/90 font-mono text-xs z-20">
-            <span className="bg-black/40 px-2 py-1 rounded backdrop-blur-md">AI: ON</span>
-            <span className="bg-black/40 px-2 py-1 rounded backdrop-blur-md">ISO 200</span>
-          </div>
+      {/* 1. CULTURE SELECTOR (Oriva Vision v2 Specific) - MOVED DOWN */}
+      {status !== 'scanning' && status !== 'result' && (
+        <div className="relative z-[50]">
+          <button
+            onClick={() => setIsCultureSelectorOpen(!isCultureSelectorOpen)}
+            className="w-full bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex justify-between items-center shadow-sm"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-agro-green/10 flex items-center justify-center text-agro-green">
+                <Microscope size={16} />
+              </div>
+              <div className="text-left">
+                <p className="text-[9px] font-black uppercase text-gray-400 tracking-widest leading-none mb-1">Cultura Alvo</p>
+                <p className="text-sm font-black dark:text-white leading-none">{selectedCulture}</p>
+              </div>
+            </div>
+            <ChevronDown size={18} className={`text-gray-400 transition-transform ${isCultureSelectorOpen ? 'rotate-180' : ''}`} />
+          </button>
 
-          {/* Feedback de Estado */}
-          <div className="absolute bottom-10 left-0 right-0 text-center px-4 z-20">
-            <p className="text-white font-bold text-sm bg-black/60 inline-block px-6 py-3 rounded-full backdrop-blur-xl border border-white/10 shadow-lg animate-pulse">
-              A analisar tecidos foliares...
+          <AnimatePresence>
+            {isCultureSelectorOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-neutral-800 rounded-2xl shadow-2xl border border-gray-100 dark:border-neutral-700 overflow-hidden"
+              >
+                {(['Vinha', 'Olival', 'Pomar', 'Hortícolas'] as MediterraneanCulture[]).map(c => (
+                  <button
+                    key={c}
+                    onClick={() => { setSelectedCulture(c); setIsCultureSelectorOpen(false); }}
+                    className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-neutral-700 font-bold dark:text-white text-sm"
+                  >
+                    {c}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* 3. MODE: IDLE (COMPACT) */}
+      {(status === 'idle' || status === 'loading') && (
+        <div className="bg-white dark:bg-neutral-900 rounded-3xl p-5 border border-gray-100 dark:border-neutral-800 shadow-xl flex items-center gap-4">
+          <div className="w-16 h-16 bg-agro-green/10 rounded-2xl flex items-center justify-center shrink-0 relative">
+            <div className="absolute inset-0 border border-dashed border-agro-green/30 rounded-2xl animate-spin-slow" />
+            {status === 'loading' ? <Loader2 size={24} className="text-agro-green animate-spin" /> : <Camera size={24} className="text-agro-green" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-sm font-black dark:text-white uppercase tracking-tighter">Oriva Vision v2</h3>
+            <p className="text-[10px] font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+              Motor de deteção especializado via IA.
             </p>
           </div>
-        </div>
-      )}
-
-      {/* Estado de Resultado */}
-      {status === 'result' && result && (
-        <div className="animate-slide-up space-y-4">
-          
-          {/* Imagem de Destaque */}
-          <div className="relative w-full aspect-video rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 dark:border-neutral-800">
-            <img 
-              src="https://images.unsplash.com/photo-1615811361523-6bd03d7748dc?q=80&w=1000&auto=format&fit=crop" 
-              className="w-full h-full object-cover" 
-              alt="Result" 
-            />
-            {/* Tag de Confiança */}
-            <div className="absolute bottom-4 right-4 bg-white/95 dark:bg-black/80 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-lg border border-white/20">
-               <span className="text-xs font-bold text-gray-500 uppercase mr-1">Confiança</span>
-               <span className="text-sm font-black text-green-600">{result.confidence}%</span>
-            </div>
-          </div>
-
-          {/* Card de Diagnóstico */}
-          <div className="bg-white dark:bg-neutral-900 p-6 rounded-[2.2rem] border border-gray-100 dark:border-neutral-800 shadow-sm">
-            <div className="flex justify-between items-start mb-4">
-               <div>
-                  <h2 className="text-xl font-black text-gray-900 dark:text-white leading-tight">{result.disease}</h2>
-                  <p className="text-sm text-gray-500 font-medium mt-1">Severity: <span className="text-orange-500">{result.severity}</span></p>
-               </div>
-               <div className="p-3 bg-red-100 dark:bg-red-900/20 text-red-600 rounded-2xl">
-                  <AlertTriangle size={24} />
-               </div>
-            </div>
-            
-            <div className="pt-4 border-t border-gray-100 dark:border-neutral-800">
-               <div className="flex items-start gap-4">
-                  <div className="mt-1 p-1 bg-green-100 dark:bg-green-900/30 rounded-full text-agro-green shrink-0">
-                    <CheckCircle size={16} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-900 dark:text-white text-sm uppercase tracking-wide">Tratamento</h4>
-                    <p className="text-base text-gray-600 dark:text-gray-300 mt-2 leading-relaxed">
-                      {result.treatment}
-                    </p>
-                  </div>
-               </div>
-            </div>
-          </div>
-          
-          <button 
-            onClick={() => setStatus('idle')} 
-            className="w-full py-4 bg-gray-200 dark:bg-neutral-800 text-gray-700 dark:text-white rounded-[1.5rem] font-bold text-base flex items-center justify-center gap-2 hover:bg-gray-300 dark:hover:bg-neutral-700 transition-colors active:scale-95 touch-manipulation"
+          <button
+            onClick={startAnalysis}
+            disabled={status === 'loading'}
+            className="px-6 py-4 bg-agro-green text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-agro-green/20 active:scale-95 transition-all disabled:opacity-50"
           >
-            <RefreshCw size={20} /> Nova Análise
+            {status === 'loading' ? 'Wait...' : 'Scanner'}
           </button>
         </div>
       )}
+
+      {/* 4. MODE: SCANNING */}
+      {status === 'scanning' && (
+        <div className="relative w-full aspect-[3/4] md:aspect-video rounded-[3rem] overflow-hidden bg-black shadow-2xl ring-8 ring-white/5">
+          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+
+          {/* HUD OVERLAY */}
+          <div className="absolute inset-0 z-20 p-6 flex flex-col justify-between pointer-events-none">
+
+            {/* Top Info */}
+            <div className="flex justify-between items-start">
+              <div className="space-y-2">
+                <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-agro-green animate-pulse" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Engine Specialized: ON</span>
+                </div>
+                <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20">
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">SCAN_TARGET: {selectedCulture.toUpperCase()}</span>
+                </div>
+              </div>
+              <button onClick={() => { setStatus('idle'); stopCamera(); }} className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white pointer-events-auto hover:bg-red-500 transition-colors">
+                <RefreshCw size={18} />
+              </button>
+            </div>
+
+            {/* Scanning Brackets */}
+            <div className="flex-1 flex items-center justify-center p-12">
+              <div className="w-full h-full border-2 border-white/20 rounded-[3rem] relative">
+                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-agro-green rounded-tl-xl" />
+                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-agro-green rounded-tr-xl" />
+                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-agro-green rounded-bl-xl" />
+                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-agro-green rounded-br-xl" />
+                <div className="absolute inset-0 bg-agro-green/5 animate-pulse" />
+              </div>
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="space-y-4">
+              {/* Stability Meter */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-[8px] font-black text-white/60 uppercase tracking-widest px-2">
+                  <span>Estabilidade do Scan</span>
+                  <span>{scanStability}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-agro-green"
+                    initial={{ width: 0 }}
+                    animate={{ width: `${scanStability}%` }}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={confirmResult}
+                disabled={scanStability < 60}
+                className={`w-full py-5 rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-2xl transition-all pointer-events-auto ${scanStability >= 60
+                  ? 'bg-white text-black active:scale-95'
+                  : 'bg-white/20 text-white/40 cursor-not-allowed cursor-wait'
+                  }`}
+              >
+                {scanStability < 60 ? 'A analisar...' : 'Gerar Diagnóstico'}
+              </button>
+            </div>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+        </div>
+      )}
+
+      {/* 5. MODE: RESULT */}
+      {status === 'result' && result && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+
+          {/* Main Result Card */}
+          <div className="bg-white dark:bg-neutral-900 rounded-[3rem] p-8 border border-gray-100 dark:border-neutral-800 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-agro-green/5 rounded-full -mr-16 -mt-16 blur-3xl" />
+
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white leading-tight uppercase tracking-tighter">{result.disease.name}</h2>
+                <p className="text-sm font-bold italic text-gray-400 font-mono mt-1">{result.disease.scientificName}</p>
+              </div>
+              <div className="p-4 bg-agro-green/10 text-agro-green rounded-[2rem]">
+                <ShieldCheck size={32} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex-1 bg-gray-50 dark:bg-white/5 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
+                <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Confiança IA</p>
+                <p className="text-lg font-black dark:text-white">{result.confidence}%</p>
+              </div>
+              <div className={`flex-1 p-4 rounded-2xl border ${result.disease.severity === 'Critical' ? 'bg-red-500/10 border-red-500/20 text-red-500' :
+                result.disease.severity === 'High' ? 'bg-orange-500/10 border-orange-500/20 text-orange-500' :
+                  'bg-green-500/10 border-green-500/20 text-green-500'
+                }`}>
+                <p className="text-[9px] font-black uppercase tracking-widest mb-1 opacity-70">Gravidade</p>
+                <p className="text-lg font-black uppercase">{result.disease.severity}</p>
+              </div>
+            </div>
+
+            {/* Treatment Sections */}
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-widest flex items-center gap-2 mb-3">
+                  <Info size={14} className="text-agro-green" /> Tratamento Imediato
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed font-medium bg-gray-50 dark:bg-white/5 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
+                  {result.disease.treatment.immediate}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-agro-green/5 rounded-2xl border border-agro-green/10">
+                  <p className="text-[9px] font-black text-agro-green uppercase tracking-widest mb-2">Prevenção</p>
+                  <p className="text-[11px] font-bold text-gray-600 dark:text-gray-400 leading-tight">
+                    {result.disease.treatment.preventive}
+                  </p>
+                </div>
+                {result.disease.treatment.products && (
+                  <div className="p-4 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                    <p className="text-[9px] font-black text-blue-500 uppercase tracking-widest mb-2">Produtos Recomendados</p>
+                    <div className="flex flex-wrap gap-1">
+                      {result.disease.treatment.products.map(p => (
+                        <span key={p} className="text-[9px] bg-white dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-blue-500/20 text-gray-600 dark:text-gray-300 font-bold">{p}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setStatus('idle')}
+              className="flex-1 py-5 bg-gray-100 dark:bg-neutral-800 text-gray-900 dark:text-white rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+            >
+              <RefreshCw size={20} /> Nova Análise
+            </button>
+            <button
+              className="flex-1 py-5 bg-agro-green text-white rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-agro-green/20"
+              onClick={() => {
+                if (onSaveDiagnostic && result) {
+                  onSaveDiagnostic({
+                    id: Date.now().toString(),
+                    culture: selectedCulture,
+                    disease: result.disease,
+                    confidence: result.confidence,
+                    timestamp: result.timestamp
+                  });
+                }
+              }}
+            >
+              <Scan size={20} /> Guardar Scan
+            </button>
+          </div>
+        </motion.div>
+      )}
+
     </div>
   );
 };

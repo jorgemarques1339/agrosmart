@@ -10,8 +10,9 @@ import {
 } from 'lucide-react';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
-   StockItem, UserProfile, MaintenanceLog, Animal
+   StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice
 } from '../types';
+import MarketPrices from './MarketPrices';
 
 interface DashboardHomeProps {
    userName: string;
@@ -44,6 +45,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    hourlyForecast,
    tasks,
    machines,
+   stocks,
    animals,
    users,
    currentUser,
@@ -67,12 +69,15 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
    const [weatherTab, setWeatherTab] = useState<'forecast' | 'spraying'>('forecast');
 
+   // Estado para o Modal de Cotações
+   const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
+
    // Atualizar pai sobre modal aberto
    React.useEffect(() => {
       if (onModalChange) {
-         onModalChange(isWeatherModalOpen);
+         onModalChange(isWeatherModalOpen || isMarketModalOpen);
       }
-   }, [isWeatherModalOpen, onModalChange]);
+   }, [isWeatherModalOpen, isMarketModalOpen, onModalChange]);
 
    // Weather Helper
    const currentWeather = weather.length > 0 ? weather[0] : null;
@@ -251,14 +256,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             <div className="flex flex-row gap-3 px-1 pb-4">
 
                {/* Button 1: Cotações (Red-Orange Glow) */}
-               <a
-                  href="https://www.gpp.pt/index.php/sima/cotacoes"
-                  target="_blank"
-                  rel="noopener noreferrer"
+               <button
+                  onClick={() => setIsMarketModalOpen(true)}
                   className="flex-1 py-4 rounded-full bg-gradient-to-r from-red-400 to-orange-400 text-white font-bold text-sm shadow-[0_10px_20px_rgba(248,113,113,0.4)] active:scale-95 transition-all duration-200 flex items-center justify-center"
                >
                   Cotações
-               </a>
+               </button>
 
                {/* Button 2: Scan NFC (Blue-Indigo Glow) */}
                <button
@@ -597,6 +600,17 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                      )}
 
                   </div>
+               </div>
+            </div>
+         )}
+         {/* --- MARKET PRICES MODAL --- */}
+         {isMarketModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsMarketModalOpen(false)}>
+               <div
+                  className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm h-[85vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+               >
+                  <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />
                </div>
             </div>
          )}

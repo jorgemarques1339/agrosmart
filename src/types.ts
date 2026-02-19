@@ -153,6 +153,20 @@ export interface Field {
   history: FieldHistory[]; // Graph data
   logs: FieldLog[]; // Journal
   sensors?: Sensor[]; // Connected IoT Devices
+  missions?: Mission[]; // Autonomous Missions (Drones/Robots)
+}
+
+export interface Mission {
+  id: string;
+  type: 'drone' | 'autonomous_tractor';
+  name: string;
+  status: 'idle' | 'running' | 'completed' | 'alert';
+  progress: number; // 0-100
+  route: [number, number][]; // Waypoints
+  currentPosition?: [number, number];
+  batteryLevel: number;
+  altitude?: number; // meters (drones)
+  lastUpdate: string;
 }
 
 export interface StockItem {
@@ -183,7 +197,31 @@ export interface MaintenanceLog {
   description: string;
   cost: number;
   engineHoursAtLog: number;
+  mechanic?: string; // Nome do mecânico/oficina
+  attachments?: string[]; // URLs ou Base64 de fotos/PDFs
   quantity?: number; // Liters of fuel or parts count
+  workIntensity?: 'heavy' | 'standard' | 'light';
+}
+
+export interface ISOBUSData {
+  engineRpm: number;
+  groundSpeed: number;
+  fuelRate: number;
+  ptoSpeed: number;
+  hydraulicPressure: number;
+  engineLoad: number;
+  coolantTemp: number;
+  dtc: string[]; // Diagnostic Trouble Codes
+  lastUpdate: string; // ISO Date
+}
+
+export interface SystemAlert {
+  id: string;
+  system: 'Motor' | 'Hidráulico' | 'Transmissão' | 'Geral';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  message: string;
+  probability: number; // 0-100
+  recommendation: string;
 }
 
 export interface Machine {
@@ -192,18 +230,57 @@ export interface Machine {
   brand: string;
   model: string;
   plate: string;
-  type: 'tractor' | 'harvester' | 'vehicle' | 'implement';
+  type: 'tractor' | 'harvester' | 'vehicle' | 'implement' | 'drone' | 'autonomous_tractor';
   engineHours: number; // Horas atuais
   lastServiceHours: number; // Horas na ultima revisão
   serviceInterval: number; // Intervalo de revisão (ex: 500h)
   nextInspectionDate: string; // Data da inspeção obrigatória
   status: 'active' | 'maintenance' | 'broken';
   fuelLevel: number; // 0-100%
+  stressLevel: number; // 0-100 (Mechanical Stress AI Index)
   image?: string;
   logs: MaintenanceLog[];
+  isobusData?: ISOBUSData; // Conceptual ISOBUS Bridge data
 }
 
-// --- Rastreabilidade (Traceability) ---
+// --- Mercados & Cotações ---
+export interface MarketPrice {
+  id: string;
+  name: string; // Ex: Trigo Panificável, Milho, Cevada
+  price: number;
+  change: number; // Percentagem de variação
+  unit: string; // Ex: €/ton
+  market: 'Euronext' | 'SIMA' | 'CBOT';
+  lastUpdate: string;
+  history: { date: string; price: number }[];
+}
+
+// --- Oriva Vision v2 ---
+export type MediterraneanCulture = 'Vinha' | 'Olival' | 'Pomar' | 'Hortícolas' | 'Cereais';
+
+export interface AgriculturalDisease {
+  id: string;
+  name: string;
+  scientificName?: string;
+  culture: MediterraneanCulture;
+  symptoms: string[];
+  treatment: {
+    immediate: string;
+    preventive: string;
+    products?: string[];
+  };
+  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+}
+
+export interface DiagnosticResult {
+  id: string;
+  culture: MediterraneanCulture;
+  disease?: AgriculturalDisease;
+  confidence: number;
+  timestamp: string;
+  imageUrl?: string;
+  coordinates?: [number, number];
+}
 export interface ProductBatch {
   batchId: string; // e.g. "AGRO-2026-MILHO-04"
   crop: string; // "Mirtilos Premium"

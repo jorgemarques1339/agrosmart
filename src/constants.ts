@@ -22,22 +22,22 @@ export const MOCK_STATE: AppState = {
     { id: 'e2', name: 'Maria Santos', role: 'Tratorista', hourlyRate: 9.00 }
   ],
   tasks: [
-    { 
-      id: '1', 
-      title: 'Aplicar Fungicida Vinha A', 
-      date: new Date().toISOString().split('T')[0], 
-      type: 'task', 
-      completed: false, 
+    {
+      id: '1',
+      title: 'Aplicar Fungicida Vinha A',
+      date: new Date().toISOString().split('T')[0],
+      type: 'task',
+      completed: false,
       status: 'pending',
       assignedTo: 'u2' // João
     },
-    { 
-      id: '2', 
-      title: 'Colheita Milho Híbrido', 
-      date: new Date(Date.now() + 86400000).toISOString().split('T')[0], 
-      type: 'harvest', 
-      completed: false, 
-      status: 'pending' 
+    {
+      id: '2',
+      title: 'Colheita Milho Híbrido',
+      date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      type: 'harvest',
+      completed: false,
+      status: 'pending'
     },
   ],
   animals: [
@@ -184,6 +184,18 @@ export const MOCK_STATE: AppState = {
       nextInspectionDate: '2024-05-15',
       status: 'active',
       fuelLevel: 65,
+      stressLevel: 15,
+      isobusData: {
+        engineRpm: 1850,
+        groundSpeed: 8.4,
+        fuelRate: 12.5,
+        ptoSpeed: 540,
+        hydraulicPressure: 185,
+        engineLoad: 68,
+        coolantTemp: 82,
+        dtc: [],
+        lastUpdate: new Date().toISOString()
+      },
       logs: [
         { id: 'l1', date: '2023-08-10', type: 'oil_change', description: 'Revisão das 4000h (Óleo + Filtros)', cost: 450, engineHoursAtLog: 4000 }
       ]
@@ -201,11 +213,20 @@ export const MOCK_STATE: AppState = {
       nextInspectionDate: '2023-11-01', // Próxima data
       status: 'active',
       fuelLevel: 40,
+      stressLevel: 0,
       logs: []
     }
   ],
   harvests: [] // Initial empty state for harvests
 };
+
+export const CROP_TYPES = [
+  { label: 'Uva Alvarinho', emoji: '🍇' },
+  { label: 'Milho Silagem', emoji: '🌽' },
+  { label: 'Trigo', emoji: '🌾' },
+  { label: 'Olival', emoji: '🫒' },
+  { label: 'Pastagem', emoji: '🌿' }
+];
 
 export const STORAGE_KEY = 'oriva_enterprise_v1';
 export const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt'; // Using public websocket broker

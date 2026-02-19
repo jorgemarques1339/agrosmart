@@ -1,48 +1,80 @@
-// Alterar a versão sempre que fizeres um deploy importante para forçar a limpeza
-const CACHE_NAME = 'agrosmart-v2'; 
+const CACHE_NAME = 'agrosmart-v3-core';
+const MAP_CACHE_NAME = 'agrosmart-maps-v1';
+
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json'
+  '/manifest.json',
+  'https://cdn.tailwindcss.com',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://esm.sh/react@^19.2.4',
+  'https://esm.sh/react-dom@^19.2.4',
+  'https://esm.sh/lucide-react@^0.563.0',
+  'https://esm.sh/recharts@^3.7.0',
+  'https://esm.sh/react-leaflet@^5.0.0',
+  'https://esm.sh/leaflet@^1.9.4',
+  'https://esm.sh/mqtt@^5.15.0',
+  'https://esm.sh/jspdf@2.5.1',
+  'https://esm.sh/jspdf-autotable@3.8.2'
 ];
 
-// 1. Instalação: Força o novo Service Worker a tornar-se ativo imediatamente
+// Map Tile detection logic
+const isMapTile = (url) => {
+  return url.includes('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile');
+};
+
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // <--- CRUCIAL: Não espera para atualizar
+  console.log('[SW] Installing and caching core assets...');
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Cache atualizada para ' + CACHE_NAME);
       return cache.addAll(ASSETS_TO_CACHE);
     })
   );
 });
 
-// 2. Ativação: Limpa caches antigas e assume controlo das abas abertas
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating and cleaning old caches...');
   event.waitUntil(
     Promise.all([
-      // Limpa caches que não pertencem à versão atual
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cache) => {
-            if (cache !== CACHE_NAME) {
-              console.log('[Service Worker] A eliminar cache obsoleta:', cache);
+            if (cache !== CACHE_NAME && cache !== MAP_CACHE_NAME) {
+              console.log('[SW] Deleting old cache:', cache);
               return caches.delete(cache);
             }
           })
         );
       }),
-      // Assume o controlo imediato de todos os clientes (abas)
-      self.clients.claim() 
+      self.clients.claim()
     ])
   );
 });
 
-// 3. Estratégia: Network-First para o index.html (Evita ecrã branco)
 self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+  const url = event.request.url;
 
-  // Para o ficheiro principal, tentamos sempre a rede primeiro
+  // Strategy for Map Tiles: Stale-While-Revalidate
+  if (isMapTile(url)) {
+    event.respondWith(
+      caches.open(MAP_CACHE_NAME).then((cache) => {
+        return cache.match(event.request).then((cachedResponse) => {
+          const fetchedResponse = fetch(event.request).then((networkResponse) => {
+            if (networkResponse.status === 200) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          }).catch(() => null);
+
+          return cachedResponse || fetchedResponse;
+        });
+      })
+    );
+    return;
+  }
+
+  // Strategy for Navigation: Network-First
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -52,10 +84,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Para o resto (CSS, JS, Imagens), usamos Cache-First
+  // Strategy for Core Assets: Cache-First
   event.respondWith(
     caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
+      if (response) return response;
+
+      return fetch(event.request).then((networkResponse) => {
+        // Cache dynamic assets on the fly
+        if (networkResponse && networkResponse.status === 200 && (url.includes('cdn.tailwindcss.com') || url.includes('esm.sh'))) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      });
     })
   );
 });

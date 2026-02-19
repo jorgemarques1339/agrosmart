@@ -1,19 +1,22 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Tractor, Wrench, Fuel, Calendar, Clock, AlertTriangle,
   CheckCircle2, Plus, X, Gauge, Truck, Activity, Droplets, Save,
   MoreHorizontal, ChevronRight, GaugeCircle, Filter, FileText, History,
-  ArrowRight, Search
+  ArrowRight, Search, Brain, LayoutGrid, List as ListIcon, Smartphone, Cpu, Terminal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Machine, MaintenanceLog, StockItem } from '../types';
+import { Machine, MaintenanceLog, StockItem, ISOBUSData } from '../types';
+import { calculateMaintenanceRisk } from '../utils/machineUtils';
+import ISOBUSBridge from './ISOBUSBridge';
+import { haptics } from '../utils/haptics';
 
 interface MachineManagerProps {
   machines: Machine[];
   stocks?: StockItem[];
   onUpdateHours: (id: string, hours: number) => void;
+  onUpdateMachine?: (id: string, data: Partial<Machine>) => void;
   onAddLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
   onAddMachine: (machine: Omit<Machine, 'id' | 'logs'>) => void;
   onModalChange?: (isOpen: boolean) => void;
@@ -57,6 +60,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   machines,
   stocks = [],
   onUpdateHours,
+  onUpdateMachine,
   onAddLog,
   onAddMachine,
   onModalChange
@@ -64,6 +68,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [modalType, setModalType] = useState<'hours' | 'maintenance' | null>(null);
   const [detailMachine, setDetailMachine] = useState<Machine | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'info' | 'isobus'>('info');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'tractor' | 'vehicle'>('all');
 
@@ -77,6 +82,9 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   const [logDesc, setLogDesc] = useState('');
   const [logCost, setLogCost] = useState('');
   const [logLiters, setLogLiters] = useState('');
+  const [logMechanic, setLogMechanic] = useState('');
+  const [logAttachments, setLogAttachments] = useState<string[]>([]);
+  const [workIntensity, setWorkIntensity] = useState<'light' | 'standard' | 'heavy'>('standard');
 
   // Fuel Logic
   const fuelStockAvailable = useMemo(() => {
@@ -90,15 +98,91 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     if (onModalChange) onModalChange(!!selectedMachine || isAddModalOpen || !!detailMachine);
   }, [selectedMachine, isAddModalOpen, detailMachine, onModalChange]);
 
+  // [FIX] Sync detailMachine when global state changes (e.g. ISO-BUS update)
+  useEffect(() => {
+    if (detailMachine) {
+      const updated = machines.find(m => m.id === detailMachine.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(detailMachine)) {
+        setDetailMachine(updated);
+      }
+    }
+  }, [machines, detailMachine]);
+
   const calculateHealth = (m: Machine) => {
+    const risk = calculateMaintenanceRisk(m);
     const hoursSinceService = m.engineHours - m.lastServiceHours;
     const hoursRemaining = m.serviceInterval - hoursSinceService;
-    const progress = Math.min((hoursSinceService / m.serviceInterval) * 100, 100);
     const isOverdue = hoursSinceService > m.serviceInterval;
     const isApproaching = hoursRemaining > 0 && hoursRemaining <= 50;
     const daysUntilInspection = Math.ceil((new Date(m.nextInspectionDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
     const isInspectionDue = daysUntilInspection <= 30;
-    return { hoursSinceService, hoursRemaining, progress, isOverdue, isApproaching, isInspectionDue, daysUntilInspection };
+
+    return {
+      ...risk,
+      hoursSinceService,
+      hoursRemaining,
+      isOverdue,
+      isApproaching,
+      isInspectionDue,
+      daysUntilInspection
+    };
+  };
+
+  const PredictiveHealthMonitor = ({ machine }: { machine: Machine }) => {
+    const health = calculateHealth(machine);
+    if (!health.alerts || health.alerts.length === 0) {
+      return (
+        <div className="bg-emerald-500/5 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
+          <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-600">
+            <CheckCircle2 size={24} />
+          </div>
+          <div>
+            <h4 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Sistemas Operacionais</h4>
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Nenhuma anomalia detetada pela IA.</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-3">
+        <h4 className="text-[10px] font-black uppercase text-purple-500 tracking-widest flex items-center gap-2 px-1">
+          <Brain size={14} /> Alertas de Sobrevivência (Preditivos)
+        </h4>
+        <div className="grid gap-2">
+          {health.alerts.map(alert => (
+            <div
+              key={alert.id}
+              className={clsx(
+                "p-4 rounded-2xl border flex items-start gap-4 animate-slide-up",
+                alert.severity === 'critical' ? "bg-red-500/10 border-red-500/20" :
+                  alert.severity === 'high' ? "bg-orange-500/10 border-orange-500/20" :
+                    "bg-yellow-500/10 border-yellow-500/20"
+              )}
+            >
+              <div className={clsx(
+                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                alert.severity === 'critical' ? "bg-red-500 text-white" :
+                  alert.severity === 'high' ? "bg-orange-500 text-white" :
+                    "bg-yellow-500 text-white"
+              )}>
+                <AlertTriangle size={20} />
+              </div>
+              <div className="flex-1">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-black uppercase tracking-tighter truncate opacity-70">SISTEMA: {alert.system}</span>
+                  <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded-full">{alert.probability}% Prob. Falha</span>
+                </div>
+                <p className="text-sm font-black text-gray-900 dark:text-white leading-tight">{alert.message}</p>
+                <div className="mt-2 text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1.5 uppercase">
+                  <span className="w-1 h-1 bg-current rounded-full" /> {alert.recommendation}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const metrics = useMemo(() => {
@@ -138,6 +222,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
     setNewHours(machine.engineHours.toString());
     setLogType(type === 'hours' ? 'other' : 'fuel');
     setLogDesc(''); setLogCost(''); setLogLiters('');
+    setLogMechanic(''); setLogAttachments([]);
   };
 
   const handleUpdateHours = () => {
@@ -158,8 +243,18 @@ const MachineManager: React.FC<MachineManagerProps> = ({
         description: description || (logType === 'fuel' ? 'Abastecimento' : 'Manutenção'),
         cost: parseFloat(logCost) || 0,
         engineHoursAtLog: selectedMachine.engineHours,
-        quantity: logType === 'fuel' ? liters : undefined
+        quantity: logType === 'fuel' ? liters : undefined,
+        workIntensity: logType === 'other' ? workIntensity : undefined,
+        mechanic: logMechanic || undefined,
+        attachments: logAttachments.length > 0 ? logAttachments : undefined
       });
+
+      // Update stress level locally/statelessly if intensity is heavy
+      if (logType === 'other' && workIntensity === 'heavy') {
+        const newStress = Math.min((selectedMachine.stressLevel || 0) + 15, 100);
+        onUpdateHours(selectedMachine.id, selectedMachine.engineHours); // Trigger update to persist
+      }
+
       setSelectedMachine(null); setModalType(null);
     }
   };
@@ -187,7 +282,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
           </div>
 
           <button
-            onClick={() => setIsAddModalOpen(true)}
+            onClick={() => { haptics.light(); setIsAddModalOpen(true); }}
             className="w-10 h-10 md:w-12 md:h-12 bg-agro-green text-white rounded-xl shadow-lg shadow-agro-green/30 active:scale-95 transition-transform flex items-center justify-center border border-white/20"
           >
             <Plus size={24} />
@@ -203,7 +298,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
             <motion.div
               layout
               key={machine.id}
-              onClick={() => setDetailMachine(machine)}
+              onClick={() => { haptics.light(); setDetailMachine(machine); }}
               className="group relative bg-[#FDFDF5] dark:bg-[#0A0A0A] rounded-[2rem] border border-white/50 dark:border-white/10 shadow-lg active:scale-[0.98] transition-all duration-300 cursor-pointer overflow-hidden hover:shadow-2xl hover:border-agro-green/30"
             >
               <div className="p-3 md:p-5">
@@ -254,16 +349,35 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                   />
                 </div>
 
+                {/* AI Predictive Stress Gauge */}
+                <div className="mb-4 bg-white/40 dark:bg-white/5 p-3 rounded-2xl border border-white/20 dark:border-white/5">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1.5">
+                      <Brain size={12} className="text-purple-500" /> Stress Mecânico AI
+                    </span>
+                    <span className={clsx("text-xs font-black", machine.stressLevel > 70 ? "text-red-500" : machine.stressLevel > 40 ? "text-orange-500" : "text-emerald-500")}>
+                      {machine.stressLevel || 0}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 dark:bg-neutral-800 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${machine.stressLevel || 0}%` }}
+                      className={clsx("h-full rounded-full", machine.stressLevel > 70 ? "bg-red-500" : machine.stressLevel > 40 ? "bg-orange-500" : "bg-emerald-500")}
+                    />
+                  </div>
+                </div>
+
                 {/* Action Dock */}
                 <div className="flex gap-2 pt-3 border-t border-gray-100 dark:border-white/5">
                   <button
-                    onClick={(e) => { e.stopPropagation(); openActionModal(machine, 'hours'); }}
+                    onClick={(e) => { e.stopPropagation(); haptics.light(); openActionModal(machine, 'hours'); }}
                     className="flex-1 h-10 md:h-12 bg-[#EAEAEA] dark:bg-[#1a1a1a] rounded-xl flex items-center justify-center gap-2 text-[10px] md:text-xs font-black uppercase text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#252525] active:scale-95 transition-all shadow-inner"
                   >
                     <Clock size={14} /> + Horas
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); openActionModal(machine, 'maintenance'); }}
+                    onClick={(e) => { e.stopPropagation(); haptics.light(); openActionModal(machine, 'maintenance'); }}
                     className="flex-1 h-10 md:h-12 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl flex items-center justify-center gap-2 text-[10px] md:text-xs font-black uppercase text-gray-900 dark:text-white hover:bg-gray-50 active:scale-95 transition-all shadow-sm"
                   >
                     <Fuel size={14} /> Abastecer
@@ -275,7 +389,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-100 dark:bg-neutral-800">
                 <div
                   className={clsx("h-full transition-all duration-1000", health.isOverdue ? "bg-red-500" : "bg-agro-green")}
-                  style={{ width: `${health.progress}%` }}
+                  style={{ width: `${health.hoursProgress}%` }}
                 />
               </div>
             </motion.div>
@@ -303,7 +417,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                 <div className="flex justify-between items-start relative z-10">
                   <div>
                     <p className="text-[10px] font-bold uppercase text-gray-500 tracking-widest mb-1">{detailMachine.brand} • {detailMachine.model}</p>
-                    <h2 className="text-3xl md:text-4xl font-black italic uppercase leading-none">{detailMachine.name}</h2>
+                    <h2 className="text-xl md:text-4xl font-black italic uppercase leading-none">{detailMachine.name}</h2>
                     <span className="inline-block mt-2 px-3 py-1 bg-white/10 rounded-lg text-xs font-mono font-bold">{detailMachine.plate}</span>
                   </div>
                   <button onClick={() => setDetailMachine(null)} className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors">
@@ -315,7 +429,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                 <div className="mt-8 flex justify-between items-end relative z-10">
                   <div>
                     <p className="text-[10px] font-bold uppercase text-gray-500 mb-1">Total Horas</p>
-                    <p className="text-4xl font-black font-mono">{detailMachine.engineHours}<span className="text-lg text-gray-500">h</span></p>
+                    <p className="text-2xl md:text-4xl font-black font-mono">{detailMachine.engineHours}<span className="text-sm md:text-lg text-gray-500">h</span></p>
                   </div>
                   <div className="text-right">
                     <div className={clsx("inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase mb-2", calculateHealth(detailMachine).isOverdue ? "bg-red-500/20 text-red-500" : "bg-green-500/20 text-green-500")}>
@@ -324,42 +438,118 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Tab Navigation */}
+                <div className="mt-6 flex border-b border-white/10 relative z-10">
+                  <button
+                    onClick={() => { haptics.light(); setActiveDetailTab('info'); }}
+                    className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all", activeDetailTab === 'info' ? "text-agro-green border-b-2 border-agro-green" : "text-gray-500 opacity-60")}
+                  >
+                    Informação & Logs
+                  </button>
+                  <button
+                    onClick={() => { haptics.light(); setActiveDetailTab('isobus'); }}
+                    className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all", activeDetailTab === 'isobus' ? "text-purple-400 border-b-2 border-purple-400" : "text-gray-500 opacity-60")}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Cpu size={12} /> ISO-BUS
+                    </div>
+                  </button>
+                </div>
               </div>
 
-              {/* Log Terminal */}
+              {/* Dynamic Content Area */}
               <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-neutral-900 p-4 md:p-6">
-                <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
-                  <FileText size={14} /> Diário de Bordo
-                </h3>
-                <div className="space-y-3">
-                  {detailMachine.logs?.slice().reverse().map(log => (
-                    <div key={log.id} className="bg-white dark:bg-neutral-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 flex gap-4">
-                      <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", log.type === 'fuel' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600')}>
-                        {log.type === 'fuel' ? <Fuel size={18} /> : <Wrench size={18} />}
+                <AnimatePresence mode="wait">
+                  {activeDetailTab === 'info' ? (
+                    <motion.div
+                      key="info"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className="space-y-6"
+                    >
+                      <PredictiveHealthMonitor machine={detailMachine} />
+
+                      <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
+                        <FileText size={14} /> Diário de Bordo
+                      </h3>
+                      <div className="space-y-3">
+                        {detailMachine.logs?.slice().reverse().map(log => (
+                          <div key={log.id} className="bg-white dark:bg-neutral-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 flex gap-4">
+                            <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", log.type === 'fuel' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600')}>
+                              {log.type === 'fuel' ? <Fuel size={18} /> : <Wrench size={18} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start mb-1">
+                                <span className="text-[10px] font-mono font-bold text-gray-400">{log.date}</span>
+                                <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-white/10 px-2 rounded text-gray-500">{log.type}</span>
+                              </div>
+                              <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{log.description}</p>
+                              {log.mechanic && (
+                                <p className="text-[10px] font-bold text-agro-green uppercase mt-1">Mecânico: {log.mechanic}</p>
+                              )}
+                              <p className="text-xs text-gray-400 mt-1 font-mono">@{log.engineHoursAtLog}h • {log.cost > 0 ? `${log.cost}€` : 'S/ Custo'}</p>
+
+                              {log.attachments && log.attachments.length > 0 && (
+                                <div className="flex gap-2 mt-2">
+                                  {log.attachments.map((at, idx) => (
+                                    <div key={idx} className="w-12 h-12 bg-gray-100 dark:bg-white/5 rounded-lg flex items-center justify-center border border-gray-200 dark:border-white/10 overflow-hidden relative group/at">
+                                      <FileText size={16} className="text-gray-400" />
+                                      {/* Mock preview if it was an image */}
+                                      {at.startsWith('data:image') && <img src={at} className="absolute inset-0 w-full h-full object-cover" alt="Anexo" />}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="text-[10px] font-mono font-bold text-gray-400">{log.date}</span>
-                          <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-white/10 px-2 rounded text-gray-500">{log.type}</span>
-                        </div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{log.description}</p>
-                        <p className="text-xs text-gray-400 mt-1 font-mono">@{log.engineHoursAtLog}h</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="isobus"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                    >
+                      <ISOBUSBridge
+                        machine={detailMachine}
+                        onPair={(isobusData: ISOBUSData) => {
+                          if (detailMachine && onUpdateMachine) {
+                            // Single update to avoid race conditions
+                            const newLog: MaintenanceLog = {
+                              id: Date.now().toString(),
+                              date: new Date().toISOString().split('T')[0],
+                              type: 'other',
+                              description: 'Emparelhamento Bridge ISO-BUS Efetuado',
+                              cost: 0,
+                              engineHoursAtLog: detailMachine.engineHours
+                            };
+
+                            onUpdateMachine(detailMachine.id, {
+                              isobusData,
+                              logs: [...(detailMachine.logs || []), newLog]
+                            });
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Footer Controls */}
               <div className="p-4 bg-white dark:bg-neutral-900 border-t border-gray-100 dark:border-white/5 flex gap-3 shrink-0">
                 <button
-                  onClick={() => openActionModal(detailMachine, 'hours')}
+                  onClick={() => { haptics.light(); openActionModal(detailMachine, 'hours'); }}
                   className="flex-1 h-14 bg-gray-100 dark:bg-neutral-800 rounded-2xl flex items-center justify-center gap-2 font-bold text-sm uppercase text-gray-600 dark:text-gray-300 shadow-inner"
                 >
                   <Clock size={18} /> Atualizar Horas
                 </button>
                 <button
-                  onClick={() => openActionModal(detailMachine, 'maintenance')}
+                  onClick={() => { haptics.light(); openActionModal(detailMachine, 'maintenance'); }}
                   className="flex-1 h-14 bg-agro-green text-white rounded-2xl flex items-center justify-center gap-2 font-bold text-sm uppercase shadow-lg shadow-agro-green/30"
                 >
                   <Plus size={18} /> Novo Registo
@@ -371,75 +561,173 @@ const MachineManager: React.FC<MachineManagerProps> = ({
       </AnimatePresence>
 
       {/* MODAL: ADD MACHINE & ACTIONS (Keeping existing logic but styling simplified for brevity here, assumed styled by parent theme or previous implementation styles which were good) */}
-      {selectedMachine && (
-        <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMachine(null)}>
-          <div className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-black mb-6 dark:text-white text-center">
-              {modalType === 'hours' ? 'Atualizar Leitura' : 'Registo Técnico'}
-            </h3>
-            {/* Simplified Input for brevity - typically would include full form here */}
-            {modalType === 'hours' ? (
-              <div className="space-y-4">
-                <input
-                  type="number"
-                  value={newHours}
-                  onChange={e => setNewHours(e.target.value)}
-                  className="w-full text-center text-5xl font-black bg-transparent outline-none dark:text-white"
-                  autoFocus
-                />
-                <button onClick={handleUpdateHours} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg">Confirmar</button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={() => setLogType('fuel')} className={clsx("py-3 rounded-xl font-bold border-2", logType === 'fuel' ? "border-agro-green text-agro-green" : "border-gray-100 text-gray-400")}>Combustível</button>
-                  <button onClick={() => setLogType('repair')} className={clsx("py-3 rounded-xl font-bold border-2", logType === 'repair' ? "border-orange-500 text-orange-500" : "border-gray-100 text-gray-400")}>Manutenção</button>
-                </div>
-                {logType === 'fuel' && (
+      {
+        selectedMachine && (
+          <div className="fixed inset-0 z-[160] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedMachine(null)}>
+            <div className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up" onClick={e => e.stopPropagation()}>
+              <h3 className="text-2xl font-black mb-6 dark:text-white text-center">
+                {modalType === 'hours' ? 'Atualizar Leitura' : 'Registo Técnico'}
+              </h3>
+              {/* Simplified Input for brevity - typically would include full form here */}
+              {modalType === 'hours' ? (
+                <div className="space-y-4">
                   <input
                     type="number"
-                    placeholder="Litros"
-                    value={logLiters}
-                    onChange={e => setLogLiters(e.target.value)}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold text-xl outline-none"
+                    value={newHours}
+                    onChange={e => setNewHours(e.target.value)}
+                    className="w-full text-center text-5xl font-black bg-transparent outline-none dark:text-white"
+                    autoFocus
                   />
-                )}
-                <input
-                  type="text"
-                  placeholder="Descrição / Notas"
-                  value={logDesc}
-                  onChange={e => setLogDesc(e.target.value)}
-                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none"
-                />
-                <button onClick={handleAddLog} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg">Registar</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+                  <button onClick={handleUpdateHours} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg">Confirmar</button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setLogType('fuel')} className={clsx("py-3 rounded-xl font-bold border-2", logType === 'fuel' ? "border-agro-green text-agro-green" : "border-gray-100 text-gray-400")}>Combustível</button>
+                    <button onClick={() => setLogType('repair')} className={clsx("py-3 rounded-xl font-bold border-2", logType === 'repair' ? "border-orange-500 text-orange-500" : "border-gray-100 text-gray-400")}>Manutenção</button>
+                  </div>
+                  {logType === 'fuel' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center px-2">
+                        <label className="text-[10px] font-black uppercase text-gray-400">Quantidade a Abastecer</label>
+                        <span className={clsx("text-[10px] font-bold uppercase", isFuelInsufficient ? "text-red-500" : "text-emerald-500")}>
+                          Disponível em Stock: {fuelStockAvailable}L
+                        </span>
+                      </div>
+                      <input
+                        type="number"
+                        placeholder="Litros"
+                        value={logLiters}
+                        onChange={e => { haptics.light(); setLogLiters(e.target.value); }}
+                        className={clsx(
+                          "w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold text-xl outline-none border-2 transition-all",
+                          isFuelInsufficient ? "border-red-500 bg-red-500/5" : "border-transparent focus:border-agro-green"
+                        )}
+                      />
+                      {isFuelInsufficient && (
+                        <p className="text-[10px] font-bold text-red-500 uppercase px-2 animate-pulse">
+                          Atenção: Stock insuficiente no armazém central.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    placeholder="Descrição / Notas"
+                    value={logDesc}
+                    onChange={e => setLogDesc(e.target.value)}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-agro-green"
+                  />
 
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setIsAddModalOpen(false)}>
-          <div className="bg-white dark:bg-neutral-900 w-full max-w-lg p-8 rounded-[2.5rem] shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-black mb-6 dark:text-white">Adicionar Máquina</h3>
-            <div className="space-y-4">
-              <input
-                placeholder="Nome da Máquina"
-                className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none"
-                onChange={e => setNewMachineData({ ...newMachineData, name: e.target.value })}
-              />
-              <div className="grid grid-cols-2 gap-4">
-                <input placeholder="Marca" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, brand: e.target.value })} />
-                <input placeholder="Modelo" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, model: e.target.value })} />
-              </div>
-              <input placeholder="Matrícula" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, plate: e.target.value })} />
-              <button onClick={() => { onAddMachine(newMachineData as any); setIsAddModalOpen(false); }} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg mt-4">Guardar</button>
+                  {logType === 'other' && (
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Intensidade do Stress (AI Data)</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['light', 'standard', 'heavy'].map((lvl) => (
+                          <button
+                            key={lvl}
+                            onClick={() => { haptics.light(); setWorkIntensity(lvl as any); }}
+                            className={clsx(
+                              "py-3 rounded-xl font-bold text-[10px] uppercase border-2 transition-all",
+                              workIntensity === lvl
+                                ? "border-purple-500 bg-purple-500/10 text-purple-600"
+                                : "border-gray-100 text-gray-400 hover:border-gray-200"
+                            )}
+                          >
+                            {lvl === 'light' ? 'Leve' : lvl === 'standard' ? 'Padrão' : 'Pesado'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {logType !== 'fuel' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="number"
+                          placeholder="Custo (€)"
+                          value={logCost}
+                          onChange={e => setLogCost(e.target.value)}
+                          className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none dark:text-white border-2 border-transparent focus:border-agro-green"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Mecânico / Oficina"
+                          value={logMechanic}
+                          onChange={e => setLogMechanic(e.target.value)}
+                          className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none dark:text-white border-2 border-transparent focus:border-agro-green"
+                        />
+                      </div>
+
+                      {/* Document Attachment Button (Simulated) */}
+                      <label className="flex items-center justify-center gap-3 p-4 border-2 border-dashed border-gray-200 dark:border-white/10 rounded-2xl cursor-pointer hover:border-agro-green/50 transition-colors group">
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => setLogAttachments([...logAttachments, reader.result as string]);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <div className="w-10 h-10 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-gray-400 group-hover:text-agro-green">
+                          <Plus size={20} />
+                        </div>
+                        <div className="text-left">
+                          <p className="text-xs font-black dark:text-white uppercase tracking-tighter">Anexar Documento</p>
+                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-none mt-1">Foto ou PDF {logAttachments.length > 0 ? `(${logAttachments.length} anexado)` : ''}</p>
+                        </div>
+                      </label>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => { haptics.medium(); handleAddLog(); }}
+                    disabled={isFuelInsufficient}
+                    className={clsx(
+                      "w-full py-4 rounded-2xl font-bold text-lg shadow-lg transition-all active:scale-[0.98]",
+                      isFuelInsufficient
+                        ? "bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed"
+                        : "bg-agro-green text-white shadow-agro-green/30"
+                    )}
+                  >
+                    Registar
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-    </div>
+      {
+        isAddModalOpen && (
+          <div className="fixed inset-0 z-[160] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setIsAddModalOpen(false)}>
+            <div className="bg-white dark:bg-neutral-900 w-full max-w-lg p-8 rounded-[2.5rem] shadow-2xl" onClick={e => e.stopPropagation()}>
+              <h3 className="text-2xl font-black mb-6 dark:text-white">Adicionar Máquina</h3>
+              <div className="space-y-4">
+                <input
+                  placeholder="Nome da Máquina"
+                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none"
+                  onChange={e => setNewMachineData({ ...newMachineData, name: e.target.value })}
+                />
+                <div className="grid grid-cols-2 gap-4">
+                  <input placeholder="Marca" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, brand: e.target.value })} />
+                  <input placeholder="Modelo" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, model: e.target.value })} />
+                </div>
+                <input placeholder="Matrícula" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, plate: e.target.value })} />
+                <button onClick={() => { onAddMachine(newMachineData as any); setIsAddModalOpen(false); }} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg mt-4">Guardar</button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+    </div >
   );
 };
 
