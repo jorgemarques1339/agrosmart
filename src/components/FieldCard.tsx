@@ -168,7 +168,7 @@ const ActionMenu = ({
             onClick={(e) => e.stopPropagation()}
             className="fixed inset-x-0 bottom-0 z-[201] md:inset-0 md:flex md:items-center md:justify-center pointer-events-none"
           >
-            <div className="bg-[#FDFDF5] dark:bg-[#1a1a1a] w-full md:max-w-md rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 pb-10 md:pb-6 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] border-t border-white/20 pointer-events-auto">
+            <div className="bg-[#FDFDF5] dark:bg-[#1a1a1a] w-full md:max-w-xl rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 pb-10 md:pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] border-t border-white/20 pointer-events-auto">
 
               {/* Handle Bar (Mobile) */}
               <div className="w-12 h-1.5 bg-gray-300 dark:bg-neutral-700 rounded-full mx-auto mb-6 md:hidden" />
@@ -183,7 +183,7 @@ const ActionMenu = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {options.map((option) => (
                   <button
                     key={option.id}
@@ -192,14 +192,14 @@ const ActionMenu = ({
                       onClose();
                     }}
                     className={clsx(
-                      "flex flex-col items-center justify-center gap-3 p-6 rounded-[1.5rem] border transition-all active:scale-95 group",
+                      "flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[1.5rem] border transition-all active:scale-95 group",
                       "bg-white dark:bg-neutral-800 border-gray-100 dark:border-white/5 shadow-sm hover:border-gray-200 dark:hover:border-white/10 hover:shadow-md"
                     )}
                   >
-                    <div className={clsx("w-14 h-14 rounded-2xl flex items-center justify-center shadow-inner mb-1 transition-transform group-hover:scale-110", option.color)}>
-                      <option.icon size={28} strokeWidth={2} />
+                    <div className={clsx("w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-inner mb-1 transition-transform group-hover:scale-110", option.color)}>
+                      <option.icon size={24} className="md:w-7 md:h-7" strokeWidth={2} />
                     </div>
-                    <span className="font-bold text-sm text-gray-700 dark:text-gray-200 uppercase tracking-wide leading-none">{option.label}</span>
+                    <span className="font-bold text-xs md:text-sm text-gray-700 dark:text-gray-200 uppercase tracking-wide leading-none text-center">{option.label}</span>
                   </button>
                 ))}
               </div>

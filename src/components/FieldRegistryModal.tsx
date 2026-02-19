@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     X, Save, Calendar, Sprout, Database,
     ShieldCheck, AlertCircle, FileText,
-    Users, Clock, DollarSign, Leaf, Beaker, Droplets
+    Users, Clock, DollarSign, Leaf, Beaker, Droplets, Camera, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Field, StockItem, Employee } from '../types';
@@ -51,6 +51,9 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
     const [analysisType, setAnalysisType] = useState('Solo');
     const [resultSummary, setResultSummary] = useState('');
 
+    // Attachments
+    const [attachments, setAttachments] = useState<string[]>([]);
+
     // Reset form on open/type change
     useEffect(() => {
         if (isOpen) {
@@ -66,6 +69,7 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
             setLabName('');
             setAnalysisType('Solo');
             setResultSummary('');
+            setAttachments([]);
             // Default Unit
             if (type === 'fertilization') setUnit('kg');
             if (type === 'treatment') setUnit('L');
@@ -99,7 +103,8 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
         const baseData = {
             date,
             type,
-            fieldId: field.id
+            fieldId: field.id,
+            attachments
         };
 
         let specificData = {};
@@ -211,7 +216,7 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                             animate={{ y: 0, opacity: 1, scale: 1 }}
                             exit={{ y: "100%", opacity: 0, scale: 0.95 }}
                             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="bg-white dark:bg-neutral-900 w-full md:max-w-lg rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] md:shadow-2xl border-t md:border border-white/20 flex flex-col h-[85vh] md:h-auto md:max-h-[90vh]"
+                            className="bg-white dark:bg-neutral-900 w-full md:max-w-2xl rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-[0_-10px_40px_rgba(0,0,0,0.2)] md:shadow-2xl border-t md:border border-white/20 flex flex-col h-[92vh] md:h-auto md:max-h-[90vh]"
                             onClick={e => e.stopPropagation()}
                         >
                             {/* Handle Bar (Mobile) */}
@@ -234,10 +239,10 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                             </div>
 
                             {/* Scrollable Form Content */}
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
+                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6 pb-20 md:pb-6">
 
                                 {/* Common Field: Date & Parcel */}
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Data</label>
                                         <div className="relative">
@@ -255,6 +260,47 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                         <select className="w-full bg-gray-100 dark:bg-neutral-800/50 rounded-xl px-4 py-3 font-bold text-sm text-gray-700 outline-none" disabled>
                                             <option value={field.id}>{field.name}</option>
                                         </select>
+                                    </div>
+                                </div>
+
+                                {/* VISUAL EVIDENCE (New) */}
+                                <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
+                                    <label className="text-[10px] font-bold uppercase text-gray-400 ml-1 mb-2 block flex items-center gap-1">
+                                        <Camera size={12} /> Evidências Fotográficas
+                                    </label>
+                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                                        <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 dark:border-neutral-700 flex flex-col items-center justify-center cursor-pointer hover:bg-white dark:hover:bg-neutral-700 transition-colors shrink-0">
+                                            <Camera size={20} className="text-gray-400 mb-1" />
+                                            <span className="text-[8px] font-bold text-gray-400 uppercase">Add</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                multiple
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files.length > 0) {
+                                                        Array.from(e.target.files).forEach(file => {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setAttachments(prev => [...prev, reader.result as string]);
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                        {attachments.map((img, idx) => (
+                                            <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-gray-200 dark:border-neutral-700 group">
+                                                <img src={img} className="w-full h-full object-cover" alt="evidence" />
+                                                <button
+                                                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                                >
+                                                    <X size={16} className="text-white" />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -296,7 +342,7 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                                                 placeholder="Nome do produto"
                                                             />
                                                         </div>
-                                                        <div className="grid grid-cols-2 gap-3">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                             <div>
                                                                 <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Nº APV</label>
                                                                 <input
@@ -331,7 +377,7 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                             </div>
                                         )}
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Quantidade</label>
                                                 <input
@@ -399,7 +445,7 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                             </select>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-[10px] font-bold uppercase text-gray-400 ml-1 flex items-center gap-1"><Clock size={10} /> Horas</label>
                                                 <input
