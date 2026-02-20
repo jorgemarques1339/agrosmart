@@ -204,6 +204,8 @@ export interface StockItem {
   minStock: number;
   pricePerUnit: number;
   supplier?: string;
+  supplierEmail?: string; // Auto-order target
+  dailyUsage?: number; // Automatic consumption estimation
 }
 
 export interface Transaction {

@@ -37,6 +37,7 @@ import LoneWorkerMonitor from './components/LoneWorkerMonitor';
 import IoTPairingWizard from './components/IoTPairingWizard';
 import CultivationView from './components/CultivationView';
 import CarbonDashboard from './components/CarbonDashboard';
+import OmniSearch from './components/OmniSearch';
 import { haptics } from './utils/haptics';
 
 // API Configuration
@@ -89,6 +90,7 @@ const App = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
   const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
+  const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
   const [taskProofTask, setTaskProofTask] = useState<Task | null>(null);
   const [traceabilityBatch, setTraceabilityBatch] = useState<ProductBatch | null>(null);
   const [showGuideModal, setShowGuideModal] = useState(false);
@@ -159,6 +161,18 @@ const App = () => {
       if (isDarkMode) document.documentElement.classList.add('dark');
     }
   }, [isSolarMode, isDarkMode]);
+
+  // Global OmniSearch Shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsOmniSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const alertCount = useMemo(() => {
     let count = 0;
@@ -297,7 +311,7 @@ const App = () => {
     setSaleData({ stockId: '', quantity: '', clientName: '', clientNif: '', destination: '', plate: '', date: new Date().toISOString().split('T')[0], price: '', fieldId: '' });
   };
 
-  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationCenterOpen || isTeamManagerOpen || !!taskProofTask || showGuideModal;
+  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationCenterOpen || isTeamManagerOpen || isOmniSearchOpen || !!taskProofTask || showGuideModal;
 
   if (viewMode === 'public' && publicBatchId) {
     return <PublicProductPage batchId={publicBatchId} />;
@@ -643,6 +657,20 @@ const App = () => {
         onToggleDarkMode={() => setDarkMode(!isDarkMode)}
         isSolarMode={isSolarMode}
         onToggleSolarMode={() => setSolarMode(!isSolarMode)}
+      />
+
+      <OmniSearch
+        isOpen={isOmniSearchOpen}
+        onClose={() => setIsOmniSearchOpen(false)}
+        fields={fields}
+        animals={animals}
+        machines={machines}
+        tasks={tasks}
+        onNavigate={(tab, itemId) => {
+          setActiveTab(tab as any);
+          // In a more complex app, we would also pass the itemId to the specific screen
+          // to auto-open or scroll to the exact item.
+        }}
       />
 
       <NotificationsModal

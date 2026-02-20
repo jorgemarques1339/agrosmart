@@ -31,6 +31,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tempName, setTempName] = useState(currentName);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [isTesting, setIsTesting] = useState(false);
+  const [stressTestStatus, setStressTestStatus] = useState<string | null>(null);
+
   // Sincronizar o estado local quando o modal abre ou o nome muda externamente
   useEffect(() => {
     setTempName(currentName);
@@ -363,6 +366,57 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                   Versão 1.4.0 (Oriva Rebrand)<br />
                   Arquitetura Offline-First ativa. Os dados são guardados localmente no seu dispositivo.
                 </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Secção: Edge Computing / Developer Tools */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium text-purple-500 dark:text-purple-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <Zap size={14} /> Edge Computing Test
+            </h3>
+            <div className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-3xl border border-purple-100 dark:border-purple-900/30 space-y-4">
+              <p className="text-xs text-purple-700 dark:text-purple-300/80 leading-relaxed">
+                Testes de performance Offline-First. Injeta registos via Web Worker em background sem bloquear a interface de utilizador.
+              </p>
+
+              {stressTestStatus && (
+                <div className="bg-white/60 dark:bg-black/40 p-3 rounded-xl border border-purple-200 dark:border-purple-800/50">
+                  <p className="text-xs font-bold text-purple-800 dark:text-purple-200 flex items-center gap-2">
+                    {isTesting ? <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" /> : <CheckCircle size={14} className="text-emerald-500" />}
+                    {stressTestStatus}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={async () => {
+                    setIsTesting(true);
+                    setStressTestStatus('A iniciar...');
+                    const { syncManager } = await import('../services/SyncManager');
+                    await syncManager.runStressTest(100000, (msg) => setStressTestStatus(msg));
+                    setIsTesting(false);
+                  }}
+                  disabled={isTesting}
+                  className="w-full py-3 bg-white dark:bg-neutral-800 border border-purple-200 dark:border-purple-800/50 rounded-2xl text-purple-700 dark:text-purple-300 font-bold text-xs shadow-sm active:scale-95 disabled:opacity-50 transition-all flex flex-col items-center justify-center gap-1 hover:border-purple-400 dark:hover:border-purple-600"
+                >
+                  Gera 100k Registos
+                </button>
+
+                <button
+                  onClick={async () => {
+                    setIsTesting(true);
+                    setStressTestStatus('A limpar...');
+                    const { syncManager } = await import('../services/SyncManager');
+                    await syncManager.clearStressTest((msg) => setStressTestStatus(msg));
+                    setIsTesting(false);
+                  }}
+                  disabled={isTesting}
+                  className="w-full py-3 bg-white dark:bg-neutral-800 border border-red-200 dark:border-red-900/50 rounded-2xl text-red-600 dark:text-red-400 font-bold text-xs shadow-sm active:scale-95 disabled:opacity-50 transition-all flex flex-col items-center justify-center gap-1 hover:border-red-400 dark:hover:border-red-600"
+                >
+                  <Trash2 size={14} /> Limpar Teste
+                </button>
               </div>
             </div>
           </section>

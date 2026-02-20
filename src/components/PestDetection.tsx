@@ -75,7 +75,7 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
     // Start Camera
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: { facingMode: { ideal: 'environment' } },
         audio: false
       });
       if (videoRef.current) {
@@ -85,6 +85,7 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
       }
     } catch (err) {
       console.error("Camera access denied:", err);
+      alert("Acesso à câmara negado ou dispositivo indisponível. Verifique as permissões do seu dispositivo ou navegador. (Nota: Pode não funcionar se a aplicação não estiver servida sobre HTTPS).");
       setStatus('idle');
     }
   };

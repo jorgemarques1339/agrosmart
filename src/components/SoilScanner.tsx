@@ -30,22 +30,56 @@ const SoilScanner: React.FC<SoilScannerProps> = ({ onSaveAnalysis }) => {
     const [scanProgress, setScanProgress] = useState(0);
     const [result, setResult] = useState<SoilAnalysisResult | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    const startScan = () => {
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        if (scanIntervalRef.current) {
+            clearInterval(scanIntervalRef.current);
+            scanIntervalRef.current = null;
+        }
+    };
+
+    React.useEffect(() => {
+        return () => stopCamera();
+    }, []);
+
+    const startScan = async () => {
         setIsScanning(true);
         setScanProgress(0);
         setResult(null);
         haptics.medium();
 
-        // Simulate scanning process
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' } },
+                audio: false
+            });
+            streamRef.current = stream;
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                await videoRef.current.play();
+            }
+        } catch (err) {
+            console.error("Camera access denied:", err);
+            alert("Acesso à câmara negado ou dispositivo indisponível. Verifique as permissões do seu dispositivo ou navegador. (Nota: Pode não funcionar se a aplicação não estiver servida sobre HTTPS).");
+            setIsScanning(false);
+            return;
+        }
+
+        // Simulate scanning progress while showing real camera feed
         let progress = 0;
-        const interval = setInterval(() => {
+        scanIntervalRef.current = setInterval(() => {
             progress += 5;
             setScanProgress(progress);
             if (progress % 20 === 0) haptics.light();
 
             if (progress >= 100) {
-                clearInterval(interval);
+                stopCamera();
                 setIsScanning(false);
                 haptics.success();
                 generateMockResult();
@@ -120,18 +154,28 @@ const SoilScanner: React.FC<SoilScannerProps> = ({ onSaveAnalysis }) => {
                     />
                 )}
 
-                {/* Camera Feed Placeholder (In real app, use <video>) */}
-                <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center">
-                    {!result ? (
-                        <div className="text-center opacity-40">
+                {/* Real Camera Feed */}
+                <div className="absolute inset-0 bg-neutral-800 flex items-center justify-center overflow-hidden">
+                    <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={clsx("w-full h-full object-cover", (!isScanning || result) ? "hidden" : "block")}
+                    />
+
+                    {!isScanning && !result && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center opacity-40 z-10 bg-neutral-800">
                             <ArrowRight size={48} className="mx-auto mb-2 text-white" />
-                            <p className="text-white font-bold uppercase tracking-widest">Aponte para o relatório de solo</p>
+                            <p className="text-white font-bold uppercase tracking-widest px-4">Aponte para o relatório de solo para analisar online</p>
                         </div>
-                    ) : (
-                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-8">
+                    )}
+
+                    {result && (
+                        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-8 z-30">
                             <CheckCircle2 size={64} className="text-agro-green mb-4" />
-                            <h3 className="text-2xl font-black uppercase">Análise Concluída</h3>
-                            <p className="opacity-70">Dados extraídos com sucesso.</p>
+                            <h3 className="text-2xl font-black uppercase text-center leading-tight">Análise Concluída</h3>
+                            <p className="opacity-70 text-center mt-2">Dados OCR extraídos com sucesso.</p>
                         </div>
                     )}
                 </div>

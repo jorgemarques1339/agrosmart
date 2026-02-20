@@ -61,6 +61,8 @@ const EliteSilo = ({ item, onUpdate }: { item: StockItem; onUpdate: (delta: numb
   };
 
   const style = getStyle();
+  const daysRemaining = item.dailyUsage ? Math.floor(item.quantity / item.dailyUsage) : null;
+  const isCritical = daysRemaining !== null && daysRemaining <= 5;
 
   // Reduced dimensions: w-16 h-36 on mobile, w-24 md:w-32 on larger screens
   return (
@@ -142,38 +144,55 @@ const EliteSilo = ({ item, onUpdate }: { item: StockItem; onUpdate: (delta: numb
         </div>
       </div>
 
-      <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center truncate w-full px-1 font-bold">
-        {item.name}
-      </p>
+      <div className="flex flex-col items-center justify-center w-full mt-1">
+        <p className="text-[9px] md:text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 text-center truncate w-full px-1 font-bold">
+          {item.name}
+        </p>
+        {isCritical && (
+          <span className="text-[8px] md:text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/30 px-2 py-0.5 rounded-full mt-0.5 animate-pulse">
+            {daysRemaining} dias
+          </span>
+        )}
+      </div>
     </div>
   );
 };
 
-const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete }: {
+const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete, onGenerateOrder }: {
   item: StockItem | null,
   isOpen: boolean,
   onClose: () => void,
   onUpdate: (delta: number) => void,
   onEdit: (updates: Partial<StockItem>) => void,
-  onDelete?: (id: string) => void
+  onDelete?: (id: string) => void,
+  onGenerateOrder?: () => void
 }) => {
   if (!isOpen || !item) return null;
 
   const [editPrice, setEditPrice] = useState(item.pricePerUnit.toString());
   const [editSupplier, setEditSupplier] = useState(item.supplier || '');
+  const [editSupplierEmail, setEditSupplierEmail] = useState(item.supplierEmail || '');
+  const [editDailyUsage, setEditDailyUsage] = useState(item.dailyUsage?.toString() || '');
 
   useEffect(() => {
     setEditPrice(item.pricePerUnit.toString());
     setEditSupplier(item.supplier || '');
+    setEditSupplierEmail(item.supplierEmail || '');
+    setEditDailyUsage(item.dailyUsage?.toString() || '');
   }, [item]);
 
   const handleSave = () => {
     onEdit({
       pricePerUnit: Number(editPrice),
-      supplier: editSupplier
+      supplier: editSupplier,
+      supplierEmail: editSupplierEmail,
+      dailyUsage: editDailyUsage ? Number(editDailyUsage) : undefined
     });
     onClose();
   };
+
+  const daysRemaining = item.dailyUsage ? Math.floor(item.quantity / item.dailyUsage) : null;
+  const isCritical = daysRemaining !== null && daysRemaining <= 5;
 
   return (
     <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
@@ -189,8 +208,13 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
           <div>
             <span className="text-[10px] font-bold text-agro-green uppercase tracking-wider">{item.category}</span>
             <h3 className="text-2xl font-black text-gray-900 dark:text-white leading-none mt-1">{item.name}</h3>
+            {isCritical && (
+              <p className="text-xs font-bold text-red-500 mt-2 flex items-center gap-1">
+                <AlertTriangle size={14} /> Faltam {daysRemaining} dias
+              </p>
+            )}
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full flex-shrink-0">
             <X size={20} className="text-gray-900 dark:text-white" />
           </button>
         </div>
@@ -219,32 +243,74 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
 
         {/* Details Form */}
         <div className="space-y-4 mb-6">
-          <div>
-            <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Fornecedor</label>
-            <div className="relative">
-              <Package size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Fornecedor</label>
+              <div className="relative">
+                <Package size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={editSupplier}
+                  onChange={(e) => setEditSupplier(e.target.value)}
+                  placeholder="Nome"
+                  className="w-full pl-9 pr-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Email Forn.</label>
               <input
-                value={editSupplier}
-                onChange={(e) => setEditSupplier(e.target.value)}
-                placeholder="Nome do Fornecedor"
-                className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                value={editSupplierEmail}
+                onChange={(e) => setEditSupplierEmail(e.target.value)}
+                placeholder="email@..."
+                className="w-full px-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
               />
             </div>
           </div>
 
-          <div>
-            <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço / Un (€)</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">€</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço / {item.unit} (€)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">€</span>
+                <input
+                  type="number"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Consumo/Dia ({item.unit})</label>
               <input
                 type="number"
-                value={editPrice}
-                onChange={(e) => setEditPrice(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                value={editDailyUsage}
+                onChange={(e) => setEditDailyUsage(e.target.value)}
+                placeholder="Ex: 50"
+                className="w-full px-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
               />
             </div>
           </div>
         </div>
+
+        {/* Generate Order Button (Only if Supplier info exists) */}
+        {onGenerateOrder && (editSupplier || item.supplier) && (
+          <button
+            onClick={() => {
+              handleSave(); // Save current edits first
+              onGenerateOrder(); // Open generation
+            }}
+            className={clsx(
+              "w-full py-4 rounded-xl font-bold mb-4 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2",
+              isCritical
+                ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 animate-pulse"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
+            )}
+          >
+            <Package size={18} />
+            Gerar Encomenda Automática
+          </button>
+        )}
 
         {/* Footer Actions */}
         <div className="flex gap-3">
@@ -296,9 +362,125 @@ const InventoryRow = ({ item, onClick }: { item: StockItem; onClick: () => void 
       </div>
 
       {/* Right chevron or minimal indicator */}
-      <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-400 group-hover:bg-agro-green group-hover:text-white transition-all">
-        <Plus size={16} strokeWidth={3} className={item.quantity === 0 ? "opacity-50" : ""} />
+      <div className="flex items-center gap-3">
+        {item.dailyUsage && item.quantity / item.dailyUsage <= 5 && (
+          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-500 animate-pulse">
+            <AlertTriangle size={12} strokeWidth={3} />
+          </span>
+        )}
+        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-400 group-hover:bg-agro-green group-hover:text-white transition-all">
+          <Plus size={16} strokeWidth={3} className={item.quantity === 0 ? "opacity-50" : ""} />
+        </div>
       </div>
+    </div>
+  );
+};
+
+// --- AUTO ORDER MODAL ---
+const AutoOrderModal = ({ item, isOpen, onClose }: { item: StockItem | null, isOpen: boolean, onClose: () => void }) => {
+  const [status, setStatus] = useState<'idle' | 'generating' | 'success'>('idle');
+
+  if (!isOpen || !item) return null;
+
+  const orderQuantity = MAX_CAPACITY - item.quantity; // Suggest buying enough to fill logic capacity
+  const estimatedCost = orderQuantity * item.pricePerUnit;
+
+  const handleAction = (action: 'pdf' | 'email') => {
+    setStatus('generating');
+    setTimeout(() => {
+      setStatus('success');
+      setTimeout(() => {
+        setStatus('idle');
+        onClose();
+      }, 2000);
+    }, 1500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={status === 'generating' ? undefined : onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-white dark:bg-neutral-900 w-full max-w-md rounded-[2rem] p-6 shadow-2xl border border-white/10 relative overflow-hidden"
+      >
+        {status === 'success' ? (
+          <div className="py-8 flex flex-col items-center justify-center text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-green-100 text-green-500 flex items-center justify-center mb-2">
+              <Save size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white">Sucesso!</h3>
+            <p className="text-gray-500 font-medium">O seu pedido foi processado e gerado corretamente.</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white">Pedido de Orçamento</h3>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Geração Automática</p>
+              </div>
+              <button onClick={onClose} disabled={status === 'generating'} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full disabled:opacity-50">
+                <X size={20} className="text-gray-900 dark:text-white" />
+              </button>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-neutral-800/50 rounded-2xl p-5 space-y-4 mb-6 relative">
+              {status === 'generating' && (
+                <div className="absolute inset-0 z-10 bg-white/50 dark:bg-neutral-900/50 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-agro-green"></div>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center border-b border-gray-200 dark:border-neutral-700 pb-3">
+                <span className="text-xs font-bold text-gray-500 uppercase">Fornecedor</span>
+                <span className="font-bold text-gray-900 dark:text-white text-right">{item.supplier || 'Não Definido'}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-gray-200 dark:border-neutral-700 pb-3">
+                <span className="text-xs font-bold text-gray-500 uppercase">Artigo</span>
+                <span className="font-bold text-agro-green">{item.name}</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-gray-200 dark:border-neutral-700 pb-3">
+                <span className="text-xs font-bold text-gray-500 uppercase">Quantidade Sugerida</span>
+                <span className="font-bold text-gray-900 dark:text-white">{orderQuantity} {item.unit}</span>
+              </div>
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-xs font-bold text-gray-500 uppercase">Custo Estimado</span>
+                <span className="text-lg font-black text-gray-900 dark:text-white">
+                  {estimatedCost.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleAction('pdf')}
+                disabled={status === 'generating'}
+                className="py-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
+              >
+                <Save size={18} className="text-gray-600 dark:text-gray-300" />
+                <span className="text-xs text-gray-600 dark:text-gray-300">Descarregar PDF</span>
+              </button>
+              <button
+                onClick={() => handleAction('email')}
+                disabled={status === 'generating' || !item.supplierEmail}
+                className={clsx(
+                  "py-3.5 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors",
+                  !item.supplierEmail || status === 'generating'
+                    ? "bg-gray-100 dark:bg-neutral-800 opacity-50 cursor-not-allowed text-gray-400"
+                    : "bg-agro-green text-white shadow-lg shadow-agro-green/30 hover:bg-green-600"
+                )}
+              >
+                <Truck size={18} />
+                <span className="text-xs">Enviar por Email</span>
+              </button>
+            </div>
+            {!item.supplierEmail && (
+              <p className="text-[10px] text-center text-red-400 font-medium mt-3">Configure o email do fornecedor para enviar automaticamente.</p>
+            )}
+          </>
+        )}
+      </motion.div>
     </div>
   );
 };
@@ -311,11 +493,28 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
     name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: ''
   });
 
-  const lowStockItems = stocks.filter(s => s.quantity <= s.minStock);
+  const lowStockItems = stocks.filter(s => {
+    if (s.quantity <= s.minStock) return true;
+    if (s.dailyUsage) {
+      const days = Math.floor(s.quantity / s.dailyUsage);
+      if (days <= 5) return true;
+    }
+    return false;
+  });
+
+  // Find the most critical item to highlight in insight
+  const insightItem = [...stocks].sort((a, b) => {
+    const daysA = a.dailyUsage ? Math.floor(a.quantity / a.dailyUsage) : 999;
+    const daysB = b.dailyUsage ? Math.floor(b.quantity / b.dailyUsage) : 999;
+    return daysA - daysB;
+  })[0];
+
+  const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+  const [orderItem, setOrderItem] = useState<StockItem | null>(null);
 
   useEffect(() => {
-    if (onModalChange) onModalChange(isAddModalOpen || !!selectedItem);
-  }, [isAddModalOpen, selectedItem, onModalChange]);
+    if (onModalChange) onModalChange(isAddModalOpen || !!selectedItem || isOrderModalOpen);
+  }, [isAddModalOpen, selectedItem, isOrderModalOpen, onModalChange]);
 
   const handleCreate = () => {
     if (newItem.name && newItem.quantity && newItem.pricePerUnit) {
@@ -376,7 +575,13 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
           <div>
             <h4 className="text-emerald-400 font-black uppercase text-xs mb-1 tracking-wider">IA Logística Insight</h4>
             <p className="text-emerald-100/80 font-medium text-xs leading-relaxed">
-              Ritmo de consumo estável. Previsão de rutura de adubo em <strong className="text-white">4 dias</strong>.
+              {insightItem && insightItem.dailyUsage ? (
+                <>
+                  Ritmo de consumo monitorizado. Previsão de rutura de {insightItem.name} em <strong className="text-red-400">{Math.floor(insightItem.quantity / insightItem.dailyUsage)} dias</strong>.
+                </>
+              ) : (
+                <>Gestão controlada. Nenhum produto com taxa de consumo crítico detectada.</>
+              )}
             </p>
           </div>
         </div>
@@ -521,6 +726,20 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
             onUpdate={(delta) => onUpdateStock(selectedItem.id, delta)}
             onEdit={(updates) => onEditStock(selectedItem.id, updates)}
             onDelete={onDeleteStock}
+            onGenerateOrder={() => {
+              setOrderItem(selectedItem);
+              setIsOrderModalOpen(true);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isOrderModalOpen && orderItem && (
+          <AutoOrderModal
+            item={orderItem}
+            isOpen={isOrderModalOpen}
+            onClose={() => setIsOrderModalOpen(false)}
           />
         )}
       </AnimatePresence>

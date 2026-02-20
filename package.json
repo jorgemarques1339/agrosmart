@@ -13,6 +13,7 @@
     "@tensorflow-models/mobilenet": "^2.1.1",
     "@tensorflow/tfjs": "^4.22.0",
     "clsx": "^2.1.1",
+    "comlink": "^4.4.2",
     "dexie": "^4.3.0",
     "framer-motion": "^12.34.2",
     "jspdf": "^4.1.0",

@@ -1,14 +1,25 @@
 import { db } from './db';
 import { useStore } from '../store/useStore';
 import { haptics } from '../utils/haptics';
+import * as Comlink from 'comlink';
+import type { DataSyncWorker } from '../workers/dataWorker';
 
 export class SyncManager {
     private static instance: SyncManager;
     private isSyncing = false;
     private syncInterval: NodeJS.Timeout | null = null;
+    public dataWorker: Comlink.Remote<DataSyncWorker> | null = null;
 
     private constructor() {
         this.setupConnectivityListeners();
+        this.initWorker();
+    }
+
+    private initWorker() {
+        if (typeof window !== 'undefined' && window.Worker) {
+            const worker = new Worker(new URL('../workers/dataWorker.ts', import.meta.url), { type: 'module' });
+            this.dataWorker = Comlink.wrap<DataSyncWorker>(worker);
+        }
     }
 
     public static getInstance(): SyncManager {
@@ -141,6 +152,20 @@ export class SyncManager {
                 }
             });
         });
+    }
+
+    // --- EDGE COMPUTING STRESS TEST ---
+    public async runStressTest(count: number, onProgress: (msg: string) => void) {
+        if (!this.dataWorker) {
+            onProgress('Erro: Web Worker não inicializado.');
+            return;
+        }
+        await this.dataWorker.stressTestInsert(count, Comlink.proxy(onProgress));
+    }
+
+    public async clearStressTest(onProgress: (msg: string) => void) {
+        if (!this.dataWorker) return;
+        await this.dataWorker.clearStressTestData(Comlink.proxy(onProgress));
     }
 }
 

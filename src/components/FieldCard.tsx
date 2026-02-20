@@ -229,10 +229,13 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   const [showHarvestModal, setShowHarvestModal] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
 
-  // Registry Modal State
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [registryType, setRegistryType] = useState<RegistryType>('observation');
   const [tileCount, setTileCount] = useState(0);
+
+  // NDVI Visualization State
+  const [showNDVILayer, setShowNDVILayer] = useState(false);
+  const [ndviDate, setNdviDate] = useState('23 Fev (Há 3 dias)');
 
   const detailedForecast = useStore(state => state.detailedForecast);
   const diseaseRisk = useMemo(() => calculateMildioRisk(field, detailedForecast), [field, detailedForecast]);
@@ -441,6 +444,32 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
     ];
     return { totalExpenses, estimatedRevenue, netMargin, roi, chartData, marketPrice };
   }, [field]);
+
+  // --- NDVI Gradient Generator (Mock) ---
+  // To simulate a realistic NDVI map without a real GeoTIFF/ImageOverlay API, we render multiple internal polygons
+  // with varying opacities of green/yellow/red to represent crop vigor.
+  const generateNDVIGradients = (basePolygon: [number, number][]) => {
+    if (!basePolygon || basePolygon.length < 3) return [];
+
+    // Simplistic mock: shrink the polygon slightly to create inner "zones" of different vigor
+    const shrinkPolygon = (poly: [number, number][], factor: number): [number, number][] => {
+      const centerLat = poly.reduce((sum, p) => sum + p[0], 0) / poly.length;
+      const centerLng = poly.reduce((sum, p) => sum + p[1], 0) / poly.length;
+      return poly.map(p => [
+        centerLat + (p[0] - centerLat) * factor,
+        centerLng + (p[1] - centerLng) * factor
+      ]);
+    };
+
+    return [
+      { positions: basePolygon, color: '#facc15', label: 'Médio', opacity: 0.6 }, // Yellow base
+      { positions: shrinkPolygon(basePolygon, 0.8), color: '#4ade80', label: 'Alto', opacity: 0.7 }, // Green mid
+      { positions: shrinkPolygon(basePolygon, 0.5), color: '#166534', label: 'Muito Alto', opacity: 0.8 }, // Dark Green center
+      { positions: shrinkPolygon(basePolygon, 0.2), color: '#ef4444', label: 'Baixo (Stress)', opacity: 0.6 } // Red spot
+    ];
+  };
+
+  const ndviLayers = useMemo(() => generateNDVIGradients(field.polygon), [field.polygon]);
 
   return (
     <>
@@ -685,38 +714,79 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                             crossOrigin="anonymous"
                           />
-                          <Polygon positions={field.polygon} pathOptions={{ color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.3, weight: 3 }} />
+
+                          {/* Standard Polygon or NDVI Layers */}
+                          {showNDVILayer ? (
+                            <>
+                              <Polygon positions={field.polygon} pathOptions={{ color: '#fff', fill: false, weight: 2, dashArray: '5, 5' }} />
+                              {ndviLayers.map((layer, idx) => (
+                                <Polygon
+                                  key={`ndvi-${idx}`}
+                                  positions={layer.positions}
+                                  pathOptions={{ color: 'transparent', fillColor: layer.color, fillOpacity: layer.opacity }}
+                                />
+                              ))}
+                            </>
+                          ) : (
+                            <Polygon positions={field.polygon} pathOptions={{ color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.3, weight: 3 }} />
+                          )}
                         </MapContainerAny>
 
                         {/* Map HUD Overlay */}
-                        <div className="absolute top-6 left-6 right-6 flex justify-end gap-2 pointer-events-none">
-                          <div className="flex gap-2">
-                            <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5">
-                              <div className="flex items-center gap-1.5 opacity-70">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                <span className="text-[8px] font-black uppercase tracking-widest">Mapas Offline ({tileCount})</span>
-                              </div>
-                              <p className="text-xl font-black">{field.areaHa} <span className="text-sm font-bold opacity-70">HA</span></p>
-                            </div>
+                        <div className="absolute top-6 left-6 right-6 flex justify-end gap-2 pointer-events-none z-[400] overflow-hidden">
+                          <AnimatePresence>
+                            {!showNDVILayer && (
+                              <motion.div
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: 20 }}
+                                className="flex gap-2"
+                              >
+                                <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-1.5 opacity-70">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest">Mapas Offline ({tileCount})</span>
+                                  </div>
+                                  <p className="text-xl font-black">{field.areaHa} <span className="text-sm font-bold opacity-70">HA</span></p>
+                                </div>
 
-                            <div className={clsx(
-                              "bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5",
-                              financialData.netMargin < 0 ? "border-red-500/50" : "border-agro-green/50"
-                            )}>
-                              <div className="flex items-center gap-1.5 opacity-70">
-                                <Coins size={10} className="text-yellow-400" />
-                                <span className="text-[8px] font-black uppercase tracking-widest">Lucro Est.</span>
-                              </div>
-                              <p className={clsx(
-                                "text-lg font-black",
-                                financialData.netMargin < 0 ? "text-red-400" : "text-agro-green"
-                              )}>
-                                {financialData.netMargin.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}
-                              </p>
-                            </div>
-                          </div>
-
+                                <div className={clsx(
+                                  "bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5",
+                                  (financialData?.netMargin || 0) < 0 ? "border-red-500/50" : "border-agro-green/50"
+                                )}>
+                                  <div className="flex items-center gap-1.5 opacity-70">
+                                    <Coins size={10} className="text-yellow-400" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest">Lucro Est.</span>
+                                  </div>
+                                  <p className={clsx(
+                                    "text-lg font-black",
+                                    (financialData?.netMargin || 0) < 0 ? "text-red-400" : "text-agro-green"
+                                  )}>
+                                    {(financialData?.netMargin || 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 0 })}
+                                  </p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
+
+                        {/* NDVI Map Legend (Only visible when NDVI layer is on) */}
+                        <AnimatePresence>
+                          {showNDVILayer && (
+                            <motion.div
+                              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                              className="absolute bottom-2 left-2 sm:bottom-6 sm:left-6 bg-black/60 backdrop-blur-md p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/10 z-[400] pointer-events-none"
+                            >
+                              <p className="text-[8px] sm:text-[10px] font-bold text-white uppercase tracking-widest mb-1 sm:mb-2 opacity-80">Legenda NDVI</p>
+                              <div className="space-y-1 sm:space-y-1.5">
+                                <div className="flex items-center gap-1.5 sm:gap-2"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-red-400 opacity-80"></span><span className="text-[10px] sm:text-xs text-white">0.0 - 0.3 (Stress/Solo)</span></div>
+                                <div className="flex items-center gap-1.5 sm:gap-2"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-yellow-400 opacity-80"></span><span className="text-[10px] sm:text-xs text-white">0.3 - 0.5 (Moderado)</span></div>
+                                <div className="flex items-center gap-1.5 sm:gap-2"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-green-400 opacity-80"></span><span className="text-[10px] sm:text-xs text-white">0.5 - 0.8 (Bom Vigor)</span></div>
+                                <div className="flex items-center gap-1.5 sm:gap-2"><span className="w-2 h-2 sm:w-3 sm:h-3 rounded bg-[#166534] opacity-80"></span><span className="text-[10px] sm:text-xs text-white">0.8 - 1.0 (Muito Denso)</span></div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
 
                       {/* Minimalist Sensor Cards - Ultra Compact */}
@@ -742,16 +812,31 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                             </div>
 
                             <div>
-                              <div className="flex items-baseline gap-1">
-                                <span className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tighter">
-                                  {field.history && field.history.length > 0 ? field.history[field.history.length - 1].ndvi.toFixed(2) : '0.86'}
-                                </span>
+                              <div className="flex justify-between items-end">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tighter">
+                                    {field.history && field.history.length > 0 ? field.history[field.history.length - 1].ndvi.toFixed(2) : '0.86'}
+                                  </span>
+                                </div>
+                                <button
+                                  onClick={() => setShowNDVILayer(!showNDVILayer)}
+                                  className={clsx(
+                                    "px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wide transition-all",
+                                    showNDVILayer
+                                      ? "bg-green-600 text-white shadow-lg shadow-green-500/30"
+                                      : "bg-gray-100 dark:bg-neutral-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                                  )}
+                                >
+                                  {showNDVILayer ? "Ocultar Satélite" : "Ver no Mapa"}
+                                </button>
                               </div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 mt-2">
                                 <span className="flex items-center gap-1 text-[8px] font-bold text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-md">
                                   <ShieldCheck size={10} /> Saudável
                                 </span>
-                                <span className="text-[8px] font-bold text-gray-400 uppercase">Estado Geral</span>
+                                <span className="text-[8px] font-bold text-gray-400 uppercase">
+                                  {showNDVILayer ? `Captura Sentinel-2: ${ndviDate}` : 'Estado Geral'}
+                                </span>
                               </div>
                             </div>
                           </div>

@@ -6,13 +6,14 @@ import {
    Check, Calendar, MapPin, Sun, Cloud,
    CloudRain, CloudLightning, ArrowRight, Activity,
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
-   ChevronDown, PawPrint, Leaf
+   ChevronDown, PawPrint, Leaf, Search
 } from 'lucide-react';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
    StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice
 } from '../types';
 import MarketPrices from './MarketPrices';
+import FarmCopilot from './FarmCopilot';
 import { calculateCarbonFootprint } from '../utils/carbonCalculator';
 
 interface DashboardHomeProps {
@@ -61,6 +62,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    onTaskClick
 }) => {
    const [isInlineInputOpen, setIsInlineInputOpen] = useState(false);
+   const [scrolled, setScrolled] = useState(false); // New state for scroll
 
    // New Task Form States
    const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -83,6 +85,15 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          onModalChange(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen);
       }
    }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, onModalChange]);
+
+   // Handle scroll for top bar
+   React.useEffect(() => {
+      const handleScroll = () => {
+         setScrolled(window.scrollY > 50);
+      };
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+   }, []);
 
    // Weather Helper
    const currentWeather = weather.length > 0 ? weather[0] : null;
@@ -198,65 +209,73 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    };
 
    return (
-      <div className="space-y-8 animate-fade-in pb-28 pt-2">
+      <div className="space-y-6 sm:space-y-8 animate-fade-in pb-28 pt-16 sm:pt-24">
 
          {/* 1. HEADER: ORIVA SMART REDESIGN */}
-         <div className="flex justify-between items-center px-4 sm:px-6 pt-2 pb-2">
-
-            {/* Left Side: Text & Avatar */}
-            <div className="flex items-center gap-3">
-               {/* Avatar de Status (Centro Esquerdo) */}
-               <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-full border-[2px] sm:border-[3px] border-emerald-400 shadow-[0_0_10px_#34d399] sm:shadow-[0_0_15px_#34d399] animate-pulse overflow-hidden shrink-0 flex items-center justify-center bg-black/5">
-                  <img
-                     src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=1932&auto=format&fit=crop"
-                     alt="Farm Status"
-                     className="absolute inset-0 w-full h-full object-cover opacity-60"
-                  />
-                  <div className="relative z-10 flex items-center justify-center">
-                     <Activity className="text-emerald-500 drop-shadow-[0_0_5px_rgba(52,211,153,1)]" size={20} strokeWidth={2.5} />
-                  </div>
-               </div>
-
-               <div className="flex flex-col justify-center">
-                  <span className="text-[10px] sm:text-xs font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider leading-none mb-0.5">Olá, {userName.split(' ')[0]}</span>
-                  <h1 className="text-xl sm:text-2xl font-black italic tracking-tighter text-gray-900 dark:text-white leading-none">
-                     OrivaSmart
-                  </h1>
-               </div>
-            </div>
-
-            {/* Right Side: Side-by-Side Glass Pills */}
-            <div className="flex flex-row gap-2 items-center">
-               {/* Notifications */}
-               <button
-                  onClick={onOpenNotifications}
-                  className="group flex items-center gap-0 sm:gap-2 pl-1.5 sm:pl-3 pr-1.5 py-1.5 rounded-full bg-white/60 dark:bg-neutral-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm active:scale-95 transition-all"
-               >
-                  <span className="hidden sm:block text-[10px] font-bold text-gray-600 dark:text-gray-300 tracking-wide">Alertas</span>
-                  <div className={`w-7 h-7 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-inner transition-all duration-500 ${alertCount > 0 ? 'bg-red-500 text-white animate-pulse' : 'bg-white/80 dark:bg-black/40 text-gray-500'}`}>
-                     <span className={`text-xs ${alertCount > 0 ? '' : 'grayscale opacity-40'}`}>🔔</span>
-                  </div>
-               </button>
-
-               {/* Settings */}
-               <button
+         {/* TOP BAR */}
+         <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 dark:bg-black/80 backdrop-blur-md shadow-sm py-2' : 'bg-transparent py-4'}`}>
+            <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 flex justify-between items-center">
+               <div
+                  className="flex items-center gap-3 cursor-pointer group"
                   onClick={onOpenSettings}
-                  className="group flex items-center gap-0 sm:gap-2 pl-1.5 sm:pl-3 pr-1.5 py-1.5 rounded-full bg-white/60 dark:bg-neutral-800/60 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm active:scale-95 transition-all"
                >
-                  <span className="hidden sm:block text-[10px] font-bold text-gray-600 dark:text-gray-300 tracking-wide">Definições</span>
-                  <div className="w-7 h-7 sm:w-6 sm:h-6 rounded-full bg-white/80 dark:bg-black/40 flex items-center justify-center shadow-inner group-hover:rotate-90 transition-transform">
-                     <Settings size={14} className="text-gray-600 dark:text-gray-300" />
+                  <div className="relative">
+                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-agro-green to-agro-yellow p-[2px] shadow-lg group-hover:scale-105 transition-transform">
+                        <div className="w-full h-full rounded-full border-2 border-white dark:border-neutral-900 overflow-hidden">
+                           <img src={`https://i.pravatar.cc/150?u=${currentUser.id}`} alt={userName} className="w-full h-full object-cover" />
+                        </div>
+                     </div>
+                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 flex items-center justify-center">
+                        <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                     </div>
                   </div>
-               </button>
-            </div>
+                  <div className="flex flex-col">
+                     <h2 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
+                        {userName}
+                     </h2>
+                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'Administrador' : 'Operador'}</span>
+                  </div>
+               </div>
 
+               <div className="flex items-center gap-2">
+                  <button
+                     onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+                     className={`p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                  >
+                     <Search size={18} strokeWidth={2.5} className="sm:w-5 sm:h-5" />
+                     <span className={`text-[10px] font-black tracking-wider uppercase hidden sm:block ${scrolled ? 'text-gray-500' : 'text-white/80'}`}>Procurar</span>
+                  </button>
+
+                  <button
+                     onClick={onOpenNotifications}
+                     className={`relative p-1.5 sm:p-3 rounded-full transition-all
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                     title="Alertas"
+                  >
+                     <Bell size={18} strokeWidth={2.5} className="sm:w-6 sm:h-6" />
+                     {alertCount > 0 && (
+                        <span className={`absolute top-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white dark:border-neutral-900 ${alertCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-red-500'}`} />
+                     )}
+                  </button>
+
+                  <button
+                     onClick={onOpenSettings}
+                     className={`relative p-1.5 sm:p-3 rounded-full transition-all
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                     title="Definições"
+                  >
+                     <Settings size={18} strokeWidth={2.5} className="sm:w-[22px] sm:h-[22px]" />
+                  </button>
+               </div>
+            </div>
          </div>
 
          {/* 2. WEATHER HERO (Compact Version) */}
          {currentWeather && (
             <div
                onClick={() => setIsWeatherModalOpen(true)}
-               className="relative h-48 mx-2 rounded-[2.5rem] overflow-hidden shadow-2xl group transition-all hover:scale-[1.01] cursor-pointer"
+               className="relative h-32 sm:h-48 mx-2 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl group transition-all hover:scale-[1.01] cursor-pointer"
             >
                {/* Background Image */}
                <img
@@ -265,16 +284,16 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                />
 
-               {/* Glass Overlay - Inset 2 padding 4 */}
-               <div className="absolute inset-2 bg-white/10 dark:bg-black/20 backdrop-blur-md rounded-[2rem] border border-white/20 p-4 flex flex-col justify-between shadow-inner">
+               {/* Glass Overlay - Inset 1.5 padding 3 on mobile */}
+               <div className="absolute inset-1.5 sm:inset-2 bg-white/10 dark:bg-black/20 backdrop-blur-md rounded-[1.5rem] sm:rounded-[2rem] border border-white/20 p-3 sm:p-4 flex flex-col justify-between shadow-inner">
 
                   {/* Top Row */}
                   <div className="flex justify-between items-start">
-                     <div className="bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+                     <div className="bg-black/20 backdrop-blur-md px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-full border border-white/10 flex items-center gap-1.5 sm:gap-2">
                         <MapPin size={10} className="text-white" />
-                        <span className="text-[9px] font-black text-white uppercase tracking-widest">Laundos, PT</span>
+                        <span className="text-[8px] sm:text-[9px] font-black text-white uppercase tracking-widest">Laundos, PT</span>
                      </div>
-                     <div className="filter drop-shadow-2xl animate-pulse-slow">
+                     <div className="filter drop-shadow-2xl animate-pulse-slow origin-top-right scale-75 sm:scale-100 -mt-2 -mr-2 sm:mt-0 sm:mr-0">
                         {getWeatherIcon(currentWeather.condition, 52)}
                      </div>
                   </div>
@@ -282,27 +301,27 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   {/* Bottom Row */}
                   <div className="flex items-end justify-between">
                      <div>
-                        <span className="text-5xl font-black text-white tracking-tighter leading-none block drop-shadow-md">
+                        <span className="text-4xl sm:text-5xl font-black text-white tracking-tighter leading-none block drop-shadow-md">
                            {currentWeather.temp}°
                         </span>
-                        <span className="text-xs font-bold text-white/80 pl-1 uppercase tracking-wide flex items-center gap-1">
+                        <span className="text-[10px] sm:text-xs font-bold text-white/80 pl-1 uppercase tracking-wide flex items-center gap-1 mt-1 sm:mt-0">
                            {currentWeather.condition === 'sunny' ? 'Céu Limpo' : currentWeather.condition === 'rain' ? 'Chuva' : 'Nublado'}
-                           <ChevronRight size={12} />
+                           <ChevronRight size={10} className="sm:w-3 sm:h-3" />
                         </span>
                      </div>
 
-                     <div className="flex gap-3">
+                     <div className="flex gap-2 sm:gap-3">
                         <div className="flex flex-col items-center">
-                           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mb-1">
-                              <Wind size={14} className="text-white" />
+                           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center mb-0.5 sm:mb-1">
+                              <Wind size={12} className="sm:w-[14px] sm:h-[14px] text-white" />
                            </div>
-                           <span className="text-[9px] font-bold text-white">{currentWeather.windSpeed}km/h</span>
+                           <span className="text-[8px] sm:text-[9px] font-bold text-white">{currentWeather.windSpeed}km/h</span>
                         </div>
                         <div className="flex flex-col items-center">
-                           <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center mb-1">
-                              <Droplets size={14} className="text-white" />
+                           <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white/20 flex items-center justify-center mb-0.5 sm:mb-1">
+                              <Droplets size={12} className="sm:w-[14px] sm:h-[14px] text-white" />
                            </div>
-                           <span className="text-[9px] font-bold text-white">{currentWeather.humidity}%</span>
+                           <span className="text-[8px] sm:text-[9px] font-bold text-white">{currentWeather.humidity}%</span>
                         </div>
                      </div>
                   </div>
@@ -341,66 +360,77 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
          </div>
 
-         <div className="px-2">
-            <h3 className="text-xl font-black italic text-gray-900 dark:text-white mb-4 ml-2">Estado da Quinta</h3>
+         {/* --- FARM COPILOT (AI INSIGHTS) --- */}
+         <FarmCopilot
+            weather={weather}
+            hourlyForecast={hourlyForecast}
+            tasks={tasks}
+            users={users}
+            alertCount={alertCount}
+            onNavigate={onNavigate}
+            onOpenWeather={() => setIsWeatherModalOpen(true)}
+         />
 
-            <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800 grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800">
+         <div className="px-2">
+            <h3 className="text-lg font-black italic text-gray-900 dark:text-white mb-2 ml-2">Estado da Quinta</h3>
+
+            <div className="bg-white dark:bg-neutral-900 rounded-[2rem] p-4 shadow-sm border border-gray-100 dark:border-neutral-800 grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800">
 
                {/* Col 1: Water Consumption */}
                <div
                   onClick={() => setIsWaterModalOpen(true)}
-                  className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
+                  className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
                >
                   <div className="text-cyan-500 transition-transform group-hover:scale-110 duration-300">
-                     <Droplets size={28} strokeWidth={2.5} />
+                     <Droplets size={24} strokeWidth={2.5} />
                   </div>
                   <div className="text-center px-1">
-                     <span className="block text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
+                     <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
                         {waterConsumption}m³
                      </span>
-                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Consumo Água</span>
+                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Água</span>
                   </div>
                </div>
 
                {/* Col 2: Lone Worker Safety (NEW) */}
                <div
                   onClick={() => onNavigate('team')}
-                  className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
+                  className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
                >
                   <div className="relative">
                      <div className="text-indigo-500 transition-transform group-hover:scale-110 duration-300">
-                        <Activity size={28} strokeWidth={2.5} />
+                        <Activity size={24} strokeWidth={2.5} />
                      </div>
                      {/* Alerta Visual de Emergência se houver algum user em 'emergency' ou 'warning' */}
                      {users.some(u => u.safetyStatus?.status === 'emergency') && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping border-2 border-white dark:border-neutral-900" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping border-2 border-white dark:border-neutral-900" />
                      )}
                      {users.some(u => u.safetyStatus?.status === 'warning') && !users.some(u => u.safetyStatus?.status === 'emergency') && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
                      )}
                   </div>
                   <div className="text-center px-1">
-                     <span className={`block text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
-                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'EMERGÊNCIA' : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
+                     <span className={`block text-base sm:text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
+                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'SOS' : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
                      </span>
-                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Segurança</span>
+                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Equipa</span>
                   </div>
                </div>
 
                {/* Col 3: Carbon ESG */}
                <div
                   onClick={() => onNavigate('carbon')}
-                  className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
+                  className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
                >
                   <div className="text-emerald-500 transition-transform group-hover:scale-110 duration-300">
-                     <Leaf size={28} strokeWidth={2.5} />
+                     <Leaf size={24} strokeWidth={2.5} />
                   </div>
                   <div className="text-center px-1">
-                     <span className="block text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
+                     <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
                         {Math.abs(carbonMetrics.netBalance)}t
                      </span>
-                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">
-                        Pegada CO₂
+                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">
+                        CO₂
                      </span>
                   </div>
                </div>
@@ -409,7 +439,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          </div>
 
          {/* 5. LISTA DE TAREFAS (MD3 Tasks - Atualizado) */}
-         <div className="px-2">
+         <div className="px-2 mt-6">
             <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
 
                {/* Header */}
