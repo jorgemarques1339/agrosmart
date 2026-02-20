@@ -1,5 +1,5 @@
 
-import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine, Employee, UserProfile } from './types';
+import { Animal, AppState, Field, StockItem, Task, Transaction, WeatherForecast, Machine, Employee, UserProfile, AnimalBatch } from './types';
 
 export const INITIAL_WEATHER: WeatherForecast[] = [
   { day: 'Seg', temp: 22, condition: 'sunny' },
@@ -10,9 +10,42 @@ export const INITIAL_WEATHER: WeatherForecast[] = [
 ];
 
 const MOCK_USERS: UserProfile[] = [
-  { id: 'u1', name: 'Carlos Dono', role: 'admin', avatar: 'CD', specialty: 'Gestão' },
-  { id: 'u2', name: 'João Tratorista', role: 'operator', avatar: 'JT', specialty: 'Máquinas' },
-  { id: 'u3', name: 'Maria Vet', role: 'operator', avatar: 'MV', specialty: 'Animais' },
+  {
+    id: 'u1', name: 'Carlos Dono', role: 'admin', avatar: 'CD', specialty: 'Gestão',
+    safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 85 }
+  },
+  {
+    id: 'u2', name: 'João Tratorista', role: 'operator', avatar: 'JT', specialty: 'Máquinas',
+    safetyStatus: {
+      status: 'warning',
+      lastMovement: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+      location: [41.442, -8.723],
+      batteryLevel: 12
+    }
+  },
+  {
+    id: 'u3', name: 'Maria Vet', role: 'operator', avatar: 'MV', specialty: 'Animais',
+    safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 92 }
+  },
+];
+
+const MOCK_BATCHES: AnimalBatch[] = [
+  {
+    id: 'b1',
+    name: 'Lote 01 - Ovelhas Campaniças',
+    species: 'Ovinos',
+    animalCount: 45,
+    averageWeight: 52,
+    status: 'healthy',
+    productionHistory: [
+      { date: '2023-10-01', value: 50, type: 'weight' },
+      { date: '2023-10-15', value: 52, type: 'weight' },
+    ],
+    history: [
+      { id: 'h1', date: '2023-10-10', type: 'treatment', description: 'Vacinação em Massa: Febre Aftosa' }
+    ],
+    lastCheckup: '2023-10-15'
+  }
 ];
 
 export const MOCK_STATE: AppState = {
@@ -29,7 +62,7 @@ export const MOCK_STATE: AppState = {
       type: 'task',
       completed: false,
       status: 'pending',
-      assignedTo: 'u2' // João
+      assignedTo: 'u2'
     },
     {
       id: '2',
@@ -40,6 +73,7 @@ export const MOCK_STATE: AppState = {
       status: 'pending'
     },
   ],
+  animalBatches: MOCK_BATCHES,
   animals: [
     {
       id: 'a1',
@@ -51,7 +85,6 @@ export const MOCK_STATE: AppState = {
       weight: 650,
       status: 'healthy',
       lastCheckup: '2023-10-01',
-      notes: 'Animal com excelente historial produtivo. Vacinação em dia.',
       productionHistory: [
         { date: '2023-10-20', value: 28, type: 'milk' },
         { date: '2023-10-21', value: 30, type: 'milk' },
@@ -60,12 +93,8 @@ export const MOCK_STATE: AppState = {
         { date: '2023-10-24', value: 30, type: 'milk' },
       ],
       reproductionStatus: 'pregnant',
-      conceptionDate: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(), // ~6 months pregnant
-      lineage: {
-        motherName: 'Estrela',
-        fatherName: 'Touro X200',
-        notes: 'Gestante de: Touro X200'
-      }
+      conceptionDate: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
+      lineage: { motherName: 'Estrela', fatherName: 'Touro X200', notes: 'Gestante de: Touro X200' }
     },
     {
       id: 'a2',
@@ -77,16 +106,13 @@ export const MOCK_STATE: AppState = {
       weight: 580,
       status: 'sick',
       lastCheckup: '2023-10-24',
-      notes: 'A apresentar sinais de mastite leve. Sob observação.',
       productionHistory: [
         { date: '2023-10-20', value: 15, type: 'milk' },
         { date: '2023-10-21', value: 14, type: 'milk' },
         { date: '2023-10-22', value: 12, type: 'milk' },
       ],
       reproductionStatus: 'empty',
-      lineage: {
-        fatherName: 'Touro Y100'
-      }
+      lineage: { fatherName: 'Touro Y100' }
     },
     {
       id: 'a3',
@@ -98,16 +124,12 @@ export const MOCK_STATE: AppState = {
       weight: 710,
       status: 'healthy',
       lastCheckup: '2023-09-15',
-      notes: 'Ganho de peso constante. Preparação para reprodução.',
       productionHistory: [
         { date: '2023-09-01', value: 680, type: 'weight' },
         { date: '2023-10-01', value: 710, type: 'weight' },
       ],
       reproductionStatus: 'heat',
-      lineage: {
-        motherName: 'Mimosa',
-        fatherName: 'Touro Z50'
-      }
+      lineage: { motherName: 'Mimosa', fatherName: 'Touro Z50' }
     }
   ],
   fields: [
@@ -118,7 +140,7 @@ export const MOCK_STATE: AppState = {
       crop: 'Uva Alvarinho',
       areaHa: 4.5,
       yieldPerHa: 8.5,
-      coordinates: [41.442, -8.723], // Laundos approx
+      coordinates: [41.442, -8.723],
       polygon: [[41.442, -8.723], [41.443, -8.721], [41.441, -8.720], [41.440, -8.724]],
       irrigationStatus: false,
       humidity: 45,
@@ -134,7 +156,8 @@ export const MOCK_STATE: AppState = {
       logs: [
         { id: 'l1', date: '2023-10-01', type: 'observation', description: 'Início da maturação.' },
         { id: 'l2', date: '2023-10-05', type: 'treatment', description: 'Aplicação preventiva de enxofre.' }
-      ]
+      ],
+      slope: 12
     },
     {
       id: 'f2',
@@ -158,7 +181,8 @@ export const MOCK_STATE: AppState = {
       ],
       logs: [
         { id: 'l1', date: '2023-09-15', type: 'observation', description: 'Detetada ligeira infestação de lagarta.' }
-      ]
+      ],
+      slope: 2
     }
   ],
   stocks: [
@@ -185,15 +209,10 @@ export const MOCK_STATE: AppState = {
       status: 'active',
       fuelLevel: 65,
       stressLevel: 15,
+      specs: { powerHp: 120, fuelCapacity: 250, maxSpeed: 40 },
       isobusData: {
-        engineRpm: 1850,
-        groundSpeed: 8.4,
-        fuelRate: 12.5,
-        ptoSpeed: 540,
-        hydraulicPressure: 185,
-        engineLoad: 68,
-        coolantTemp: 82,
-        dtc: [],
+        engineRpm: 1850, groundSpeed: 8.4, fuelRate: 12.5, ptoSpeed: 540,
+        hydraulicPressure: 185, engineLoad: 68, coolantTemp: 82, dtc: [],
         lastUpdate: new Date().toISOString()
       },
       logs: [
@@ -207,17 +226,19 @@ export const MOCK_STATE: AppState = {
       model: 'Hilux',
       plate: 'AA-00-BB',
       type: 'vehicle',
-      engineHours: 150000, // Km no caso de veiculos
+      engineHours: 150000,
       lastServiceHours: 145000,
       serviceInterval: 10000,
-      nextInspectionDate: '2023-11-01', // Próxima data
+      nextInspectionDate: '2023-11-01',
       status: 'active',
       fuelLevel: 40,
       stressLevel: 0,
+      specs: { powerHp: 150, fuelCapacity: 80, maxSpeed: 160 },
       logs: []
     }
   ],
-  harvests: [] // Initial empty state for harvests
+  harvests: [],
+  notifications: []
 };
 
 export const CROP_TYPES = [
@@ -229,5 +250,5 @@ export const CROP_TYPES = [
 ];
 
 export const STORAGE_KEY = 'oriva_enterprise_v1';
-export const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt'; // Using public websocket broker
+export const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 export const MQTT_TOPIC_PREFIX = 'oriva/fields';

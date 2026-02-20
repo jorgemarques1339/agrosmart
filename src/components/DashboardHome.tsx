@@ -6,13 +6,14 @@ import {
    Check, Calendar, MapPin, Sun, Cloud,
    CloudRain, CloudLightning, ArrowRight, Activity,
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
-   ChevronDown, PawPrint
+   ChevronDown, PawPrint, Leaf
 } from 'lucide-react';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
    StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice
 } from '../types';
 import MarketPrices from './MarketPrices';
+import { calculateCarbonFootprint } from '../utils/carbonCalculator';
 
 interface DashboardHomeProps {
    userName: string;
@@ -41,13 +42,14 @@ interface DashboardHomeProps {
 
 const DashboardHome: React.FC<DashboardHomeProps> = ({
    userName,
-   weather,
-   hourlyForecast,
-   tasks,
-   machines,
-   stocks,
-   animals,
-   users,
+   weather = [],
+   hourlyForecast = [],
+   tasks = [],
+   fields = [],
+   machines = [],
+   stocks = [],
+   animals = [],
+   users = [],
    currentUser,
    onToggleTask,
    onAddTask,
@@ -72,12 +74,15 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // Estado para o Modal de Cotações
    const [isMarketModalOpen, setIsMarketModalOpen] = useState(false);
 
+   // Estado para o Modal de Consumo de Água
+   const [isWaterModalOpen, setIsWaterModalOpen] = useState(false);
+
    // Atualizar pai sobre modal aberto
    React.useEffect(() => {
       if (onModalChange) {
-         onModalChange(isWeatherModalOpen || isMarketModalOpen);
+         onModalChange(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen);
       }
-   }, [isWeatherModalOpen, isMarketModalOpen, onModalChange]);
+   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, onModalChange]);
 
    // Weather Helper
    const currentWeather = weather.length > 0 ? weather[0] : null;
@@ -118,6 +123,60 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          return { time, status, reason, ...hour };
       });
    }, [hourlyForecast]);
+
+   // Carbon Metrics Calculation
+   const carbonMetrics = useMemo(() => {
+      const fallback = {
+         emissions: { fuel: 0, fertilizer: 0, total: 0 },
+         sequestration: { crops: 0, soil: 0, total: 0 },
+         netBalance: 0,
+         potentialCredits: { amount: 0, value: 0 }
+      };
+
+      if (!fields || !machines) return fallback;
+
+      try {
+         const allLogs = fields.flatMap(f => f.logs || []);
+         return calculateCarbonFootprint(machines, fields, allLogs);
+      } catch (err) {
+         console.error("Carbon calculation error:", err);
+         return fallback;
+      }
+   }, [machines, fields]);
+
+   const waterConsumption = useMemo(() => {
+      // Mock calculation: average consumption per hectare
+      const totalArea = fields.reduce((acc, f) => acc + f.areaHa, 0);
+      return Math.round(totalArea * 4.5); // m3 per day estimate
+   }, [fields]);
+
+   const waterConsumptionByCrop = useMemo(() => {
+      const breakdown: Record<string, { area: number, consumption: number }> = {};
+
+      fields.forEach(f => {
+         if (!breakdown[f.crop]) {
+            breakdown[f.crop] = { area: 0, consumption: 0 };
+         }
+         breakdown[f.crop].area += f.areaHa;
+         breakdown[f.crop].consumption += f.areaHa * 4.5;
+      });
+
+      // If no fields, provide example data
+      if (fields.length === 0) {
+         return [
+            { crop: 'Vinha', area: 12.5, consumption: 56.2, isExample: true },
+            { crop: 'Olival', area: 8.2, consumption: 36.9, isExample: true },
+            { crop: 'Milho', area: 5.0, consumption: 22.5, isExample: true }
+         ];
+      }
+
+      return Object.entries(breakdown).map(([crop, data]) => ({
+         crop,
+         area: data.area,
+         consumption: Number(data.consumption.toFixed(1)),
+         isExample: false
+      })).sort((a, b) => b.consumption - a.consumption);
+   }, [fields]);
 
    const handleQuickAddTask = () => {
       if (newTaskTitle.trim()) {
@@ -282,57 +341,67 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
          </div>
 
-         {/* 4. ESTADO DA QUINTA (Single Card, Minimalist, 3 Columns) */}
          <div className="px-2">
             <h3 className="text-xl font-black italic text-gray-900 dark:text-white mb-4 ml-2">Estado da Quinta</h3>
 
             <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800 grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800">
 
-               {/* Col 1: Soil Moisture */}
+               {/* Col 1: Water Consumption */}
                <div
-                  onClick={() => setIsWeatherModalOpen(true)}
+                  onClick={() => setIsWaterModalOpen(true)}
                   className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
                >
-                  <div className="text-blue-500 transition-transform group-hover:scale-110 duration-300">
+                  <div className="text-cyan-500 transition-transform group-hover:scale-110 duration-300">
                      <Droplets size={28} strokeWidth={2.5} />
                   </div>
-                  <div className="text-center">
-                     <span className="block text-xl font-black text-gray-900 dark:text-white leading-none mb-1">
-                        {currentWeather ? currentWeather.humidity : 0}%
+                  <div className="text-center px-1">
+                     <span className="block text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
+                        {waterConsumption}m³
                      </span>
-                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Soil Moisture</span>
+                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Consumo Água</span>
                   </div>
                </div>
 
-               {/* Col 2: Tractor Status */}
+               {/* Col 2: Lone Worker Safety (NEW) */}
                <div
-                  onClick={() => onNavigate('machines')}
+                  onClick={() => onNavigate('team')}
                   className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
                >
-                  <div className="text-amber-500 transition-transform group-hover:scale-110 duration-300">
-                     <Tractor size={28} strokeWidth={2.5} />
+                  <div className="relative">
+                     <div className="text-indigo-500 transition-transform group-hover:scale-110 duration-300">
+                        <Activity size={28} strokeWidth={2.5} />
+                     </div>
+                     {/* Alerta Visual de Emergência se houver algum user em 'emergency' ou 'warning' */}
+                     {users.some(u => u.safetyStatus?.status === 'emergency') && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-ping border-2 border-white dark:border-neutral-900" />
+                     )}
+                     {users.some(u => u.safetyStatus?.status === 'warning') && !users.some(u => u.safetyStatus?.status === 'emergency') && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
+                     )}
                   </div>
-                  <div className="text-center">
-                     <span className="block text-xl font-black text-gray-900 dark:text-white leading-none mb-1">
-                        {machines.filter(m => m.status === 'active').length}
+                  <div className="text-center px-1">
+                     <span className={`block text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
+                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'EMERGÊNCIA' : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
                      </span>
-                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Tractor Status</span>
+                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Segurança</span>
                   </div>
                </div>
 
-               {/* Col 3: Animal Health */}
+               {/* Col 3: Carbon ESG */}
                <div
-                  onClick={() => onNavigate('animal')}
+                  onClick={() => onNavigate('carbon')}
                   className="flex flex-col items-center justify-center gap-3 group cursor-pointer active:opacity-60 transition-opacity"
                >
-                  <div className="text-rose-500 transition-transform group-hover:scale-110 duration-300">
-                     <Heart size={28} strokeWidth={2.5} fill="currentColor" />
+                  <div className="text-emerald-500 transition-transform group-hover:scale-110 duration-300">
+                     <Leaf size={28} strokeWidth={2.5} />
                   </div>
-                  <div className="text-center">
-                     <span className="block text-xl font-black text-gray-900 dark:text-white leading-none mb-1">
-                        {animals.length}
+                  <div className="text-center px-1">
+                     <span className="block text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
+                        {Math.abs(carbonMetrics.netBalance)}t
                      </span>
-                     <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Saúde Animal</span>
+                     <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">
+                        Pegada CO₂
+                     </span>
                   </div>
                </div>
 
@@ -479,143 +548,225 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          </div>
 
          {/* --- WEATHER MODAL --- */}
-         {isWeatherModalOpen && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWeatherModalOpen(false)}>
+         {
+            isWeatherModalOpen && (
+               <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWeatherModalOpen(false)}>
+                  <div
+                     className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm h-[80vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20"
+                     onClick={e => e.stopPropagation()}
+                  >
+                     {/* Header */}
+                     <div className="flex justify-between items-center px-6 pt-6 pb-4">
+                        <div>
+                           <h3 className="text-xl font-black dark:text-white">Meteorologia</h3>
+                           <p className="text-xs font-bold text-gray-400 uppercase">Suporte à Decisão</p>
+                        </div>
+                        <button onClick={() => setIsWeatherModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                           <X size={20} className="dark:text-white" />
+                        </button>
+                     </div>
+
+                     {/* Tab Selector */}
+                     <div className="px-6 mb-4">
+                        <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl">
+                           <button
+                              onClick={() => setWeatherTab('forecast')}
+                              className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all ${weatherTab === 'forecast' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green dark:text-white' : 'text-gray-400'
+                                 }`}
+                           >
+                              Previsão
+                           </button>
+                           <button
+                              onClick={() => setWeatherTab('spraying')}
+                              className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-1 ${weatherTab === 'spraying' ? 'bg-white dark:bg-neutral-700 shadow text-blue-500 dark:text-blue-400' : 'text-gray-400'
+                                 }`}
+                           >
+                              <SprayCan size={14} /> Pulverização
+                           </button>
+                        </div>
+                     </div>
+
+                     {/* Content */}
+                     <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
+
+                        {/* TAB: FORECAST */}
+                        {weatherTab === 'forecast' && (
+                           <div className="space-y-3">
+                              {weather.map((day, idx) => (
+                                 <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800/50 rounded-2xl border border-gray-100 dark:border-neutral-800">
+                                    <div className="flex items-center gap-4">
+                                       <div className="flex flex-col">
+                                          <span className="font-bold text-gray-900 dark:text-white text-sm">{day.day}</span>
+                                          <span className="text-[10px] text-gray-400 font-bold uppercase">{day.description || 'Parcial'}</span>
+                                       </div>
+                                       {getWeatherIcon(day.condition, 24)}
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                       <div className="text-right">
+                                          <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
+                                             <Wind size={10} /> {day.windSpeed} km/h
+                                          </div>
+                                          <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
+                                             <Droplets size={10} /> {day.humidity}%
+                                          </div>
+                                       </div>
+                                       <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
+                                    </div>
+                                 </div>
+                              ))}
+                           </div>
+                        )}
+
+                        {/* TAB: SPRAYING */}
+                        {weatherTab === 'spraying' && (
+                           <div className="space-y-4">
+                              <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                                 <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
+                                    <span className="font-bold">Nota:</span> Janela ideal: Vento &lt; 10km/h, Temp &lt; 25°C, Sem chuva.
+                                 </p>
+                              </div>
+
+                              <div className="space-y-3">
+                                 {sprayingConditions.length === 0 ? (
+                                    <div className="text-center py-8 opacity-50">
+                                       <p className="text-sm font-bold text-gray-400">Sem dados horários disponíveis.</p>
+                                    </div>
+                                 ) : (
+                                    sprayingConditions.map((slot, idx) => (
+                                       <div key={idx} className="flex items-center gap-3 p-4 bg-white dark:bg-neutral-800/50 rounded-2xl relative overflow-hidden border border-gray-100 dark:border-neutral-800">
+                                          {/* Status Indicator Strip */}
+                                          <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${slot.status === 'good' ? 'bg-green-500' :
+                                             slot.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                                             }`}></div>
+
+                                          <div className="flex flex-col items-center min-w-[50px]">
+                                             <span className="text-lg font-black text-gray-900 dark:text-white">{slot.time}</span>
+                                          </div>
+
+                                          <div className="flex-1 min-w-0">
+                                             <div className="flex items-center gap-2 mb-1">
+                                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${slot.status === 'good' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                                                   slot.status === 'warning' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                                                   }`}>
+                                                   {slot.status === 'good' ? 'Recomendado' : slot.status === 'warning' ? 'Atenção' : 'Não Recomendado'}
+                                                </span>
+                                             </div>
+                                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate font-medium">{slot.reason}</p>
+                                          </div>
+
+                                          <div className="text-right">
+                                             <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
+                                                <Wind size={10} /> {slot.windSpeed}km/h
+                                             </div>
+                                             <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
+                                                <Thermometer size={10} /> {slot.temp}°
+                                             </div>
+                                          </div>
+                                       </div>
+                                    ))
+                                 )}
+                              </div>
+                           </div>
+                        )}
+
+                     </div>
+                  </div>
+               </div>
+            )
+         }
+         {/* --- MARKET PRICES MODAL --- */}
+         {
+            isMarketModalOpen && (
+               <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsMarketModalOpen(false)}>
+                  <div
+                     className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm h-[85vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
+                     onClick={e => e.stopPropagation()}
+                  >
+                     <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />
+                  </div>
+               </div>
+            )
+         }
+
+         {/* --- WATER CONSUMPTION MODAL --- */}
+         {isWaterModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsWaterModalOpen(false)}>
                <div
-                  className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm h-[80vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20"
+                  className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
                   onClick={e => e.stopPropagation()}
                >
                   {/* Header */}
-                  <div className="flex justify-between items-center px-6 pt-6 pb-4">
-                     <div>
-                        <h3 className="text-xl font-black dark:text-white">Meteorologia</h3>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Suporte à Decisão</p>
-                     </div>
-                     <button onClick={() => setIsWeatherModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                        <X size={20} className="dark:text-white" />
-                     </button>
-                  </div>
-
-                  {/* Tab Selector */}
-                  <div className="px-6 mb-4">
-                     <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl">
-                        <button
-                           onClick={() => setWeatherTab('forecast')}
-                           className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all ${weatherTab === 'forecast' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green dark:text-white' : 'text-gray-400'
-                              }`}
-                        >
-                           Previsão
-                        </button>
-                        <button
-                           onClick={() => setWeatherTab('spraying')}
-                           className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-wide transition-all flex items-center justify-center gap-1 ${weatherTab === 'spraying' ? 'bg-white dark:bg-neutral-700 shadow text-blue-500 dark:text-blue-400' : 'text-gray-400'
-                              }`}
-                        >
-                           <SprayCan size={14} /> Pulverização
-                        </button>
-                     </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
-
-                     {/* TAB: FORECAST */}
-                     {weatherTab === 'forecast' && (
-                        <div className="space-y-3">
-                           {weather.map((day, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800/50 rounded-2xl border border-gray-100 dark:border-neutral-800">
-                                 <div className="flex items-center gap-4">
-                                    <div className="flex flex-col">
-                                       <span className="font-bold text-gray-900 dark:text-white text-sm">{day.day}</span>
-                                       <span className="text-[10px] text-gray-400 font-bold uppercase">{day.description || 'Parcial'}</span>
-                                    </div>
-                                    {getWeatherIcon(day.condition, 24)}
-                                 </div>
-                                 <div className="flex items-center gap-4">
-                                    <div className="text-right">
-                                       <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
-                                          <Wind size={10} /> {day.windSpeed} km/h
-                                       </div>
-                                       <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
-                                          <Droplets size={10} /> {day.humidity}%
-                                       </div>
-                                    </div>
-                                    <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
-                     )}
-
-                     {/* TAB: SPRAYING */}
-                     {weatherTab === 'spraying' && (
-                        <div className="space-y-4">
-                           <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                              <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
-                                 <span className="font-bold">Nota:</span> Janela ideal: Vento &lt; 10km/h, Temp &lt; 25°C, Sem chuva.
-                              </p>
-                           </div>
-
-                           <div className="space-y-3">
-                              {sprayingConditions.length === 0 ? (
-                                 <div className="text-center py-8 opacity-50">
-                                    <p className="text-sm font-bold text-gray-400">Sem dados horários disponíveis.</p>
-                                 </div>
-                              ) : (
-                                 sprayingConditions.map((slot, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 p-4 bg-white dark:bg-neutral-800/50 rounded-2xl relative overflow-hidden border border-gray-100 dark:border-neutral-800">
-                                       {/* Status Indicator Strip */}
-                                       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${slot.status === 'good' ? 'bg-green-500' :
-                                          slot.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                                          }`}></div>
-
-                                       <div className="flex flex-col items-center min-w-[50px]">
-                                          <span className="text-lg font-black text-gray-900 dark:text-white">{slot.time}</span>
-                                       </div>
-
-                                       <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 mb-1">
-                                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${slot.status === 'good' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                                slot.status === 'warning' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                                }`}>
-                                                {slot.status === 'good' ? 'Recomendado' : slot.status === 'warning' ? 'Atenção' : 'Não Recomendado'}
-                                             </span>
-                                          </div>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate font-medium">{slot.reason}</p>
-                                       </div>
-
-                                       <div className="text-right">
-                                          <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
-                                             <Wind size={10} /> {slot.windSpeed}km/h
-                                          </div>
-                                          <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
-                                             <Thermometer size={10} /> {slot.temp}°
-                                          </div>
-                                       </div>
-                                    </div>
-                                 ))
+                  <div className="p-6 pb-2">
+                     <div className="flex justify-between items-start mb-4">
+                        <div>
+                           <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-xl font-black dark:text-white">Consumo Hídrico</h3>
+                              {waterConsumptionByCrop[0]?.isExample && (
+                                 <span className="text-[10px] font-black bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full uppercase tracking-tighter">Exemplo</span>
                               )}
                            </div>
+                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Análise por Cultivo</p>
                         </div>
-                     )}
+                        <button onClick={() => setIsWaterModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
+                           <X size={20} className="dark:text-white" />
+                        </button>
+                     </div>
 
+                     <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-3xl border border-cyan-100 dark:border-cyan-900/30 mb-6">
+                        <div className="flex justify-between items-end">
+                           <div>
+                              <span className="text-3xl font-black text-cyan-600 dark:text-cyan-400 tracking-tighter leading-none">
+                                 {waterConsumption}m³
+                              </span>
+                              <span className="text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest block mt-1">Total Diário Estimado</span>
+                           </div>
+                           <Droplets size={32} className="text-cyan-500/20" />
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* List Content */}
+                  <div className="flex-1 overflow-y-auto px-6 pb-8 custom-scrollbar space-y-3">
+                     {waterConsumptionByCrop.map((item, idx) => {
+                        const maxConsumption = Math.max(...waterConsumptionByCrop.map(i => i.consumption));
+                        const percentage = (item.consumption / maxConsumption) * 100;
+
+                        return (
+                           <div key={idx} className="bg-white dark:bg-neutral-800/40 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 shadow-sm">
+                              <div className="flex justify-between items-start mb-3">
+                                 <div>
+                                    <h4 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight">{item.crop}</h4>
+                                    <span className="text-[10px] font-bold text-gray-400">{item.area} Hectares</span>
+                                 </div>
+                                 <div className="text-right">
+                                    <span className="block font-black text-gray-900 dark:text-white leading-none">{item.consumption}m³</span>
+                                    <span className="text-[9px] font-bold text-gray-400 tracking-tighter uppercase mt-1 block">p/ dia</span>
+                                 </div>
+                              </div>
+
+                              {/* Small Progress Bar */}
+                              <div className="h-1.5 w-full bg-gray-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                 <div
+                                    className="h-full bg-cyan-500 rounded-full transition-all duration-1000"
+                                    style={{ width: `${percentage}%` }}
+                                 />
+                              </div>
+                           </div>
+                        );
+                     })}
+                  </div>
+
+                  {/* Footer Advice */}
+                  <div className="p-6 bg-gray-50 dark:bg-neutral-900/50 border-t border-gray-100 dark:border-neutral-800">
+                     <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium text-center italic">
+                        "Estes valores são estimativas baseadas nos coeficientes de evapotranspiração médios para a sua região."
+                     </p>
                   </div>
                </div>
             </div>
          )}
-         {/* --- MARKET PRICES MODAL --- */}
-         {isMarketModalOpen && (
-            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsMarketModalOpen(false)}>
-               <div
-                  className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm h-[85vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
-                  onClick={e => e.stopPropagation()}
-               >
-                  <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />
-               </div>
-            </div>
-         )}
 
-      </div>
+      </div >
    );
 };
 

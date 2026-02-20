@@ -10,6 +10,7 @@ import * as tf from '@tensorflow/tfjs';
 import * as mobilenet from '@tensorflow-models/mobilenet';
 import { MediterraneanCulture, AgriculturalDisease, DiagnosticResult } from '../types';
 import { MEDITERRANEAN_DISEASES } from '../data/agriculturalDiseases';
+import { useStore } from '../store/useStore';
 
 interface PestDetectionProps {
   onSaveDiagnostic?: (diagnostic: DiagnosticResult) => void;
@@ -26,6 +27,7 @@ interface PestDetectionProps {
 }
 
 const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagnostic }) => {
+  const { setPermission } = useStore();
   const [status, setStatus] = useState<'idle' | 'loading' | 'scanning' | 'result'>('idle');
   const [selectedCulture, setSelectedCulture] = useState<MediterraneanCulture>('Vinha');
   const [result, setResult] = useState<{
@@ -79,6 +81,7 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
+        setPermission('camera', true);
       }
     } catch (err) {
       console.error("Camera access denied:", err);
@@ -143,42 +146,6 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
     <div className="flex flex-col h-full space-y-4 pb-24">
 
       {/* 2. PREDICTIVE RISK HUD */}
-      {diseaseRisk && status !== 'scanning' && status !== 'result' && (
-        <div className="bg-gradient-to-br from-[#111] to-[#222] p-5 rounded-[2rem] border border-white/5 shadow-2xl overflow-hidden relative">
-          <div className="absolute top-0 right-0 p-16 bg-blue-500/10 blur-[50px] rounded-full pointer-events-none" />
-
-          <div className="flex items-center justify-between mb-4 relative z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-2xl flex items-center justify-center text-blue-400">
-                <Brain size={20} />
-              </div>
-              <div>
-                <h4 className="font-black text-white text-sm uppercase tracking-tighter">Oriva AI Predictor</h4>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Condições Biométricas</p>
-              </div>
-            </div>
-            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${diseaseRisk.percentage > 70 ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-              }`}>
-              Risco {diseaseRisk.level}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 relative z-10">
-            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
-              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><Thermometer size={10} /> Temp</p>
-              <p className="text-xs font-black text-white">{diseaseRisk.factors.temp}</p>
-            </div>
-            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
-              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><Droplets size={10} /> Humíd.</p>
-              <p className="text-xs font-black text-white">{diseaseRisk.factors.humidity}</p>
-            </div>
-            <div className="bg-white/5 rounded-2xl p-3 border border-white/5 text-center">
-              <p className="text-[9px] font-bold text-gray-500 uppercase mb-1 flex items-center justify-center gap-1"><CloudRain size={10} /> Chuva</p>
-              <p className="text-xs font-black text-white">{diseaseRisk.factors.rain}</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 1. CULTURE SELECTOR (Oriva Vision v2 Specific) - MOVED DOWN */}
       {status !== 'scanning' && status !== 'result' && (

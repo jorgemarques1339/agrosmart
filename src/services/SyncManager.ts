@@ -88,7 +88,10 @@ export class SyncManager {
 
     public startAutoSync(ms: number = 30000) {
         if (this.syncInterval) clearInterval(this.syncInterval);
-        this.syncInterval = setInterval(() => this.processQueue(), ms);
+        this.syncInterval = setInterval(() => {
+            this.processQueue();
+            this.monitorIoTHealth();
+        }, ms);
     }
 
     public stopAutoSync() {
@@ -96,6 +99,48 @@ export class SyncManager {
             clearInterval(this.syncInterval);
             this.syncInterval = null;
         }
+    }
+
+    public monitorIoTHealth() {
+        const { fields, addNotification, notifications } = useStore.getState();
+        const CRITICAL_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+        // const CRITICAL_THRESHOLD_MS = 60 * 1000; // Debug: 1 min
+
+        fields.forEach(field => {
+            if (!field.sensors) return;
+
+            field.sensors.forEach(sensor => {
+                const lastSeen = new Date(sensor.lastSeen).getTime();
+                const now = Date.now();
+                const diff = now - lastSeen;
+
+                if (diff > CRITICAL_THRESHOLD_MS) {
+                    // Check if already notified to avoid spam
+                    const alreadyNotified = notifications.some(n =>
+                        n.relatedId === sensor.id &&
+                        n.type === 'critical' &&
+                        !n.read
+                    );
+
+                    if (!alreadyNotified) {
+                        console.warn(`CRITICAL: Sensor ${sensor.name} silent for ${Math.floor(diff / 3600000)}h`);
+
+                        addNotification({
+                            id: `iot-alert-${sensor.id}-${Date.now()}`,
+                            title: 'Falha Crítica de Hardware',
+                            message: `O sensor "${sensor.name}" não comunica há mais de 24h. Verifique a bateria ou conexão.`,
+                            type: 'critical',
+                            timestamp: new Date().toISOString(),
+                            read: false,
+                            relatedId: sensor.id,
+                            actionLink: `app://dashboard/map?lat=${field.coordinates[0]}&lng=${field.coordinates[1]}&sensorId=${sensor.id}`
+                        });
+
+                        haptics.error(); // Vibrate on critical alert
+                    }
+                }
+            });
+        });
     }
 }
 

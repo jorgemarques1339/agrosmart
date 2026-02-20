@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Plus, FileCheck, X, QrCode, Package, Calendar, ArrowRight, Save } from 'lucide-react';
+import { Wifi, Plus, FileCheck, X, QrCode, Package, Calendar, ArrowRight, Save, MapPin, Navigation, Sparkles } from 'lucide-react';
 import { Field, StockItem, Employee, ProductBatch, FieldLog, Sensor } from '../types';
 import { CROP_TYPES } from '../constants';
 import FieldCard from './FieldCard';
 import FieldNotebook from './FieldNotebook';
 import IoTPairingWizard from './IoTPairingWizard';
+import RouteOptimizationModal from './RouteOptimizationModal';
+import { useStore } from '../store/useStore';
 
 interface CultivationViewProps {
     fields: Field[];
@@ -45,17 +47,22 @@ const CultivationView: React.FC<CultivationViewProps> = ({
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [showIoTWizard, setShowIoTWizard] = useState(false);
     const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showRouteOptimizer, setShowRouteOptimizer] = useState(false);
     const [anyFieldOpen, setAnyFieldOpen] = useState(false);
+
+    const detailedForecast = useStore(state => state.detailedForecast);
 
     const [newName, setNewName] = useState('');
     const [newArea, setNewArea] = useState('');
+    const [newLat, setNewLat] = useState('41.442');
+    const [newLng, setNewLng] = useState('-8.723');
     const [selectedCrop, setSelectedCrop] = useState(CROP_TYPES[0]);
 
     useEffect(() => {
         if (onModalChange) {
-            onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal);
+            onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal || showRouteOptimizer);
         }
-    }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, onModalChange]);
+    }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, showRouteOptimizer, onModalChange]);
 
     const handleSubmit = () => {
         if (newName && newArea) {
@@ -63,11 +70,20 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                 name: newName,
                 areaHa: parseFloat(newArea),
                 crop: selectedCrop.label,
-                emoji: selectedCrop.emoji
-            });
-            setIsModalOpen(false);
+                emoji: selectedCrop.emoji,
+                coordinates: [parseFloat(newLat) || 41.442, parseFloat(newLng) || -8.723],
+                polygon: [
+                    [parseFloat(newLat) || 41.442, parseFloat(newLng) || -8.723],
+                    [(parseFloat(newLat) || 41.442) + 0.001, (parseFloat(newLng) || -8.723) + 0.002],
+                    [(parseFloat(newLat) || 41.442) - 0.001, (parseFloat(newLng) || -8.723) + 0.003],
+                    [(parseFloat(newLat) || 41.442) - 0.002, (parseFloat(newLng) || -8.723) - 0.001]
+                ]
+            } as any);
             setNewName('');
             setNewArea('');
+            setNewLat('41.442');
+            setNewLng('-8.723');
+            setIsModalOpen(false);
             setSelectedCrop(CROP_TYPES[0]);
         }
     };
@@ -92,6 +108,17 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                             <Wifi size={22} />
                         </button>
                         <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400">IoT</span>
+                    </div>
+
+                    <div className="flex flex-col items-center gap-1">
+                        <button
+                            onClick={() => setShowRouteOptimizer(true)}
+                            className="w-12 h-12 rounded-full bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 flex items-center justify-center active:scale-95 transition-transform"
+                            title="Otimizar Rota de Tratamento"
+                        >
+                            <Sparkles size={22} />
+                        </button>
+                        <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400">Otimizar</span>
                     </div>
 
                     <div className="flex flex-col items-center gap-1">
@@ -187,61 +214,106 @@ const CultivationView: React.FC<CultivationViewProps> = ({
             )}
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsModalOpen(false)}>
+                <div className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4" onClick={() => setIsModalOpen(false)}>
                     <div
-                        className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20"
+                        className="bg-white dark:bg-neutral-900 w-full max-w-2xl p-6 md:p-10 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border border-white/20 overflow-y-auto max-h-[95vh] md:max-h-[90vh] custom-scrollbar"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-bold dark:text-white">Novo Cultivo</h3>
-                            <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                                <X size={20} className="dark:text-white" />
+                        <div className="flex justify-between items-center mb-8">
+                            <div>
+                                <h3 className="text-2xl md:text-3xl font-black dark:text-white uppercase italic tracking-tighter flex items-center gap-2">
+                                    <Plus className="text-agro-green" size={28} /> Novo Cultivo
+                                </h3>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Registo Geográfico e Agronómico</p>
+                            </div>
+                            <button onClick={() => setIsModalOpen(false)} className="p-3 bg-gray-100 dark:bg-neutral-800 rounded-full hover:bg-gray-200 transition-colors">
+                                <X size={24} className="dark:text-white" />
                             </button>
                         </div>
 
-                        <div className="space-y-5">
-                            <div>
-                                <label className="text-xs font-bold uppercase text-gray-400 ml-2">Nome do Campo</label>
-                                <input
-                                    autoFocus
-                                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white border-2 border-transparent focus:border-agro-green outline-none text-lg font-bold"
-                                    placeholder="Ex: Vinha Norte"
-                                    value={newName}
-                                    onChange={e => setNewName(e.target.value)}
-                                />
-                            </div>
+                        <div className="space-y-8">
+                            {/* Section 1: Identificação */}
+                            <div className="bg-gray-50/50 dark:bg-black/20 p-5 rounded-[2rem] border border-gray-100 dark:border-white/5">
+                                <h4 className="text-[10px] font-black uppercase text-agro-green tracking-widest mb-4 flex items-center gap-2">
+                                    <FileCheck size={14} /> Identificação da Parcela
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 ml-2">Nome do Campo</label>
+                                        <input
+                                            autoFocus
+                                            className="w-full p-4 bg-white dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white border-2 border-transparent focus:border-agro-green outline-none text-lg font-bold shadow-sm"
+                                            placeholder="Ex: Vinha Norte"
+                                            value={newName}
+                                            onChange={e => setNewName(e.target.value)}
+                                        />
+                                    </div>
 
-                            <div>
-                                <label className="text-xs font-bold uppercase text-gray-400 ml-2">Área (Hectares)</label>
-                                <div className="relative">
-                                    <input
-                                        type="number"
-                                        inputMode="decimal"
-                                        className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-lg font-bold"
-                                        placeholder="0.0"
-                                        value={newArea}
-                                        onChange={e => setNewArea(e.target.value)}
-                                    />
-                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold bg-gray-200 dark:bg-neutral-700 px-2 py-1 rounded-lg text-xs">
-                                        ha
-                                    </span>
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 ml-2">Área (Hectares)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                inputMode="decimal"
+                                                className="w-full p-4 bg-white dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-lg font-bold border-2 border-transparent focus:border-agro-green shadow-sm"
+                                                placeholder="0.0"
+                                                value={newArea}
+                                                onChange={e => setNewArea(e.target.value)}
+                                            />
+                                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold bg-gray-100 dark:bg-neutral-700 px-3 py-1.5 rounded-xl text-xs">
+                                                ha
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
+                            {/* Section 2: Localização */}
+                            <div className="bg-gray-50/50 dark:bg-black/20 p-5 rounded-[2rem] border border-gray-100 dark:border-white/5">
+                                <h4 className="text-[10px] font-black uppercase text-indigo-500 tracking-widest mb-4 flex items-center gap-2">
+                                    <MapPin size={14} /> Coordenadas de Referência
+                                </h4>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 ml-2">Latitude</label>
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            className="w-full p-4 bg-white dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-base font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm"
+                                            placeholder="41.442"
+                                            value={newLat}
+                                            onChange={e => setNewLat(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 ml-2">Longitude</label>
+                                        <input
+                                            type="number"
+                                            inputMode="decimal"
+                                            className="w-full p-4 bg-white dark:bg-neutral-800 rounded-2xl mt-1 dark:text-white outline-none text-base font-bold border-2 border-transparent focus:border-indigo-500 shadow-sm"
+                                            placeholder="-8.723"
+                                            value={newLng}
+                                            onChange={e => setNewLng(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 3: Cultura */}
                             <div>
-                                <label className="text-xs font-bold uppercase text-gray-400 ml-2">Tipo de Cultura</label>
-                                <div className="grid grid-cols-4 gap-2 mt-2">
+                                <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2 mb-3 block">Tipo de Cultura Sugerida</label>
+                                <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                                     {CROP_TYPES.map((crop) => (
                                         <button
                                             key={crop.label}
                                             onClick={() => setSelectedCrop(crop)}
-                                            className={`flex flex-col items-center justify-center p-2 rounded-2xl transition-all border-2 ${selectedCrop.label === crop.label
-                                                ? 'bg-agro-green/10 border-agro-green'
-                                                : 'bg-gray-5 dark:bg-neutral-800 border-transparent hover:bg-gray-100 dark:hover:bg-neutral-700'
+                                            className={`flex flex-col items-center justify-center p-3 rounded-2xl transition-all border-2 active:scale-95 ${selectedCrop.label === crop.label
+                                                ? 'bg-agro-green/10 border-agro-green shadow-md'
+                                                : 'bg-white dark:bg-neutral-800 border-white/20 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10'
                                                 }`}
                                         >
-                                            <span className="text-2xl mb-1">{crop.emoji}</span>
-                                            <span className={`text-[10px] font-bold ${selectedCrop.label === crop.label ? 'text-agro-green' : 'text-gray-500'}`}>
+                                            <span className="text-2xl md:text-3xl mb-1">{crop.emoji}</span>
+                                            <span className={`text-[9px] md:text-[10px] font-black uppercase truncate w-full text-center ${selectedCrop.label === crop.label ? 'text-agro-green' : 'text-gray-400'}`}>
                                                 {crop.label}
                                             </span>
                                         </button>
@@ -252,13 +324,12 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                             <button
                                 onClick={handleSubmit}
                                 disabled={!newName || !newArea}
-                                className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-lg flex items-center justify-center gap-2 mt-4 transition-all ${!newName || !newArea
-                                    ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed'
-                                    : 'bg-agro-green text-white active:scale-95 shadow-agro-green/30'
+                                className={`w-full py-5 rounded-[2rem] font-black text-xl shadow-xl flex items-center justify-center gap-3 mt-6 transition-all active:scale-95 ${!newName || !newArea
+                                    ? 'bg-gray-200 dark:bg-neutral-800 text-gray-400 cursor-not-allowed shadow-none'
+                                    : 'bg-agro-green text-white hover:bg-green-600 shadow-agro-green/30'
                                     }`}
                             >
-                                <Save size={20} />
-                                Criar Cultivo
+                                <Save size={24} /> Confirmar Registo
                             </button>
                         </div>
                     </div>
@@ -276,16 +347,17 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                 onSave={onAddLog}
             />
 
-            {showIoTWizard && (
-                <IoTPairingWizard
-                    onClose={() => setShowIoTWizard(false)}
-                    fields={fields}
-                    onPair={(fieldId: string, sensor: Sensor) => {
-                        onRegisterSensor(fieldId, sensor);
-                    }}
-                />
-            )}
-        </div>
+            {
+                showRouteOptimizer && (
+                    <RouteOptimizationModal
+                        isOpen={showRouteOptimizer}
+                        onClose={() => setShowRouteOptimizer(false)}
+                        fields={fields}
+                        forecast={detailedForecast}
+                    />
+                )
+            }
+        </div >
     );
 };
 

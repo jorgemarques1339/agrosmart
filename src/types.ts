@@ -23,6 +23,12 @@ export interface UserProfile {
   role: 'admin' | 'operator';
   avatar: string; // URL ou Initials
   specialty?: string; // ex: "Veterinária", "Máquinas"
+  safetyStatus?: {
+    status: 'safe' | 'warning' | 'emergency';
+    lastMovement: string; // ISO timestamp
+    location?: [number, number];
+    batteryLevel?: number;
+  };
 }
 
 export interface Task {
@@ -55,6 +61,18 @@ export interface AnimalEvent {
   date: string;
   type: 'birth' | 'insemination' | 'heat' | 'dry-off';
   description: string;
+}
+
+export interface AnimalBatch {
+  id: string;
+  name: string;
+  species: string; // e.g. "Ovinos", "Suínos"
+  animalCount: number;
+  averageWeight: number;
+  status: 'healthy' | 'sick' | 'attention';
+  productionHistory: ProductionRecord[]; // For batch average weight tracking etc
+  history: FieldLog[]; // Mass actions history
+  lastCheckup: string;
 }
 
 export interface Animal {
@@ -134,6 +152,12 @@ export interface Sensor {
   signalStrength: number; // 0-100 (RSSI logic)
   lastSeen: string;
   status: 'online' | 'offline' | 'pairing';
+  metadata?: {
+    protocol: 'mqtt' | 'ble' | 'serial';
+    deviceId?: string; // BLE device ID or Serial Port path
+    serviceUuid?: string;
+    characteristicUuid?: string;
+  };
 }
 
 export interface Field {
@@ -154,6 +178,7 @@ export interface Field {
   logs: FieldLog[]; // Journal
   sensors?: Sensor[]; // Connected IoT Devices
   missions?: Mission[]; // Autonomous Missions (Drones/Robots)
+  slope?: number; // Average terrain slope in degrees
 }
 
 export interface Mission {
@@ -239,6 +264,11 @@ export interface Machine {
   fuelLevel: number; // 0-100%
   stressLevel: number; // 0-100 (Mechanical Stress AI Index)
   image?: string;
+  specs: {
+    powerHp: number;
+    fuelCapacity: number;
+    maxSpeed: number;
+  };
   logs: MaintenanceLog[];
   isobusData?: ISOBUSData; // Conceptual ISOBUS Bridge data
 }
@@ -305,9 +335,12 @@ export interface AppState {
   fields: Field[];
   stocks: StockItem[];
   transactions: Transaction[];
+  animalBatches: AnimalBatch[];
   machines: Machine[];
   employees: Employee[];
   harvests: ProductBatch[];
+  notifications: Notification[];
+  reclaimCredits: (amount: number, value: number) => Promise<void>;
 }
 
 export interface Notification {

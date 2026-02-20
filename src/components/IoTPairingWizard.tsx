@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown, Save } from 'lucide-react';
+import { X, Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown, Save, Bluetooth, Usb, Globe } from 'lucide-react';
 import mqtt from 'mqtt';
 import { Field, Sensor } from '../types';
 
@@ -13,15 +13,95 @@ interface IoTPairingWizardProps {
 }
 
 const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, onPair }) => {
-    const [scanStatus, setScanStatus] = useState<'idle' | 'scanning' | 'found'>('idle');
+    const [scanStatus, setScanStatus] = useState<'idle' | 'protocol_choice' | 'scanning' | 'found'>('idle');
+    const [protocol, setProtocol] = useState<'mqtt' | 'bluetooth' | 'serial' | null>(null);
     const [foundDevices, setFoundDevices] = useState<Sensor[]>([]);
     const [selectedDevice, setSelectedDevice] = useState<Sensor | null>(null);
     const [customDeviceName, setCustomDeviceName] = useState('');
     const [selectedFieldId, setSelectedFieldId] = useState('');
 
+    const scanBluetooth = async () => {
+        if (!('bluetooth' in navigator)) {
+            alert("O seu browser não suporta Web Bluetooth.");
+            return;
+        }
+
+        try {
+            setScanStatus('scanning');
+            // @ts-ignore - Web Bluetooth API
+            const device = await (navigator as any).bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: ['battery_service', 'environmental_sensing']
+            });
+
+            const newSensor: Sensor = {
+                id: device.id,
+                name: device.name || 'Sensor Bluetooth',
+                type: 'moisture',
+                batteryLevel: 100,
+                signalStrength: 100,
+                lastSeen: new Date().toISOString(),
+                status: 'pairing',
+                metadata: {
+                    protocol: 'ble',
+                    deviceId: device.id
+                }
+            };
+
+            setFoundDevices([newSensor]);
+            setScanStatus('found');
+        } catch (err) {
+            console.error(err);
+            setScanStatus('idle');
+        }
+    };
+
+    const scanSerial = async () => {
+        if (!('serial' in navigator)) {
+            alert("O seu browser não suporta Web Serial.");
+            return;
+        }
+
+        try {
+            setScanStatus('scanning');
+            // @ts-ignore - Web Serial API
+            const port = await (navigator as any).serial.requestPort();
+            await port.open({ baudRate: 9600 });
+
+            const newSensor: Sensor = {
+                id: `serial-${Math.floor(Math.random() * 1000)}`,
+                name: 'Sensor Serial (USB)',
+                type: 'moisture',
+                batteryLevel: 100,
+                signalStrength: 100,
+                lastSeen: new Date().toISOString(),
+                status: 'pairing',
+                metadata: {
+                    protocol: 'serial',
+                    deviceId: 'com-port'
+                }
+            };
+
+            setFoundDevices([newSensor]);
+            setScanStatus('found');
+        } catch (err) {
+            console.error(err);
+            setScanStatus('idle');
+        }
+    };
+
     const startScanning = () => {
+        if (protocol === 'bluetooth') {
+            scanBluetooth();
+            return;
+        }
+        if (protocol === 'serial') {
+            scanSerial();
+            return;
+        }
+
         if (!navigator.onLine) {
-            alert("A pesquisa de sensores requer conexão à internet. Verifique o seu sinal.");
+            alert("A pesquisa de sensores via Cloud requer conexão à internet.");
             return;
         }
 
@@ -35,28 +115,16 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
             setTimeout(() => {
                 const mockSensor1: Sensor = {
                     id: `lora-${Math.floor(Math.random() * 10000)}`,
-                    name: 'Oriva Soil Probe v2',
+                    name: 'Oriva Soil Probe v2 (Cloud)',
                     type: 'moisture',
                     batteryLevel: 98,
                     signalStrength: -65,
                     lastSeen: new Date().toISOString(),
-                    status: 'pairing'
+                    status: 'pairing',
+                    metadata: { protocol: 'mqtt' }
                 };
                 client.publish(MQTT_TOPIC_SCAN, JSON.stringify(mockSensor1));
-            }, 1500);
-
-            setTimeout(() => {
-                const mockSensor2: Sensor = {
-                    id: `ble-${Math.floor(Math.random() * 10000)}`,
-                    name: 'Weather Station Mini',
-                    type: 'weather',
-                    batteryLevel: 45,
-                    signalStrength: -82,
-                    lastSeen: new Date().toISOString(),
-                    status: 'pairing'
-                };
-                client.publish(MQTT_TOPIC_SCAN, JSON.stringify(mockSensor2));
-            }, 3000);
+            }, 1000);
         });
 
         client.on('message', (topic, message) => {
@@ -76,7 +144,7 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
         setTimeout(() => {
             client.end();
             setScanStatus('found');
-        }, 5500);
+        }, 4000);
     };
 
     const confirmPairing = () => {
@@ -109,12 +177,45 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                                 <Signal size={16} className="text-blue-600" />
                             </div>
                         </div>
-                        <p className="text-sm text-gray-500 font-medium mb-6 px-4">
-                            Aproxime o dispositivo para iniciar a descoberta via LoRaWAN / Bluetooth.
+                        <h4 className="font-bold dark:text-white mb-2 text-lg">Ponte IoT</h4>
+                        <p className="text-sm text-gray-500 font-medium mb-6 px-4 leading-relaxed">
+                            Como deseja ligar o seu sensor?
                         </p>
-                        <button onClick={startScanning} className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform">
-                            Iniciar Scan
-                        </button>
+
+                        <div className="grid grid-cols-1 gap-3 mb-6">
+                            <button
+                                onClick={() => { setProtocol('bluetooth'); startScanning(); }}
+                                className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/10 hover:bg-blue-100 dark:hover:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 rounded-2xl transition-all"
+                            >
+                                <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl text-blue-600 shadow-sm"><Bluetooth size={20} /></div>
+                                <div className="text-left">
+                                    <p className="text-sm font-black text-blue-900 dark:text-blue-100">Bluetooth (BLE)</p>
+                                    <p className="text-[10px] font-bold text-blue-500/60 uppercase">Hardware Próximo</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => { setProtocol('serial'); startScanning(); }}
+                                className="flex items-center gap-4 p-4 bg-agro-green/5 dark:bg-agro-green/10 hover:bg-agro-green/10 dark:hover:bg-agro-green/20 border border-agro-green/10 dark:border-agro-green/20 rounded-2xl transition-all"
+                            >
+                                <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl text-agro-green shadow-sm"><Usb size={20} /></div>
+                                <div className="text-left">
+                                    <p className="text-sm font-black text-agro-green dark:text-green-100">Web Serial (USB)</p>
+                                    <p className="text-[10px] font-bold text-agro-green/60 uppercase">Ligação por Cabo</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={() => { setProtocol('mqtt'); startScanning(); }}
+                                className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-neutral-800/50 hover:bg-gray-100 dark:hover:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl transition-all"
+                            >
+                                <div className="p-3 bg-white dark:bg-neutral-800 rounded-xl text-gray-500 shadow-sm"><Globe size={20} /></div>
+                                <div className="text-left">
+                                    <p className="text-sm font-black text-gray-900 dark:text-white font-mono">MQTT Cloud</p>
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase">Longa Distância / LoRa</p>
+                                </div>
+                            </button>
+                        </div>
                     </div>
                 )}
 
@@ -129,12 +230,12 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                             </div>
                         </div>
                         <h4 className="font-bold text-gray-900 dark:text-white mb-2">A procurar dispositivos...</h4>
-                        <p className="text-xs text-gray-500 mb-6">Mantenha o sensor ligado e próximo.</p>
-                        <div className="w-full space-y-2">
+                        <p className="text-xs text-gray-500 mb-6"> {protocol === 'bluetooth' ? 'Procure o sensor na janela do browser.' : protocol === 'serial' ? 'Selecione a porta USB.' : 'Mantenha o sensor ligado e próximo.'}</p>
+                        <div className="w-full space-y-2 mb-6">
                             {foundDevices.map(device => (
                                 <div key={device.id} className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl flex items-center gap-3 animate-slide-up">
                                     <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl">
-                                        {device.type === 'moisture' ? <Droplets size={16} /> : <Activity size={16} />}
+                                        {device.metadata?.protocol === 'ble' ? <Bluetooth size={16} className="text-blue-500" /> : device.metadata?.protocol === 'serial' ? <Usb size={16} className="text-agro-green" /> : <Globe size={16} className="text-gray-400" />}
                                     </div>
                                     <div className="flex-1">
                                         <p className="text-xs font-bold dark:text-white">{device.name}</p>
@@ -144,6 +245,8 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                                 </div>
                             ))}
                         </div>
+
+                        <button onClick={() => setScanStatus('idle')} className="text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors">Cancelar pesquisa</button>
                     </div>
                 )}
 
@@ -158,7 +261,10 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                             <>
                                 {!selectedDevice ? (
                                     <>
-                                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Selecione um dispositivo</p>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <p className="text-xs font-bold text-gray-400 uppercase">Selecione um dispositivo</p>
+                                            <button onClick={() => setScanStatus('idle')} className="text-[10px] font-bold text-agro-green uppercase tracking-tighter">Mudar Modo</button>
+                                        </div>
                                         <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scrollbar">
                                             {foundDevices.map(device => (
                                                 <button
@@ -167,7 +273,7 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                                                     className="w-full bg-gray-50 dark:bg-neutral-800 hover:bg-green-50 dark:hover:bg-green-900/10 p-3 rounded-2xl flex items-center gap-3 border-2 border-transparent hover:border-agro-green transition-all text-left"
                                                 >
                                                     <div className="p-2 bg-white dark:bg-neutral-700 rounded-xl shadow-sm">
-                                                        {device.type === 'moisture' ? <Droplets size={18} /> : <Activity size={18} />}
+                                                        {device.metadata?.protocol === 'ble' ? <Bluetooth size={18} className="text-blue-500" /> : device.metadata?.protocol === 'serial' ? <Usb size={18} className="text-agro-green" /> : <Globe size={18} className="text-gray-400" />}
                                                     </div>
                                                     <div className="flex-1">
                                                         <p className="text-sm font-bold dark:text-white">{device.name}</p>
@@ -220,7 +326,7 @@ const IoTPairingWizard: React.FC<IoTPairingWizardProps> = ({ onClose, fields, on
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 };
 

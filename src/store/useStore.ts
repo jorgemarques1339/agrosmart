@@ -4,10 +4,10 @@ import { syncManager } from '../services/SyncManager';
 import {
     Field, StockItem, Animal, Machine, Transaction, Task,
     UserProfile, Notification, ProductBatch, FieldLog, Sensor, MaintenanceLog,
-    WeatherForecast, DetailedForecast
+    WeatherForecast, DetailedForecast, AnimalBatch
 } from '../types';
 
-interface AppState {
+export interface AppState {
     fields: Field[];
     stocks: StockItem[];
     animals: Animal[];
@@ -16,6 +16,7 @@ interface AppState {
     tasks: Task[];
     notifications: Notification[];
     users: UserProfile[];
+    animalBatches: AnimalBatch[];
     harvests: ProductBatch[];
     isHydrated: boolean;
 
@@ -27,6 +28,12 @@ interface AppState {
     weatherData: WeatherForecast[];
     detailedForecast: DetailedForecast[];
     currentUserId: string;
+    permissions: {
+        gps: boolean;
+        camera: boolean;
+        nfc: boolean;
+        motion: boolean;
+    };
 
     // Hydration & Persistence
     hydrate: () => Promise<void>;
@@ -39,6 +46,7 @@ interface AppState {
     setWeatherData: (data: WeatherForecast[]) => void;
     setDetailedForecast: (data: DetailedForecast[]) => void;
     setCurrentUserId: (id: string) => void;
+    setPermission: (key: keyof AppState['permissions'], status: boolean) => void;
 
     // Handlers (extracted from App.tsx)
     setFields: (fields: Field[]) => void;
@@ -53,6 +61,13 @@ interface AppState {
 
     addAnimal: (animal: Animal) => Promise<void>;
     updateAnimal: (id: string, updates: Partial<Animal>) => Promise<void>;
+    addProduction: (id: string, value: number, type: 'milk' | 'weight') => Promise<void>;
+
+    addAnimalBatch: (batch: AnimalBatch) => Promise<void>;
+    updateAnimalBatch: (id: string, updates: Partial<AnimalBatch>) => Promise<void>;
+    deleteAnimalBatch: (id: string) => Promise<void>;
+    reclaimCredits: (amount: number, value: number) => Promise<void>;
+    applyBatchAction: (batchId: string, actionType: string, description: string) => Promise<void>;
 
     addMachine: (machine: Machine) => Promise<void>;
     updateMachine: (id: string, updates: Partial<Machine>) => Promise<void>;
@@ -60,6 +75,8 @@ interface AppState {
     addTask: (task: Task) => Promise<void>;
     updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     deleteTask: (id: string) => Promise<void>;
+
+    updateUser: (id: string, updates: Partial<UserProfile>) => Promise<void>;
 
     addTransaction: (tx: Transaction) => Promise<void>;
 
@@ -71,6 +88,10 @@ interface AppState {
     addLogToField: (fieldId: string, log: FieldLog, transaction?: Transaction, stockUpdate?: { id: string, quantity: number }) => Promise<void>;
     registerSale: (saleData: { stockId: string, quantity: number, transaction: Transaction, fieldLog?: { fieldId: string, log: FieldLog } }) => Promise<void>;
     harvestField: (fieldId: string, stockItem: StockItem, harvest: ProductBatch) => Promise<void>;
+
+    // Map Focus
+    focusedTarget: { type: 'sensor' | 'field', id: string } | null;
+    setFocusedTarget: (target: { type: 'sensor' | 'field', id: string } | null) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -82,8 +103,10 @@ export const useStore = create<AppState>((set, get) => ({
     tasks: [],
     notifications: [],
     users: [],
+    animalBatches: [],
     harvests: [],
     isHydrated: false,
+    focusedTarget: null,
 
     // UI Initial
     activeTab: 'dashboard',
@@ -92,7 +115,13 @@ export const useStore = create<AppState>((set, get) => ({
     isOnline: navigator.onLine,
     weatherData: [],
     detailedForecast: [],
-    currentUserId: localStorage.getItem('oriva_current_user') || 'u1',
+    currentUserId: localStorage.getItem('oriva_current_user') || 'user-1',
+    permissions: {
+        gps: false,
+        camera: false,
+        nfc: false,
+        motion: false
+    },
 
     hydrate: async () => {
         // Migration logic during hydration
@@ -108,6 +137,7 @@ export const useStore = create<AppState>((set, get) => ({
                 if (data.tasks?.length) await db.tasks.bulkPut(data.tasks);
                 if (data.notifications?.length) await db.notifications.bulkPut(data.notifications);
                 if (data.users?.length) await db.users.bulkPut(data.users);
+                if (data.animalBatches?.length) await db.animalBatches.bulkPut(data.animalBatches);
                 if (data.harvests?.length) await db.harvests.bulkPut(data.harvests);
 
                 localStorage.removeItem('oriva_enterprise_v1');
@@ -116,7 +146,7 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
-        const [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests] = await Promise.all([
+        const [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches] = await Promise.all([
             db.fields.toArray(),
             db.stocks.toArray(),
             db.animals.toArray(),
@@ -126,6 +156,7 @@ export const useStore = create<AppState>((set, get) => ({
             db.notifications.toArray(),
             db.users.toArray(),
             db.harvests.toArray(),
+            db.animalBatches.toArray(),
         ]);
 
         // [AUTO-PATCH] Ensure Trator Principal (m1) has ISO-BUS data for demo
@@ -172,7 +203,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         set({
-            fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests,
+            fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches,
             isHydrated: true
         });
     },
@@ -188,11 +219,14 @@ export const useStore = create<AppState>((set, get) => ({
     },
     setOnline: (isOnline) => set({ isOnline }),
     setWeatherData: (weatherData) => set({ weatherData }),
-    setDetailedForecast: (detailedForecast) => set({ detailedForecast }),
+    setDetailedForecast: (data) => set({ detailedForecast: data }),
     setCurrentUserId: (id) => {
         localStorage.setItem('oriva_current_user', id);
         set({ currentUserId: id });
     },
+    setPermission: (key, status) => set(state => ({
+        permissions: { ...state.permissions, [key]: status }
+    })),
 
     setFields: (fields) => set({ fields }),
 
@@ -244,6 +278,98 @@ export const useStore = create<AppState>((set, get) => ({
         }));
     },
 
+    addProduction: async (id, value, type) => {
+        const animal = get().animals.find(a => a.id === id);
+        if (!animal) return;
+
+        const record = { date: new Date().toISOString().split('T')[0], value, type };
+        const updates: Partial<Animal> = {
+            productionHistory: [...(animal.productionHistory || []), record],
+            weight: type === 'weight' ? value : animal.weight
+        };
+
+        await db.animals.update(id, updates);
+        set(state => ({
+            animals: state.animals.map(a => a.id === id ? { ...a, ...updates } : a)
+        }));
+    },
+
+    addAnimalBatch: async (batch) => {
+        await db.animalBatches.add(batch);
+        set(state => ({ animalBatches: [...state.animalBatches, batch] }));
+    },
+
+    updateAnimalBatch: async (id, updates) => {
+        await db.animalBatches.update(id, updates);
+        set(state => ({
+            animalBatches: state.animalBatches.map(b => b.id === id ? { ...b, ...updates } : b)
+        }));
+    },
+
+    deleteAnimalBatch: async (id) => {
+        await db.animalBatches.delete(id);
+        set(state => ({ animalBatches: state.animalBatches.filter(b => b.id !== id) }));
+    },
+
+    reclaimCredits: async (amount: number, value: number) => {
+        const transaction: Transaction = {
+            id: `carbon-${Date.now()}`,
+            date: new Date().toISOString().split('T')[0],
+            type: 'income',
+            amount: value,
+            description: `Créditos de Carbono: ${amount} tCO2e Verificados`,
+            category: 'Carbono'
+        };
+
+        const notification: Notification = {
+            id: `notif-carbon-${Date.now()}`,
+            title: 'Créditos Verificados',
+            message: `Gerados €${value.toLocaleString()} em créditos de carbono auditados.`,
+            type: 'success',
+            timestamp: new Date().toISOString(),
+            read: false
+        };
+
+        await db.transactions.add(transaction);
+        await db.notifications.add(notification);
+
+        set(state => ({
+            transactions: [transaction, ...state.transactions],
+            notifications: [notification, ...state.notifications]
+        }));
+    },
+
+    applyBatchAction: async (batchId, actionType, description) => {
+        const batch = get().animalBatches.find(b => b.id === batchId);
+        if (!batch) return;
+
+        const log: FieldLog = {
+            id: Date.now().toString(),
+            date: new Date().toISOString().split('T')[0],
+            type: 'treatment',
+            description: `${actionType}: ${description}`
+        };
+
+        const newHistory = [...(batch.history || []), log];
+        await db.animalBatches.update(batchId, { history: newHistory });
+
+        set(state => ({
+            animalBatches: state.animalBatches.map(b => b.id === batchId ? { ...b, history: newHistory } : b)
+        }));
+
+        // Also add a global notification
+        const notification: Notification = {
+            id: `notif-batch-${Date.now()}`,
+            title: `Ação em Massa: ${batch.name}`,
+            message: `${actionType} aplicada a todos os animais do lote.`,
+            type: 'info',
+            timestamp: new Date().toISOString(),
+            read: false
+        };
+        await db.notifications.add(notification);
+        set(state => ({ notifications: [notification, ...state.notifications] }));
+    },
+
     addMachine: async (machine) => {
         await db.machines.add(machine);
         set(state => ({ machines: [...state.machines, machine] }));
@@ -272,6 +398,13 @@ export const useStore = create<AppState>((set, get) => ({
     deleteTask: async (id) => {
         await db.tasks.delete(id);
         set(state => ({ tasks: state.tasks.filter(t => t.id !== id) }));
+    },
+
+    updateUser: async (id, updates) => {
+        await db.users.update(id, updates);
+        set(state => ({
+            users: state.users.map(u => u.id === id ? { ...u, ...updates } : u)
+        }));
     },
 
     addTransaction: async (tx) => {
@@ -363,5 +496,7 @@ export const useStore = create<AppState>((set, get) => ({
             harvests: [harvest, ...state.harvests],
             fields: state.fields.filter(f => f.id !== fieldId)
         }));
-    }
+    },
+
+    setFocusedTarget: (target) => set({ focusedTarget: target })
 }));

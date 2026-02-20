@@ -6,20 +6,24 @@ import {
   Coins, TrendingUp, TrendingDown, Wallet, Cpu, Signal,
   ShieldAlert, FileText, List, Workflow,
   Radio, Package, Wheat, Leaf, BarChart3, ScanEye, X, ArrowLeft,
-  Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon, Navigation
+  Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon, Navigation, BrainCircuit, Drone
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, Tooltip } from 'recharts';
 import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
-import jsPDF from 'jspdf';
+import OfflineTileLayer from './OfflineTileLayer';
+import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import IrrigationTwin from './IrrigationTwin';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Field, FieldLog, StockItem, Sensor } from '../types';
 import PestDetection from './PestDetection';
+import SoilScanner from './SoilScanner';
 import AutomationHub from './AutomationHub';
 import HarvestModal from './HarvestModal';
 import FieldRegistryModal, { RegistryType } from './FieldRegistryModal';
 import { useStore } from '../store/useStore';
+import { db } from '../services/db';
 import { calculateMildioRisk } from '../utils/diseaseModel';
 import MissionControl from './MissionControl';
 
@@ -218,7 +222,8 @@ const ActionMenu = ({
 
 const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onModalChange, onDelete, onAddLog, stocks = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions'>('sensors');
+  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions' | 'twin'>('sensors');
+  const [aiMode, setAiMode] = useState<'pests' | 'soil'>('pests');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
@@ -227,6 +232,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   // Registry Modal State
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [registryType, setRegistryType] = useState<RegistryType>('observation');
+  const [tileCount, setTileCount] = useState(0);
 
   const detailedForecast = useStore(state => state.detailedForecast);
   const diseaseRisk = useMemo(() => calculateMildioRisk(field, detailedForecast), [field, detailedForecast]);
@@ -297,6 +303,29 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
       onModalChange(isOpen || showHarvestModal || showActionMenu || showRegistryModal);
     }
   }, [isOpen, showHarvestModal, showActionMenu, showRegistryModal, onModalChange]);
+
+  // Deep Link / Focus Logic
+  const focusedTarget = useStore(state => state.focusedTarget);
+  useEffect(() => {
+    if (focusedTarget && focusedTarget.type === 'sensor') {
+      const hasSensor = field.sensors?.some(s => s.id === focusedTarget.id);
+      if (hasSensor) {
+        setIsOpen(true);
+        setActiveTab('sensors');
+      }
+    }
+  }, [focusedTarget, field.sensors]);
+
+  useEffect(() => {
+    const updateTileCount = async () => {
+      const count = await db.tiles.count();
+      setTileCount(count);
+    };
+    updateTileCount();
+    // Interval update for simplicity if user is panning
+    const interval = setInterval(updateTileCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const MapContainerAny = MapContainer as any;
 
@@ -605,13 +634,14 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
               <div className="max-w-7xl mx-auto pb-10 space-y-8">
 
                 {/* SEGMENTED TABS */}
-                <div className="flex p-1.5 bg-gray-200/50 dark:bg-white/5 rounded-[1.5rem] backdrop-blur-sm sticky top-0 md:relative z-40 mx-auto max-w-lg shadow-inner">
+                <div className="flex p-1.5 bg-gray-200/50 dark:bg-white/5 rounded-[1.5rem] backdrop-blur-sm sticky top-0 md:relative z-40 mx-auto w-full max-w-lg md:max-w-3xl lg:max-w-4xl shadow-inner">
                   {[
-                    { id: 'sensors', label: 'Dados ou Telemetria', icon: Activity },
-                    { id: 'missions', label: 'Veículos Autónomos', icon: Navigation },
+                    { id: 'sensors', label: 'Dados', icon: Activity },
+                    { id: 'twin', label: 'Digital-Twin', icon: Droplets },
+                    { id: 'missions', label: 'Autónomos', icon: Drone },
                     { id: 'journal', label: 'Diário', icon: FileText },
                     { id: 'gallery', label: 'Galeria', icon: ImageIcon },
-                    { id: 'ai', label: 'Oriva-Vision', icon: ScanEye },
+                    { id: 'ai', label: 'Agro-Vision', icon: ScanEye },
                   ].map(tab => (
                     <button
                       key={tab.id}
@@ -625,7 +655,8 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                         />
                       )}
                       <span className={clsx("flex items-center gap-2 relative z-10", activeTab === tab.id ? "text-agro-green dark:text-white" : "text-gray-500 opacity-70")}>
-                        <tab.icon size={16} /> <span className="hidden md:inline">{tab.label}</span>
+                        <tab.icon size={18} className="md:w-4 md:h-4" />
+                        <span className="hidden sm:inline-block text-[10px] md:text-xs tracking-tighter md:tracking-normal">{tab.label}</span>
                       </span>
                     </button>
                   ))}
@@ -650,7 +681,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                           dragging={true}
                           style={{ height: '100%', width: '100%' }}
                         >
-                          <TileLayer
+                          <OfflineTileLayer
                             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                             crossOrigin="anonymous"
                           />
@@ -663,7 +694,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                             <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10 flex flex-col gap-0.5">
                               <div className="flex items-center gap-1.5 opacity-70">
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
-                                <span className="text-[8px] font-black uppercase tracking-widest">Mapas Offline</span>
+                                <span className="text-[8px] font-black uppercase tracking-widest">Mapas Offline ({tileCount})</span>
                               </div>
                               <p className="text-xl font-black">{field.areaHa} <span className="text-sm font-bold opacity-70">HA</span></p>
                             </div>
@@ -743,7 +774,10 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                         {field.sensors && field.sensors.length > 0 ? (
                           <div className="space-y-2">
                             {field.sensors.map((sensor) => (
-                              <div key={sensor.id} className="bg-white dark:bg-neutral-900 border border-gray-100 dark:border-white/5 p-3 rounded-xl flex items-center justify-between shadow-sm">
+                              <div key={sensor.id} className={clsx(
+                                "bg-white dark:bg-neutral-900 border p-3 rounded-xl flex items-center justify-between shadow-sm transition-all duration-500",
+                                focusedTarget?.id === sensor.id ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/50 dark:bg-red-900/10 scale-[1.02]" : "border-gray-100 dark:border-white/5"
+                              )}>
                                 <div className="flex items-center gap-3">
                                   <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center",
                                     sensor.status === 'online' ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400" : "bg-gray-100 text-gray-400 dark:bg-white/5"
@@ -879,22 +913,117 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
                   )}
 
 
+                  {/* DIGITAL TWIN TAB */}
+                  {activeTab === 'twin' && (
+                    <motion.div
+                      key="twin"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                    >
+                      <IrrigationTwin
+                        field={field}
+                        forecast={detailedForecast}
+                        onApplyIrrigation={() => onToggleIrrigation(field.id, true)}
+                      />
+                    </motion.div>
+                  )}
+
                   {activeTab === 'ai' && (
                     <motion.div key="ai" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                      <PestDetection
-                        diseaseRisk={diseaseRisk}
-                        onSaveDiagnostic={(diagnostic) => {
-                          onAddLog(field.id, {
-                            date: new Date().toISOString().split('T')[0],
-                            type: 'observation',
-                            description: `Oriva Vision: ${diagnostic.disease?.name} detetado (${diagnostic.confidence}% conf.). Tratamento: ${diagnostic.disease?.treatment.immediate}`,
-                            operator: 'AI Engine',
-                            target: diagnostic.disease?.name,
-                            attachments: [] // Em sistema real, aqui iria a foto do scan
-                          });
-                          alert('Diagnóstico guardado no Caderno de Campo com sucesso!');
-                        }}
-                      />
+
+                      {/* Oriva AI Predictor Summary */}
+                      <div className="bg-white dark:bg-neutral-900 mx-4 md:mx-auto max-w-2xl rounded-2xl p-4 mb-6 shadow-sm border border-gray-100 dark:border-white/5 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+                          <Brain size={80} />
+                        </div>
+
+                        <div className={clsx(
+                          "w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-white font-black text-lg md:text-2xl",
+                          (diseaseRisk.level === 'Crítico' || diseaseRisk.level === 'Alto') ? "bg-red-500 shadow-red-500/30" :
+                            diseaseRisk.level === 'Moderado' ? "bg-amber-500 shadow-amber-500/30" : "bg-emerald-500 shadow-emerald-500/30"
+                        )}>
+                          {diseaseRisk.percentage}%
+                        </div>
+
+                        <div className="flex-1 z-10">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <h3 className="font-black uppercase text-xs md:text-sm text-gray-900 dark:text-white tracking-wide">Oriva AI Predictor</h3>
+                            <span className={clsx("px-1.5 py-0.5 rounded text-[8px] font-bold uppercase text-white",
+                              (diseaseRisk.level === 'Crítico' || diseaseRisk.level === 'Alto') ? "bg-red-500" :
+                                diseaseRisk.level === 'Moderado' ? "bg-amber-500" : "bg-emerald-500"
+                            )}>
+                              {diseaseRisk.level}
+                            </span>
+                          </div>
+                          <p className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400 line-clamp-2 md:line-clamp-none">
+                            {(diseaseRisk.level === 'Crítico' || diseaseRisk.level === 'Alto')
+                              ? "Condições favoráveis ao desenvolvimento de fungos. Recomenda-se inspeção imediata."
+                              : "Previsão indica estabilidade. Monitorização de rotina aconselhada."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Sub-Navigation */}
+                      <div className="flex justify-center mb-6">
+                        <div className="bg-gray-100 dark:bg-neutral-900 p-1 rounded-2xl inline-flex gap-1 border border-gray-200 dark:border-white/5">
+                          <button
+                            onClick={() => setAiMode('pests')}
+                            className={clsx(
+                              "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
+                              aiMode === 'pests' ? "bg-white dark:bg-neutral-800 text-agro-green shadow-sm" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            )}
+                          >
+                            Detetive de Pragas
+                          </button>
+                          <button
+                            onClick={() => setAiMode('soil')}
+                            className={clsx(
+                              "px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wide transition-all",
+                              aiMode === 'soil' ? "bg-white dark:bg-neutral-800 text-blue-500 shadow-sm" : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            )}
+                          >
+                            Scanner de Solo (OCR)
+                          </button>
+                        </div>
+                      </div>
+
+                      <AnimatePresence mode="wait">
+                        {aiMode === 'pests' ? (
+                          <motion.div key="pests" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                            <PestDetection
+                              diseaseRisk={diseaseRisk}
+                              onSaveDiagnostic={(diagnostic) => {
+                                onAddLog(field.id, {
+                                  date: new Date().toISOString().split('T')[0],
+                                  type: 'observation',
+                                  description: `Oriva Vision: ${diagnostic.disease?.name} detetado (${diagnostic.confidence}% conf.). Tratamento: ${diagnostic.disease?.treatment.immediate}`,
+                                  operator: 'AI Engine',
+                                  target: diagnostic.disease?.name,
+                                  attachments: [] // Em sistema real, aqui iria a foto do scan
+                                });
+                                alert('Diagnóstico guardado no Caderno de Campo com sucesso!');
+                              }}
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="soil" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                            <SoilScanner
+                              onSaveAnalysis={(result) => {
+                                onAddLog(field.id, {
+                                  date: new Date().toISOString().split('T')[0],
+                                  type: 'observation',
+                                  description: `Análise de Solo (OCR): N=${result.npk.n}, P=${result.npk.p}, K=${result.npk.k}, pH=${result.npk.ph}. Plano gerado.`,
+                                  operator: 'Soil Scanner AI',
+                                  target: 'Nutrientes do Solo',
+                                  attachments: []
+                                });
+                                alert('Análise de Solo guardada com sucesso!');
+                              }}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
                   )}
 

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Trash2, User, Save, Info, Moon, Sun, Monitor, Download, Upload, Shield, CheckCircle } from 'lucide-react';
+import { X, Trash2, User, Save, Info, Moon, Sun, Monitor, Download, Upload, Shield, CheckCircle, MapPin, Camera, Zap, Activity } from 'lucide-react';
 import { STORAGE_KEY } from '../constants';
+import { useStore } from '../store/useStore';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   isSolarMode,
   onToggleSolarMode
 }) => {
+  const { permissions, setPermission } = useStore();
   const [tempName, setTempName] = useState(currentName);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +50,52 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // --- HARDWARE PERMISSIONS LOGIC ---
+  const requestGPS = () => {
+    if (!navigator.geolocation) {
+      alert("GPS não suportado neste dispositivo.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      () => setPermission('gps', true),
+      () => setPermission('gps', false)
+    );
+  };
+
+  const requestCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(t => t.stop());
+      setPermission('camera', true);
+    } catch (err) {
+      setPermission('camera', false);
+      alert("Acesso à câmara negado.");
+    }
+  };
+
+  const requestMotion = async () => {
+    // DeviceMotionEvent.requestPermission exists in iOS
+    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+      try {
+        const response = await (DeviceMotionEvent as any).requestPermission();
+        setPermission('motion', response === 'granted');
+      } catch (err) {
+        setPermission('motion', false);
+      }
+    } else {
+      // Android/Desktop usually don't require explicit "permission" prompt like iOS, just access
+      setPermission('motion', true);
+    }
+  };
+
+  const requestNFC = () => {
+    if ('NDEFReader' in window) {
+      setPermission('nfc', true);
+    } else {
+      alert("NFC não suportado ou requer HTTPS.");
+    }
+  };
+
   // --- BACKUP LOGIC ---
   const handleExportBackup = () => {
     try {
@@ -61,12 +109,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      
+
       // Nome do ficheiro com data: oriva_backup_2023-10-27.json
       const dateStr = new Date().toISOString().split('T')[0];
       link.href = url;
       link.download = `oriva_backup_${dateStr}.json`;
-      
+
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -90,13 +138,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
     if (window.confirm("ATENÇÃO: Importar um backup irá SUBSTITUIR todos os dados atuais deste dispositivo. Deseja continuar?")) {
       const reader = new FileReader();
-      
+
       reader.onload = (e) => {
         try {
           const content = e.target?.result as string;
           // Validação simples JSON
           const parsed = JSON.parse(content);
-          
+
           if (parsed && typeof parsed === 'object') {
             // Guardar no LocalStorage
             localStorage.setItem(STORAGE_KEY, content);
@@ -113,7 +161,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
       reader.readAsText(file);
     }
-    
+
     // Reset input para permitir selecionar o mesmo ficheiro novamente se falhar
     if (event.target) {
       event.target.value = '';
@@ -123,18 +171,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
       {/* Backdrop com efeito vidro */}
-      <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
 
       {/* Container do Modal */}
       <div className="relative w-full max-w-sm bg-[#FDFDF5] dark:bg-[#0A0A0A] rounded-[2.5rem] shadow-2xl overflow-hidden animate-scale-up flex flex-col max-h-[90vh] border border-white/20 dark:border-neutral-800">
-        
+
         {/* Header Fixo */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-neutral-800 bg-white/50 dark:bg-black/20 backdrop-blur-md sticky top-0 z-10">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Definições</h2>
-          <button 
+          <button
             onClick={onClose}
             className="p-2 rounded-full bg-gray-100 dark:bg-neutral-800 hover:bg-gray-200 dark:hover:bg-neutral-700 transition-colors text-gray-600 dark:text-gray-300"
           >
@@ -144,7 +192,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Corpo com Scroll */}
         <div className="p-6 overflow-y-auto space-y-8 custom-scrollbar">
-          
+
           {/* 1. Secção: Perfil */}
           <section>
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Perfil</h3>
@@ -153,15 +201,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                   <User size={18} />
                 </div>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={tempName}
                   onChange={(e) => setTempName(e.target.value)}
                   className="w-full pl-11 pr-4 py-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-l-[1.5rem] rounded-r-lg text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-agro-green focus:outline-none transition-all"
                   placeholder="Seu nome"
                 />
               </div>
-              <button 
+              <button
                 onClick={handleSave}
                 disabled={tempName === currentName}
                 className={`px-5 rounded-r-[1.5rem] rounded-l-lg font-bold text-white transition-all flex items-center justify-center shadow-lg shadow-agro-green/20 ${tempName === currentName ? 'bg-gray-300 dark:bg-neutral-700 cursor-not-allowed' : 'bg-agro-green active:scale-95'}`}
@@ -171,12 +219,57 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 2. Secção: Aparência */}
+          {/* 2. Secção: Permissões de Hardware */}
+          <section className="space-y-3">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <Shield size={14} /> Permissões de Hardware
+            </h3>
+
+            <div className="grid grid-cols-2 gap-3">
+              {/* GPS */}
+              <button
+                onClick={requestGPS}
+                className={`p-4 rounded-3xl border flex flex-col items-center gap-2 transition-all active:scale-95 ${permissions.gps ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-800 text-emerald-600' : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 text-gray-400'}`}
+              >
+                <MapPin size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{permissions.gps ? 'GPS Ativo' : 'GPS'}</span>
+              </button>
+
+              {/* Camera */}
+              <button
+                onClick={requestCamera}
+                className={`p-4 rounded-3xl border flex flex-col items-center gap-2 transition-all active:scale-95 ${permissions.camera ? 'bg-agro-green/10 border-agro-green/20 text-agro-green' : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 text-gray-400'}`}
+              >
+                <Camera size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{permissions.camera ? 'Câmara OK' : 'Câmara'}</span>
+              </button>
+
+              {/* NFC */}
+              <button
+                onClick={requestNFC}
+                className={`p-4 rounded-3xl border flex flex-col items-center gap-2 transition-all active:scale-95 ${permissions.nfc ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-800 text-blue-600' : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 text-gray-400'}`}
+              >
+                <Zap size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{permissions.nfc ? 'NFC Ativo' : 'NFC'}</span>
+              </button>
+
+              {/* Motion */}
+              <button
+                onClick={requestMotion}
+                className={`p-4 rounded-3xl border flex flex-col items-center gap-2 transition-all active:scale-95 ${permissions.motion ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-100 dark:border-amber-800 text-amber-600' : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-800 text-gray-400'}`}
+              >
+                <Activity size={24} />
+                <span className="text-[10px] font-black uppercase tracking-widest">{permissions.motion ? 'Movimento' : 'Sensores'}</span>
+              </button>
+            </div>
+          </section>
+
+          {/* 3. Secção: Aparência */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Aparência</h3>
-            
+
             {/* Toggle Dark Mode */}
-            <div 
+            <div
               className={`bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform shadow-sm ${isSolarMode ? 'opacity-50 pointer-events-none' : ''}`}
               onClick={!isSolarMode ? onToggleDarkMode : undefined}
             >
@@ -197,7 +290,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {/* Toggle Solar Mode */}
-            <div 
+            <div
               className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
               onClick={onToggleSolarMode}
             >
@@ -218,43 +311,43 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 3. Secção: Segurança & Backup */}
+          {/* 4. Secção: Segurança & Backup */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Shield size={14} /> Segurança de Dados
             </h3>
-            
-            <div className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 shadow-sm space-y-3">
-               <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                 Os seus dados estão guardados apenas neste dispositivo. Faça backups regulares para não perder a sua informação.
-               </p>
-               
-               <div className="grid grid-cols-2 gap-3">
-                 <button 
-                   onClick={handleExportBackup}
-                   className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-2xl active:scale-95 transition-all hover:bg-green-100 dark:hover:bg-green-900/20"
-                 >
-                   <Download size={24} className="text-green-600 dark:text-green-400 mb-1" />
-                   <span className="text-xs font-bold text-green-700 dark:text-green-300">Guardar Ficheiro</span>
-                 </button>
 
-                 <button 
-                   onClick={handleImportClick}
-                   className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl active:scale-95 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/20"
-                 >
-                   <Upload size={24} className="text-blue-600 dark:text-blue-400 mb-1" />
-                   <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Restaurar Dados</span>
-                 </button>
-               </div>
-               
-               {/* Hidden File Input */}
-               <input 
-                 type="file" 
-                 ref={fileInputRef}
-                 onChange={handleFileChange}
-                 accept=".json"
-                 className="hidden" 
-               />
+            <div className="bg-white dark:bg-neutral-900 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 shadow-sm space-y-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                Os seus dados estão guardados apenas neste dispositivo. Faça backups regulares para não perder a sua informação.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={handleExportBackup}
+                  className="flex flex-col items-center justify-center p-3 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-2xl active:scale-95 transition-all hover:bg-green-100 dark:hover:bg-green-900/20"
+                >
+                  <Download size={24} className="text-green-600 dark:text-green-400 mb-1" />
+                  <span className="text-xs font-bold text-green-700 dark:text-green-300">Guardar Ficheiro</span>
+                </button>
+
+                <button
+                  onClick={handleImportClick}
+                  className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl active:scale-95 transition-all hover:bg-blue-100 dark:hover:bg-blue-900/20"
+                >
+                  <Upload size={24} className="text-blue-600 dark:text-blue-400 mb-1" />
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-300">Restaurar Dados</span>
+                </button>
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".json"
+                className="hidden"
+              />
             </div>
           </section>
 
@@ -267,7 +360,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div>
                 <h4 className="font-bold text-blue-900 dark:text-blue-200 text-sm">Oriva Enterprise</h4>
                 <p className="text-xs text-blue-700 dark:text-blue-300/70 mt-1 leading-relaxed">
-                  Versão 1.4.0 (Oriva Rebrand)<br/>
+                  Versão 1.4.0 (Oriva Rebrand)<br />
                   Arquitetura Offline-First ativa. Os dados são guardados localmente no seu dispositivo.
                 </p>
               </div>
@@ -276,7 +369,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Secção: Zona de Perigo */}
           <section className="pt-2">
-            <button 
+            <button
               onClick={handleResetConfirm}
               className="w-full p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-[1.5rem] font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-red-100 dark:hover:bg-red-900/20"
             >

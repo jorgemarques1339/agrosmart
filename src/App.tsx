@@ -6,7 +6,7 @@ import {
   FileText, Wifi, Plus, Save,
   Radio, Signal, Loader2, Droplets, Activity, CheckCircle2, ChevronDown,
   Truck, FileCheck, WifiOff, CloudOff, ArrowRight, QrCode, Calendar,
-  Lock, Users
+  Lock, Users, MapPin
 } from 'lucide-react';
 import mqtt from 'mqtt';
 import jsPDF from 'jspdf';
@@ -33,8 +33,10 @@ import PublicProductPage from './components/PublicProductPage';
 import TeamManager from './components/TeamManager';
 import TaskProofModal from './components/TaskProofModal';
 import { NotificationCenter } from './components/NotificationCenter';
+import LoneWorkerMonitor from './components/LoneWorkerMonitor';
 import IoTPairingWizard from './components/IoTPairingWizard';
 import CultivationView from './components/CultivationView';
+import CarbonDashboard from './components/CarbonDashboard';
 import { haptics } from './utils/haptics';
 
 // API Configuration
@@ -52,11 +54,14 @@ const App = () => {
     hydrate, setActiveTab, setDarkMode, setSolarMode, setOnline, setWeatherData, setDetailedForecast, setCurrentUserId,
     addField, updateField, deleteField,
     addStock, updateStock, deleteStock,
-    addAnimal, updateAnimal,
+    addAnimal, updateAnimal, addProduction,
+    addAnimalBatch, updateAnimalBatch, deleteAnimalBatch, applyBatchAction,
     addMachine, updateMachine,
     addTask, updateTask, deleteTask,
+    updateUser,
     addTransaction, addNotification, markNotificationRead,
-    toggleIrrigation, addLogToField, registerSale, harvestField
+    toggleIrrigation, addLogToField, registerSale, harvestField,
+    animalBatches
   } = useStore();
 
   useWeatherSync();
@@ -333,6 +338,78 @@ const App = () => {
         </div>
       )}
 
+      {/* CRITICAL ALERT TOAST */}
+      {notifications.some(n => n.type === 'critical' && !n.read) && (
+        <div
+          onClick={() => setIsNotificationCenterOpen(true)}
+          className="fixed top-12 left-1/2 -translate-x-1/2 z-[150] bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce-in cursor-pointer hover:scale-105 transition-transform"
+        >
+          <div className="w-2 h-2 rounded-full bg-white animate-ping" />
+          <span className="text-xs font-black uppercase tracking-wide">
+            {notifications.filter(n => n.type === 'critical' && !n.read).length} Alerta(s) Crítico(s)
+          </span>
+          <ArrowRight size={14} />
+        </div>
+      )}
+
+      {/* EMERGENCY "MAN DOWN" OVERLAY */}
+      {users.some(u => u.safetyStatus?.status === 'emergency') && (
+        <div className="fixed inset-0 z-[1000] bg-red-600/95 backdrop-blur-xl flex flex-col items-center justify-center p-8 text-white text-center animate-pulse-slow">
+          <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center mb-8 animate-bounce shadow-[0_0_50px_rgba(255,255,255,0.5)]">
+            <Activity size={64} className="text-red-600" />
+          </div>
+          <h2 className="text-4xl font-black italic tracking-tighter mb-2 uppercase">Alerta Man Down</h2>
+          <p className="text-xl font-bold opacity-90 mb-8 max-w-sm">
+            Um operador emitiu um sinal de emergência ou está imóvel há demasiado tempo.
+          </p>
+
+          <div className="space-y-4 w-full max-w-sm">
+            {users.filter(u => u.safetyStatus?.status === 'emergency').map(u => (
+              <div key={u.id} className="bg-white/20 p-6 rounded-[2rem] border border-white/30 backdrop-blur-md flex items-center gap-4 text-left">
+                <div className="w-16 h-16 rounded-full border-4 border-white overflow-hidden shadow-lg">
+                  <img src={`https://i.pravatar.cc/150?u=${u.id}`} className="w-full h-full object-cover" alt={u.name} />
+                </div>
+                <div>
+                  <h4 className="text-xl font-black">{u.name}</h4>
+                  <p className="text-sm font-bold opacity-80 uppercase tracking-widest flex items-center gap-1">
+                    <MapPin size={12} /> ÁREA REMOTA: {u.safetyStatus?.location?.join(', ')}
+                  </p>
+                  <p className="text-xs font-bold mt-1 text-red-200">Último Movimento: {new Date(u.safetyStatus?.lastMovement || '').toLocaleTimeString()}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-12 flex flex-col gap-4 w-full max-w-xs">
+            <button
+              onClick={() => {
+                // Simulação: resolver o estado de emergência para todos
+                users.filter(u => u.safetyStatus?.status === 'emergency').forEach(u => {
+                  updateUser(u.id, {
+                    safetyStatus: { ...u.safetyStatus!, status: 'safe', lastMovement: new Date().toISOString() }
+                  });
+                });
+                setActiveTab('dashboard');
+              }}
+              className="w-full py-5 bg-white text-red-600 rounded-[2rem] font-black text-xl shadow-2xl active:scale-95 transition-all"
+            >
+              RESGATE LANÇADO
+            </button>
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className="text-white/60 text-sm font-bold uppercase tracking-widest"
+            >
+              Ignorar (Apenas Monitorizar)
+            </button>
+          </div>
+
+          {/* Som de Alerta (Sintético) */}
+          <div className="hidden">
+            <audio autoPlay loop src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" />
+          </div>
+        </div>
+      )}
+
       {/* Scrollable Content Area */}
       <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md md:max-w-5xl mx-auto relative px-4 md:px-8 pb-28 ${(!isOnline || syncQueueCount > 0 || showOnlineSuccess) ? 'pt-14' : 'pt-2'} transition-all duration-300`}>
         {activeTab === 'dashboard' && (
@@ -379,24 +456,30 @@ const App = () => {
               }
             }}
             onTaskClick={(task) => setTaskProofTask(task)}
-            onNavigate={(tab) => setActiveTab(tab as any)}
+            onNavigate={(tab) => {
+              if (tab === 'team') setIsTeamManagerOpen(true);
+              else setActiveTab(tab as any);
+            }}
             alertCount={alertCount}
           />
         )}
         {activeTab === 'animal' && (
           <AnimalCard
             animals={animals}
-            onAddProduction={(id, prod: any) => {
-              const animal = animals.find(a => a.id === id);
-              if (!animal) return;
-              updateAnimal(id, {
-                productionHistory: [...(animal.productionHistory || []), prod],
-                weight: prod.type === 'weight' ? prod.value : animal.weight
-              });
-            }}
+            animalBatches={animalBatches}
             onAddAnimal={(a) => addAnimal({ ...a, id: Date.now().toString() })}
+            onAddProduction={addProduction}
             onUpdateAnimal={updateAnimal}
-            onScheduleTask={(title, type, date) => handleAddTask(title, type as any, date)}
+            onApplyBatchAction={applyBatchAction}
+            onAddAnimalBatch={addAnimalBatch}
+            onScheduleTask={(title, type, date) => addTask({
+              id: Date.now().toString(),
+              title,
+              type,
+              date,
+              completed: false,
+              status: 'pending'
+            })}
             onModalChange={setIsChildModalOpen}
           />
         )}
@@ -504,6 +587,7 @@ const App = () => {
             <AccessDenied title="Finanças" />
           )
         )}
+        {activeTab === 'carbon' && <CarbonDashboard />}
       </main>
 
       {/* VOICE ASSISTANT FAB */}
@@ -760,7 +844,27 @@ const App = () => {
         onMarkAllAsRead={() => notifications.forEach(n => markNotificationRead(n.id))}
         onClearHistory={() => { }} // Not implemented in slice yet, but could be a bulk delete
         onNavigate={(path) => {
-          setActiveTab(path as any);
+          if (path.startsWith('app://')) {
+            try {
+              // Parse pseudo-protocol
+              // Format: app://dashboard/map?lat=...&lng=...&sensorId=...
+              // Actually we just need sensorId and tab
+              const url = new URL(path);
+
+              // Extract Params
+              const params = new URLSearchParams(url.search);
+              const sensorId = params.get('sensorId');
+
+              if (url.hostname === 'dashboard' && url.pathname === '/map' && sensorId) {
+                setActiveTab('cultivation'); // Switch to Cultivation/Map view
+                useStore.getState().setFocusedTarget({ type: 'sensor', id: sensorId });
+              }
+            } catch (e) {
+              console.error("Invalid deep link", path);
+            }
+          } else {
+            setActiveTab(path as any);
+          }
           setIsNotificationCenterOpen(false);
         }}
       />

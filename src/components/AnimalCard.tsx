@@ -7,8 +7,10 @@ import {
   Wifi, Radio, ChevronRight
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
-import { Animal } from '../types';
+import { Animal, AnimalBatch } from '../types';
 import AnimalDetailsModal from './AnimalDetailsModal';
+import clsx from 'clsx';
+import { haptics } from '../utils/haptics';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({
@@ -39,6 +41,7 @@ const AnimalProfile = ({
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
   const [productionValue, setProductionValue] = useState<number>(0);
   const [chartMode, setChartMode] = useState<'production' | 'finance'>('production');
+  const [isScanningNFC, setIsScanningNFC] = useState(false);
 
   // Report modal state changes
   useEffect(() => {
@@ -117,6 +120,32 @@ const AnimalProfile = ({
     setVaccineDate('');
   };
 
+  const handleNFCScan = async () => {
+    if (!('NDEFReader' in window)) {
+      alert("NFC não é suportado neste browser ou requer HTTPS.");
+      return;
+    }
+
+    try {
+      setIsScanningNFC(true);
+      const ndef = new (window as any).NDEFReader();
+      await ndef.scan();
+
+      ndef.onreading = (event: any) => {
+        const serialNumber = event.serialNumber;
+        if (onUpdateAnimal) {
+          onUpdateAnimal(animal.id, { tagId: serialNumber });
+          haptics.success();
+        }
+        setIsScanningNFC(false);
+      };
+    } catch (error) {
+      console.error("NFC Error:", error);
+      setIsScanningNFC(false);
+      alert("Falha ao iniciar scan NFC.");
+    }
+  };
+
   const adjustValue = (delta: number) => {
     setProductionValue(prev => {
       const newVal = prev + delta;
@@ -136,7 +165,20 @@ const AnimalProfile = ({
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-2">
             <div>
-              <p className="text-xs font-mono text-gray-400 font-bold tracking-wider mb-0.5">{animal.tagId}</p>
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-xs font-mono text-gray-400 font-bold tracking-wider">{animal.tagId}</p>
+                <button
+                  onClick={handleNFCScan}
+                  disabled={isScanningNFC}
+                  className={clsx(
+                    "p-1.5 rounded-lg border transition-all active:scale-95",
+                    isScanningNFC ? "bg-blue-500 text-white animate-pulse border-transparent" : "bg-gray-50 dark:bg-neutral-800 border-gray-100 dark:border-neutral-700 text-gray-400 hover:text-blue-500"
+                  )}
+                  title="Scan Earring (NFC)"
+                >
+                  {isScanningNFC ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
+                </button>
+              </div>
               <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">{animal.name}</h2>
             </div>
             <div className={`px-2 py-1 rounded-full text-[10px] font-bold border ${animal.status === 'healthy'
@@ -410,9 +452,111 @@ const AnimalProfile = ({
   );
 };
 
+// --- Sub-Component: Batch Card (Card para Lotes/Grupos) ---
+const BatchCard = ({
+  batch,
+  onApplyAction,
+  onModalChange
+}: {
+  batch: AnimalBatch,
+  onApplyAction: (batchId: string, type: string, description: string) => void,
+  onModalChange?: (isOpen: boolean) => void
+}) => {
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [actionType, setActionType] = useState('Vacinação');
+  const [actionDesc, setActionDesc] = useState('');
+
+  useEffect(() => {
+    if (onModalChange) onModalChange(showActionModal);
+  }, [showActionModal, onModalChange]);
+
+  const handleConfirm = () => {
+    onApplyAction(batch.id, actionType, actionDesc);
+    setShowActionModal(false);
+    setActionDesc('');
+  };
+
+  return (
+    <div className="bg-white dark:bg-neutral-900 rounded-3xl p-5 shadow-lg border border-gray-100 dark:border-neutral-800 animate-slide-up">
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h3 className="text-xl font-black text-gray-900 dark:text-white">{batch.name}</h3>
+          <p className="text-[10px] font-bold text-agro-green uppercase tracking-widest">{batch.species}</p>
+        </div>
+        <div className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-full text-[10px] font-black border border-indigo-100 dark:border-indigo-800">
+          {batch.animalCount} CABEÇAS
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+          <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Peso Médio</p>
+          <p className="text-lg font-bold text-gray-800 dark:text-white">{batch.averageWeight} kg</p>
+        </div>
+        <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+          <p className="text-[9px] font-bold text-gray-400 uppercase mb-1">Último Checkup</p>
+          <p className="text-base font-bold text-gray-800 dark:text-white truncate">{batch.lastCheckup}</p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => setShowActionModal(true)}
+        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md shadow-indigo-200 dark:shadow-none"
+      >
+        <Syringe size={14} />
+        Ação em Massa
+      </button>
+
+      {/* Mass Action Modal */}
+      {showActionModal && (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowActionModal(false)}>
+          <div className="bg-white dark:bg-neutral-900 w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold dark:text-white">Ação em Massa</h3>
+              <button onClick={() => setShowActionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full"><X size={20} className="dark:text-white" /></button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Tipo de Ação</label>
+                <select
+                  value={actionType}
+                  onChange={e => setActionType(e.target.value)}
+                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option>Vacinação</option>
+                  <option>Desparasitação</option>
+                  <option>Pesagem Média</option>
+                  <option>Movimentação</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Detalhes</label>
+                <textarea
+                  value={actionDesc}
+                  onChange={e => setActionDesc(e.target.value)}
+                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 h-24 resize-none"
+                  placeholder="Ex: Vacina Febre Aftosa - Todo o lote"
+                />
+              </div>
+              <button
+                onClick={handleConfirm}
+                className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg active:scale-95 transition-transform"
+              >
+                Confirmar p/ {batch.animalCount} Animais
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- Main Export: AnimalCard Manager (Handles Scan, Add, and Profile) ---
 interface AnimalCardManagerProps {
   animals?: Animal[];
+  animalBatches?: AnimalBatch[];
   animal?: Animal; // Optional direct animal prop for direct view
   onAddAnimal?: (animal: Omit<Animal, 'id'>) => void;
   onAddProduction?: (id: string, value: number, type: 'milk' | 'weight') => void;
@@ -420,20 +564,36 @@ interface AnimalCardManagerProps {
   onScheduleTask?: (title: string, type: 'task', date: string) => void;
   onReset?: () => void;
   onModalChange?: (isOpen: boolean) => void;
+  onApplyBatchAction?: (batchId: string, type: string, description: string) => void;
+  onAddAnimalBatch?: (batch: AnimalBatch) => void;
 }
 
 const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   animals = [],
+  animalBatches = [],
   animal: propAnimal,
   onAddAnimal,
   onAddProduction,
   onUpdateAnimal: propOnUpdateAnimal,
   onScheduleTask,
   onReset: propOnReset,
-  onModalChange
+  onModalChange,
+  onApplyBatchAction,
+  onAddAnimalBatch
 }) => {
-  const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag'>('scanning');
+  const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag' | 'batches'>('scanning');
   const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);
+  const [activeTab, setActiveTab] = useState<'individual' | 'batch'>('individual');
+
+  // Batch Form State
+  const [showAddBatchModal, setShowAddBatchModal] = useState(false);
+  const [isBatchActionModalOpen, setIsBatchActionModalOpen] = useState(false);
+  const [batchForm, setBatchForm] = useState({
+    name: '',
+    species: '',
+    count: '0',
+    weight: '0'
+  });
 
   // Form State
   const [tagForm, setTagForm] = useState({
@@ -454,17 +614,17 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
     }
   }, [propAnimal]);
 
-  // Report add_tag state change
+  // Report modal state changes
   useEffect(() => {
     if (onModalChange) {
-      if (viewState === 'add_tag') {
+      if (viewState === 'add_tag' || showAddBatchModal || isBatchActionModalOpen) {
         onModalChange(true);
       } else if (viewState !== 'profile') {
-        // When not adding tag and not in profile (which has its own modals), report false
+        // When not adding tag/batch and not in profile (which has its own modals), report false
         onModalChange(false);
       }
     }
-  }, [viewState, onModalChange]);
+  }, [viewState, showAddBatchModal, isBatchActionModalOpen, onModalChange]);
 
   const activeAnimal = foundAnimal || propAnimal;
 
@@ -526,6 +686,24 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   const handleAddOffspring = (calf: Omit<Animal, 'id'>) => {
     if (onAddAnimal) {
       onAddAnimal(calf);
+    }
+  };
+
+  const handleCreateBatch = () => {
+    if (batchForm.name && batchForm.species && onAddAnimalBatch) {
+      onAddAnimalBatch({
+        id: `batch-${Date.now()}`,
+        name: batchForm.name,
+        species: batchForm.species,
+        animalCount: parseInt(batchForm.count) || 0,
+        averageWeight: parseFloat(batchForm.weight) || 0,
+        status: 'healthy',
+        productionHistory: [],
+        history: [],
+        lastCheckup: new Date().toISOString().split('T')[0]
+      });
+      setBatchForm({ name: '', species: '', count: '0', weight: '0' });
+      setShowAddBatchModal(false);
     }
   };
 
@@ -683,6 +861,115 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
     );
   }
 
+  // 2.5 MODO LOTES (Listagem de Grupos)
+  if (viewState === 'batches') {
+    return (
+      <div className="h-full flex flex-col bg-gray-50 dark:bg-black p-6 animate-fade-in relative pb-24 overflow-y-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-black text-gray-900 dark:text-white">Lotes de Animais</h2>
+            <p className="text-sm font-bold text-gray-400 uppercase">Gestão Coletiva</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowAddBatchModal(true)}
+              className="p-3 bg-white dark:bg-neutral-800 rounded-full shadow-sm text-indigo-600 active:scale-95 transition-transform"
+            >
+              <Plus size={24} />
+            </button>
+            <button
+              onClick={() => setViewState('scanning')}
+              className="p-3 bg-white dark:bg-neutral-800 rounded-full shadow-sm"
+            >
+              <Scan size={24} className="text-agro-green" />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {animalBatches.map(batch => (
+            <BatchCard
+              key={batch.id}
+              batch={batch}
+              onApplyAction={onApplyBatchAction || (() => { })}
+              onModalChange={setIsBatchActionModalOpen}
+            />
+          ))}
+
+          {animalBatches.length === 0 && (
+            <div className="text-center py-20 opacity-50">
+              <ClipboardList size={48} className="mx-auto mb-4 text-gray-300" />
+              <p className="font-bold text-gray-400">Nenhum lote registado.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Create Batch Modal */}
+        {showAddBatchModal && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowAddBatchModal(false)}>
+            <div className="bg-white dark:bg-neutral-900 w-full max-w-sm p-6 rounded-[2.5rem] shadow-2xl animate-scale-up" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold dark:text-white">Novo Lote</h3>
+                <button onClick={() => setShowAddBatchModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full"><X size={20} className="dark:text-white" /></button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Nome do Lote</label>
+                  <input
+                    value={batchForm.name}
+                    onChange={e => setBatchForm({ ...batchForm, name: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Lote Ovelhas Sul"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Espécie</label>
+                  <input
+                    value={batchForm.species}
+                    onChange={e => setBatchForm({ ...batchForm, species: e.target.value })}
+                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="Ex: Ovinos"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Qt. Animais</label>
+                    <input
+                      type="number"
+                      value={batchForm.count}
+                      onChange={e => setBatchForm({ ...batchForm, count: e.target.value })}
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-gray-400 uppercase ml-2 mb-1 block">Peso Médio (kg)</label>
+                    <input
+                      type="number"
+                      value={batchForm.weight}
+                      onChange={e => setBatchForm({ ...batchForm, weight: e.target.value })}
+                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={handleCreateBatch}
+                  disabled={!batchForm.name || !batchForm.species}
+                  className={`w-full py-4 rounded-2xl font-bold shadow-lg active:scale-95 transition-transform mt-2 ${!batchForm.name || !batchForm.species
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 text-white'
+                    }`}
+                >
+                  Criar Lote
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // 3. MODO SCANNING (Modern Redesign)
   return (
     <div className="h-full flex flex-col relative overflow-hidden bg-[#FDFDF5] dark:bg-black animate-fade-in">
@@ -699,14 +986,35 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
 
         {/* Header Text */}
         <div className="text-center space-y-2 animate-slide-down">
+          {/* View Toggle */}
+          <div className="flex bg-white/50 dark:bg-white/5 backdrop-blur-md p-1 rounded-2xl mb-8 shadow-sm border border-white/40 dark:border-white/10 w-fit mx-auto">
+            <button
+              onClick={() => setActiveTab('individual')}
+              className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'individual' ? 'bg-agro-green text-white shadow-md' : 'text-gray-500'}`}
+            >
+              INDIVIDUAL
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('batch');
+                setViewState('batches');
+              }}
+              className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${activeTab === 'batch' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-500'}`}
+            >
+              LOTES
+            </button>
+          </div>
+
           <div className="inline-flex items-center justify-center p-3 bg-white/50 dark:bg-white/5 backdrop-blur-md rounded-2xl mb-4 shadow-sm border border-white/40 dark:border-white/10">
             <Smartphone size={24} className="text-gray-900 dark:text-white" />
           </div>
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tighter leading-none">
-            Identificação
+            {activeTab === 'individual' ? 'Identificação' : 'Gestão de Lotes'}
           </h2>
           <p className="text-sm md:text-base font-medium text-gray-500 dark:text-gray-400 max-w-[260px] mx-auto leading-relaxed">
-            Aproxime o telemóvel da etiqueta eletrónica ou auricular.
+            {activeTab === 'individual'
+              ? 'Aproxime o telemóvel da etiqueta eletrónica ou auricular.'
+              : 'Faça a gestão massiva de grandes rebanhos ou manadas.'}
           </p>
         </div>
 
