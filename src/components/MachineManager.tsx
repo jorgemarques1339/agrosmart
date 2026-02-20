@@ -11,6 +11,7 @@ import { Machine, MaintenanceLog, StockItem, ISOBUSData } from '../types';
 import { calculateMaintenanceRisk } from '../utils/machineUtils';
 import ISOBUSBridge from './ISOBUSBridge';
 import { haptics } from '../utils/haptics';
+import { useStore } from '../store/useStore';
 
 interface MachineManagerProps {
   machines: Machine[];
@@ -19,7 +20,6 @@ interface MachineManagerProps {
   onUpdateMachine?: (id: string, data: Partial<Machine>) => void;
   onAddLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
   onAddMachine: (machine: Omit<Machine, 'id' | 'logs'>) => void;
-  onModalChange?: (isOpen: boolean) => void;
 }
 
 // --- ATOMIC COMPONENTS ---
@@ -62,9 +62,9 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   onUpdateHours,
   onUpdateMachine,
   onAddLog,
-  onAddMachine,
-  onModalChange
+  onAddMachine
 }) => {
+  const { setChildModalOpen } = useStore();
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [modalType, setModalType] = useState<'hours' | 'maintenance' | null>(null);
   const [detailMachine, setDetailMachine] = useState<Machine | null>(null);
@@ -95,8 +95,8 @@ const MachineManager: React.FC<MachineManagerProps> = ({
   const isFuelInsufficient = useMemo(() => logType === 'fuel' && parseFloat(logLiters || '0') > fuelStockAvailable, [logType, logLiters, fuelStockAvailable]);
 
   useEffect(() => {
-    if (onModalChange) onModalChange(!!selectedMachine || isAddModalOpen || !!detailMachine);
-  }, [selectedMachine, isAddModalOpen, detailMachine, onModalChange]);
+    setChildModalOpen(!!selectedMachine || isAddModalOpen || !!detailMachine);
+  }, [selectedMachine, isAddModalOpen, detailMachine, setChildModalOpen]);
 
   // [FIX] Sync detailMachine when global state changes (e.g. ISO-BUS update)
   useEffect(() => {

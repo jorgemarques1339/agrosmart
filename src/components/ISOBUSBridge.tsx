@@ -9,6 +9,7 @@ import {
 import clsx from 'clsx';
 import { Machine, ISOBUSData } from '../types';
 import { haptics } from '../utils/haptics';
+import MachineCockpit from './MachineCockpit';
 
 interface ISOBUSBridgeProps {
     machine: Machine;
@@ -46,6 +47,8 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
                     groundSpeed: Math.max(0, prev.groundSpeed + (Math.random() * 0.4 - 0.2)),
                     fuelRate: prev.fuelRate + (Math.random() * 0.2 - 0.1),
                     engineLoad: Math.min(100, Math.max(0, prev.engineLoad + (Math.random() * 4 - 2))),
+                    adBlueLevel: Math.max(0, prev.adBlueLevel - 0.001), // Very slow depletion
+                    implementDepth: Math.max(0, Math.min(100, prev.implementDepth + (Math.random() * 2 - 1))),
                     lastUpdate: new Date().toISOString()
                 };
             });
@@ -85,6 +88,8 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
                         hydraulicPressure: 185,
                         engineLoad: 68,
                         coolantTemp: 82,
+                        adBlueLevel: 85,
+                        implementDepth: 15,
                         dtc: [],
                         lastUpdate: new Date().toISOString()
                     };
@@ -186,20 +191,22 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
 
     return (
         <div className="space-y-4">
-            {/* HUD Header */}
-            <div className="flex items-center justify-between bg-purple-500/10 border border-purple-500/20 p-3 rounded-2xl">
+            {/* Connection Status Header */}
+            <div className="flex items-center justify-between bg-white/5 border border-white/10 p-3 rounded-2xl">
                 <div className="flex items-center gap-3">
                     <div className="relative">
                         <Cpu className="text-purple-400" size={24} />
                         <motion.div
-                            animate={{ opacity: [0.3, 1, 0.3] }}
+                            animate={{ opacity: isConnected ? [0.3, 1, 0.3] : 0.3 }}
                             transition={{ repeat: Infinity, duration: 2 }}
-                            className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                            className={clsx("absolute -top-1 -right-1 w-2 h-2 rounded-full shadow-[0_0_8px]", isConnected ? "bg-emerald-500 shadow-emerald-500/80" : "bg-red-500 shadow-red-500/80")}
                         />
                     </div>
                     <div>
-                        <h3 className="text-sm font-black uppercase italic text-purple-200">Bridge ISO-BUS 11783</h3>
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Estado: <span className="text-emerald-400">Ligação Ativa</span></p>
+                        <h3 className="text-sm font-black uppercase italic text-purple-200">Terminal ISO-11783</h3>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                            Estado: <span className={isConnected ? "text-emerald-400" : "text-red-400"}>{isConnected ? "Ligação Ativa" : "Sinal Perdido"}</span>
+                        </p>
                     </div>
                 </div>
                 <button
@@ -213,45 +220,12 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Main Gauges */}
-                <div className="bg-black/60 backdrop-blur-md rounded-2xl p-4 border border-white/10 flex flex-col justify-center items-center gap-6 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent pointer-events-none" />
+            <MachineCockpit data={busData} />
 
-                    {/* Conceptual RPM Gauge */}
-                    <div className="relative w-40 h-40 flex items-center justify-center">
-                        <svg className="w-full h-full -rotate-90">
-                            <circle cx="80" cy="80" r="70" className="stroke-white/5 fill-none" strokeWidth="8" />
-                            <motion.circle
-                                cx="80" cy="80" r="70"
-                                className="stroke-purple-500 fill-none"
-                                strokeWidth="8"
-                                strokeDasharray="440"
-                                animate={{ strokeDashoffset: 440 - (busData.engineRpm / 3000) * 440 }}
-                                strokeLinecap="round"
-                            />
-                        </svg>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <p className="text-3xl font-black font-mono text-white leading-none">{Math.round(busData.engineRpm)}</p>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">RPM Motor</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 w-full">
-                        <div className="text-center">
-                            <p className="text-2xl font-black font-mono text-white">{busData.groundSpeed.toFixed(1)}</p>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase">Velocidade (km/h)</p>
-                        </div>
-                        <div className="text-center">
-                            <p className="text-2xl font-black font-mono text-white">{busData.engineLoad.toFixed(0)}%</p>
-                            <p className="text-[10px] font-bold text-gray-500 uppercase">Carga Motor</p>
-                        </div>
-                    </div>
-                </div>
-
+            <div className="grid grid-cols-1 gap-4">
                 {/* Telemetry Details */}
                 <div className="space-y-3">
-                    <div className="grid grid-cols-1 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                         <Parameter
                             icon={Fuel}
                             label="Consumo Inst."

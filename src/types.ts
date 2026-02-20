@@ -17,6 +17,19 @@ export interface DetailedForecast {
   rainProb: number; // 0-100% (Pop)
 }
 
+export interface FeedItem {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  type: 'text' | 'photo' | 'voice' | 'alert';
+  content: string;
+  mediaUrl?: string;
+  location: [number, number];
+  timestamp: string;
+  fieldId?: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -238,6 +251,8 @@ export interface ISOBUSData {
   hydraulicPressure: number;
   engineLoad: number;
   coolantTemp: number;
+  adBlueLevel: number; // 0-100%
+  implementDepth: number; // 0-100 cm
   dtc: string[]; // Diagnostic Trouble Codes
   lastUpdate: string; // ISO Date
 }

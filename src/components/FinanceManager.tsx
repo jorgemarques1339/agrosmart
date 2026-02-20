@@ -13,6 +13,7 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Transaction, StockItem, Animal, Field } from '../types';
+import { useStore } from '../store/useStore';
 
 interface FinanceManagerProps {
   transactions: Transaction[];
@@ -20,7 +21,6 @@ interface FinanceManagerProps {
   animals?: Animal[];
   fields?: Field[];
   onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  onModalChange?: (isOpen: boolean) => void;
 }
 
 const FinanceManager: React.FC<FinanceManagerProps> = ({
@@ -28,9 +28,9 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   stocks,
   animals = [],
   fields = [],
-  onAddTransaction,
-  onModalChange
+  onAddTransaction
 }) => {
+  const { setChildModalOpen } = useStore();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -45,10 +45,8 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   });
 
   useEffect(() => {
-    if (onModalChange) {
-      onModalChange(isModalOpen);
-    }
-  }, [isModalOpen, onModalChange]);
+    setChildModalOpen(isModalOpen);
+  }, [isModalOpen, setChildModalOpen]);
 
   // --- Lógica de Negócio: Cálculo de Métricas Financeiras ---
   const metrics = useMemo(() => {

@@ -36,7 +36,6 @@ interface FieldCardProps {
   onRegisterSensor?: (fieldId: string, sensor: Sensor) => void;
   onRegisterSale?: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
   onHarvest?: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
-  onModalChange?: (isOpen: boolean) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -220,7 +219,8 @@ const ActionMenu = ({
 
 // --- MAIN COMPONENT ---
 
-const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onModalChange, onDelete, onAddLog, stocks = [] }) => {
+const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onDelete, onAddLog, stocks = [] }) => {
+  const { setChildModalOpen } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions' | 'twin'>('sensors');
   const [aiMode, setAiMode] = useState<'pests' | 'soil'>('pests');
@@ -302,10 +302,8 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   };
 
   useEffect(() => {
-    if (onModalChange) {
-      onModalChange(isOpen || showHarvestModal || showActionMenu || showRegistryModal);
-    }
-  }, [isOpen, showHarvestModal, showActionMenu, showRegistryModal, onModalChange]);
+    setChildModalOpen(isOpen || showHarvestModal || showActionMenu || showRegistryModal);
+  }, [isOpen, showHarvestModal, showActionMenu, showRegistryModal, setChildModalOpen]);
 
   // Deep Link / Focus Logic
   const focusedTarget = useStore(state => state.focusedTarget);

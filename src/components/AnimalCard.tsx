@@ -11,6 +11,7 @@ import { Animal, AnimalBatch } from '../types';
 import AnimalDetailsModal from './AnimalDetailsModal';
 import clsx from 'clsx';
 import { haptics } from '../utils/haptics';
+import { useStore } from '../store/useStore';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({
@@ -19,17 +20,16 @@ const AnimalProfile = ({
   onAddProduction,
   onUpdateAnimal,
   onScheduleTask,
-  onAddOffspring,
-  onModalChange
+  onAddOffspring
 }: {
   animal: Animal,
   onReset: () => void,
   onAddProduction: (id: string, value: number, type: 'milk' | 'weight') => void,
   onUpdateAnimal: (id: string, updates: Partial<Animal>) => void,
   onScheduleTask?: (title: string, type: 'task', date: string) => void,
-  onAddOffspring: (animal: Omit<Animal, 'id'>) => void,
-  onModalChange?: (isOpen: boolean) => void;
+  onAddOffspring: (animal: Omit<Animal, 'id'>) => void;
 }) => {
+  const { setChildModalOpen } = useStore();
   const [showProductionModal, setShowProductionModal] = useState(false);
   const [showVetModal, setShowVetModal] = useState(false);
   const [showReproductionModal, setShowReproductionModal] = useState(false); // New Modal State
@@ -43,12 +43,10 @@ const AnimalProfile = ({
   const [chartMode, setChartMode] = useState<'production' | 'finance'>('production');
   const [isScanningNFC, setIsScanningNFC] = useState(false);
 
-  // Report modal state changes
+  // Atualizar estado global de modal aberto (para esconder nav)
   useEffect(() => {
-    if (onModalChange) {
-      onModalChange(showProductionModal || showVetModal || showReproductionModal);
-    }
-  }, [showProductionModal, showVetModal, showReproductionModal, onModalChange]);
+    setChildModalOpen(showProductionModal || showVetModal || showReproductionModal);
+  }, [showProductionModal, showVetModal, showReproductionModal, setChildModalOpen]);
 
   const chartData = useMemo(() => {
     const milkCount = animal.productionHistory.filter(r => r.type === 'milk').length;
@@ -455,20 +453,19 @@ const AnimalProfile = ({
 // --- Sub-Component: Batch Card (Card para Lotes/Grupos) ---
 const BatchCard = ({
   batch,
-  onApplyAction,
-  onModalChange
+  onApplyAction
 }: {
   batch: AnimalBatch,
-  onApplyAction: (batchId: string, type: string, description: string) => void,
-  onModalChange?: (isOpen: boolean) => void
+  onApplyAction: (batchId: string, type: string, description: string) => void
 }) => {
+  const { setChildModalOpen } = useStore();
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState('Vacinação');
   const [actionDesc, setActionDesc] = useState('');
 
   useEffect(() => {
-    if (onModalChange) onModalChange(showActionModal);
-  }, [showActionModal, onModalChange]);
+    setChildModalOpen(showActionModal);
+  }, [showActionModal, setChildModalOpen]);
 
   const handleConfirm = () => {
     onApplyAction(batch.id, actionType, actionDesc);
@@ -563,7 +560,6 @@ interface AnimalCardManagerProps {
   onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void;
   onScheduleTask?: (title: string, type: 'task', date: string) => void;
   onReset?: () => void;
-  onModalChange?: (isOpen: boolean) => void;
   onApplyBatchAction?: (batchId: string, type: string, description: string) => void;
   onAddAnimalBatch?: (batch: AnimalBatch) => void;
 }
@@ -577,17 +573,16 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   onUpdateAnimal: propOnUpdateAnimal,
   onScheduleTask,
   onReset: propOnReset,
-  onModalChange,
   onApplyBatchAction,
   onAddAnimalBatch
 }) => {
+  const { setChildModalOpen } = useStore();
   const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag' | 'batches'>('scanning');
   const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);
   const [activeTab, setActiveTab] = useState<'individual' | 'batch'>('individual');
 
   // Batch Form State
   const [showAddBatchModal, setShowAddBatchModal] = useState(false);
-  const [isBatchActionModalOpen, setIsBatchActionModalOpen] = useState(false);
   const [batchForm, setBatchForm] = useState({
     name: '',
     species: '',
@@ -616,15 +611,13 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
 
   // Report modal state changes
   useEffect(() => {
-    if (onModalChange) {
-      if (viewState === 'add_tag' || showAddBatchModal || isBatchActionModalOpen) {
-        onModalChange(true);
-      } else if (viewState !== 'profile') {
-        // When not adding tag/batch and not in profile (which has its own modals), report false
-        onModalChange(false);
-      }
+    if (viewState === 'add_tag' || showAddBatchModal) {
+      setChildModalOpen(true);
+    } else if (viewState !== 'profile') {
+      // When not adding tag/batch and not in profile (which has its own modals), report false
+      setChildModalOpen(false);
     }
-  }, [viewState, showAddBatchModal, isBatchActionModalOpen, onModalChange]);
+  }, [viewState, showAddBatchModal, setChildModalOpen]);
 
   const activeAnimal = foundAnimal || propAnimal;
 
@@ -856,7 +849,6 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         onUpdateAnimal={handleUpdateAnimal}
         onScheduleTask={onScheduleTask}
         onAddOffspring={handleAddOffspring}
-        onModalChange={onModalChange}
       />
     );
   }
@@ -892,7 +884,6 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
               key={batch.id}
               batch={batch}
               onApplyAction={onApplyBatchAction || (() => { })}
-              onModalChange={setIsBatchActionModalOpen}
             />
           ))}
 

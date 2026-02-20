@@ -4,7 +4,7 @@ import { syncManager } from '../services/SyncManager';
 import {
     Field, StockItem, Animal, Machine, Transaction, Task,
     UserProfile, Notification, ProductBatch, FieldLog, Sensor, MaintenanceLog,
-    WeatherForecast, DetailedForecast, AnimalBatch
+    WeatherForecast, DetailedForecast, AnimalBatch, FeedItem
 } from '../types';
 
 export interface AppState {
@@ -18,6 +18,10 @@ export interface AppState {
     users: UserProfile[];
     animalBatches: AnimalBatch[];
     harvests: ProductBatch[];
+    onNavigate: (tab: string) => void;
+    feedItems: FeedItem[];
+    hasUnreadFeed: boolean;
+    alertCount: number;
     isHydrated: boolean;
 
     // Global UI & Prefs
@@ -86,13 +90,50 @@ export interface AppState {
     // Complex Handlers
     toggleIrrigation: (id: string, status: boolean) => Promise<void>;
     addLogToField: (fieldId: string, log: FieldLog, transaction?: Transaction, stockUpdate?: { id: string, quantity: number }) => Promise<void>;
+    addFeedItem: (item: FeedItem) => Promise<void>;
     registerSale: (saleData: { stockId: string, quantity: number, transaction: Transaction, fieldLog?: { fieldId: string, log: FieldLog } }) => Promise<void>;
     harvestField: (fieldId: string, stockItem: StockItem, harvest: ProductBatch) => Promise<void>;
 
     // Map Focus
     focusedTarget: { type: 'sensor' | 'field', id: string } | null;
     setFocusedTarget: (target: { type: 'sensor' | 'field', id: string } | null) => void;
+
+    // UI & Modal Management
+    ui: {
+        modals: {
+            settings: boolean;
+            notificationCenter: boolean;
+            notifications: boolean;
+            teamManager: boolean;
+            omniSearch: boolean;
+            taskProof: Task | null;
+            traceability: ProductBatch | null;
+            fieldFeed: boolean;
+            guide: boolean;
+            // e-GUIAS specific state
+            guideStep: number;
+            guideData: any;
+        };
+        isChildModalOpen: boolean;
+    };
+    openModal: (modalId: keyof AppState['ui']['modals'], data?: any) => void;
+    closeModal: (modalId: keyof AppState['ui']['modals']) => void;
+    setChildModalOpen: (isOpen: boolean) => void;
+    updateGuideData: (updates: any) => void;
 }
+
+export const isAnyModalOpen = (state: AppState) => {
+    const { modals, isChildModalOpen } = state.ui;
+    return isChildModalOpen ||
+        modals.settings ||
+        modals.notificationCenter ||
+        modals.notifications ||
+        modals.teamManager ||
+        modals.omniSearch ||
+        !!modals.taskProof ||
+        !!modals.traceability ||
+        modals.guide;
+};
 
 export const useStore = create<AppState>((set, get) => ({
     fields: [],
@@ -105,10 +146,40 @@ export const useStore = create<AppState>((set, get) => ({
     users: [],
     animalBatches: [],
     harvests: [],
+    onNavigate: () => { }, // Placeholder for onNavigate
+    feedItems: [],
+    hasUnreadFeed: false,
+    alertCount: 0,
     isHydrated: false,
     focusedTarget: null,
 
     // UI Initial
+    ui: {
+        modals: {
+            settings: false,
+            notificationCenter: false,
+            notifications: false,
+            teamManager: false,
+            omniSearch: false,
+            taskProof: null,
+            traceability: null,
+            fieldFeed: false,
+            guide: false,
+            guideStep: 1,
+            guideData: {
+                stockId: '',
+                quantity: '',
+                clientName: '',
+                clientNif: '',
+                destination: '',
+                plate: '',
+                date: new Date().toISOString().split('T')[0],
+                price: '',
+                fieldId: ''
+            }
+        },
+        isChildModalOpen: false
+    },
     activeTab: 'dashboard',
     isDarkMode: localStorage.getItem('oriva_dark_mode') === 'true',
     isSolarMode: localStorage.getItem('oriva_solar_mode') === 'true',
@@ -146,7 +217,7 @@ export const useStore = create<AppState>((set, get) => ({
             }
         }
 
-        const [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches] = await Promise.all([
+        let [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems] = await Promise.all([
             db.fields.toArray(),
             db.stocks.toArray(),
             db.animals.toArray(),
@@ -157,6 +228,7 @@ export const useStore = create<AppState>((set, get) => ({
             db.users.toArray(),
             db.harvests.toArray(),
             db.animalBatches.toArray(),
+            db.feed.toArray(),
         ]);
 
         // [AUTO-PATCH] Ensure Trator Principal (m1) has ISO-BUS data for demo
@@ -170,9 +242,32 @@ export const useStore = create<AppState>((set, get) => ({
                 hydraulicPressure: 185,
                 engineLoad: 68,
                 coolantTemp: 92,
+                adBlueLevel: 85,
+                implementDepth: 12,
                 dtc: [] as string[],
                 lastUpdate: new Date().toISOString()
             };
+
+            // Reset unread flag on hydration if needed (or keep it based on logic)
+            set({ hasUnreadFeed: false });
+
+            // Seed mock feed items if none exist
+            if (feedItems.length === 0) {
+                const mockFeed: FeedItem[] = [
+                    {
+                        id: 'f1', userId: 'u2', userName: 'Ricardo M.', userAvatar: 'R',
+                        type: 'photo', content: 'Início da colheita na Parcela A. As uvas estão com excelente brix.',
+                        location: [41.443, -8.724], timestamp: new Date(Date.now() - 3600000).toISOString(), fieldId: 'f1'
+                    },
+                    {
+                        id: 'f2', userId: 'u3', userName: 'Sílvia P.', userAvatar: 'S',
+                        type: 'alert', content: 'Fuga detectada na válvula de rega secundária. A fechar o setor agora!',
+                        location: [41.442, -8.722], timestamp: new Date().toISOString()
+                    }
+                ];
+                await Promise.all(mockFeed.map(item => db.feed.add(item)));
+                feedItems = mockFeed;
+            }
             demoMachine.isobusData = demoIsoData;
             // Persist the patch
             await db.machines.update(demoMachine.id, { isobusData: demoIsoData });
@@ -203,7 +298,7 @@ export const useStore = create<AppState>((set, get) => ({
         }
 
         set({
-            fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches,
+            fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems,
             isHydrated: true
         });
     },
@@ -456,6 +551,26 @@ export const useStore = create<AppState>((set, get) => ({
         }));
     },
 
+    addFeedItem: async (item) => {
+        await db.feed.add(item);
+        set(state => ({
+            feedItems: [item, ...state.feedItems],
+            hasUnreadFeed: true
+        }));
+
+        // Auto-generate a notification for EVERY feed item
+        const notif: Notification = {
+            id: `notif-feed-${item.id}`,
+            title: item.type === 'alert' ? `ALERTA: ${item.userName}` : `Novo Post: ${item.userName}`,
+            message: item.content,
+            type: item.type === 'alert' ? 'critical' : 'info',
+            timestamp: item.timestamp,
+            read: false
+        };
+        await db.notifications.add(notif);
+        set(state => ({ notifications: [notif, ...state.notifications] }));
+    },
+
     registerSale: async (saleData) => {
         await db.transactions.add(saleData.transaction);
         syncManager.addToQueue('REGISTER_SALE', saleData);
@@ -498,5 +613,47 @@ export const useStore = create<AppState>((set, get) => ({
         }));
     },
 
-    setFocusedTarget: (target) => set({ focusedTarget: target })
+    setFocusedTarget: (target) => set({ focusedTarget: target }),
+
+    openModal: (modalId, data) => set(state => {
+        const newModals = { ...state.ui.modals };
+        if (modalId === 'taskProof') newModals.taskProof = data;
+        else if (modalId === 'traceability') newModals.traceability = data;
+        else (newModals as any)[modalId] = true;
+
+        return { ui: { ...state.ui, modals: newModals } };
+    }),
+
+    closeModal: (modalId) => set(state => {
+        const newModals = { ...state.ui.modals };
+        if (modalId === 'taskProof') newModals.taskProof = null;
+        else if (modalId === 'traceability') newModals.traceability = null;
+        else if (modalId === 'guide') {
+            newModals.guide = false;
+            newModals.guideStep = 1;
+            newModals.guideData = {
+                stockId: '', quantity: '', clientName: '', clientNif: '',
+                destination: '', plate: '', date: new Date().toISOString().split('T')[0],
+                price: '', fieldId: ''
+            };
+        }
+        else (newModals as any)[modalId] = false;
+
+        return { ui: { ...state.ui, modals: newModals } };
+    }),
+
+    setChildModalOpen: (isOpen) => set(state => ({
+        ui: { ...state.ui, isChildModalOpen: isOpen }
+    })),
+
+    updateGuideData: (updates) => set(state => ({
+        ui: {
+            ...state.ui,
+            modals: {
+                ...state.ui.modals,
+                ...updates,
+                guideData: updates.guideData ? { ...state.ui.modals.guideData, ...updates.guideData } : state.ui.modals.guideData
+            }
+        }
+    }))
 }));

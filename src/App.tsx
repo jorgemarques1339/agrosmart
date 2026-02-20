@@ -13,7 +13,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { AppState, Field, StockItem, FieldLog, RegistryType, Sensor, Task, Animal, Machine, Transaction, MaintenanceLog, WeatherForecast, DetailedForecast, Employee, ProductBatch, UserProfile, Notification } from './types';
-import { useStore } from './store/useStore';
+import { useStore, isAnyModalOpen } from './store/useStore';
 import { useWeatherSync } from './hooks/useWeatherSync';
 import { INITIAL_WEATHER, CROP_TYPES } from './constants';
 
@@ -31,6 +31,7 @@ import VoiceAssistant, { VoiceActionType } from './components/VoiceAssistant';
 import TraceabilityModal from './components/TraceabilityModal';
 import PublicProductPage from './components/PublicProductPage';
 import TeamManager from './components/TeamManager';
+import FieldFeed from './components/FieldFeed';
 import TaskProofModal from './components/TaskProofModal';
 import { NotificationCenter } from './components/NotificationCenter';
 import LoneWorkerMonitor from './components/LoneWorkerMonitor';
@@ -62,8 +63,10 @@ const App = () => {
     updateUser,
     addTransaction, addNotification, markNotificationRead,
     toggleIrrigation, addLogToField, registerSale, harvestField,
-    animalBatches
+    animalBatches, feedItems, hasUnreadFeed,
+    ui, openModal, closeModal, setChildModalOpen, updateGuideData
   } = useStore();
+  const isAnyModalOpenValue = useStore(isAnyModalOpen);
 
   useWeatherSync();
 
@@ -84,28 +87,16 @@ const App = () => {
     }
   }, []);
 
-  // UI Local States
-  const [isChildModalOpen, setIsChildModalOpen] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
-  const [isTeamManagerOpen, setIsTeamManagerOpen] = useState(false);
-  const [isOmniSearchOpen, setIsOmniSearchOpen] = useState(false);
-  const [taskProofTask, setTaskProofTask] = useState<Task | null>(null);
-  const [traceabilityBatch, setTraceabilityBatch] = useState<ProductBatch | null>(null);
-  const [showGuideModal, setShowGuideModal] = useState(false);
-  const [saleStep, setSaleStep] = useState(1);
-  const [saleData, setSaleData] = useState({
-    stockId: '',
-    quantity: '',
-    clientName: '',
-    clientNif: '',
-    destination: '',
-    plate: '',
-    date: new Date().toISOString().split('T')[0],
-    price: '',
-    fieldId: ''
-  });
+  // UI Local States moved to Store
+  const { modals, isChildModalOpen } = ui;
+  const { guideStep, guideData } = modals;
+  const isSettingsOpen = modals.settings;
+  const isNotificationsOpen = modals.notifications;
+  const isNotificationCenterOpen = modals.notificationCenter;
+  const isTeamManagerOpen = modals.teamManager;
+  const taskProofTask = modals.taskProof;
+  const traceabilityBatch = modals.traceability;
+  const showGuideModal = modals.guide;
 
   const [showOnlineSuccess, setShowOnlineSuccess] = useState<boolean>(false);
   const [syncQueueCount, setSyncQueueCount] = useState(0);
@@ -167,12 +158,13 @@ const App = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        setIsOmniSearchOpen(prev => !prev);
+        if (modals.omniSearch) closeModal('omniSearch');
+        else openModal('omniSearch');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [modals.omniSearch, openModal, closeModal]);
 
   const alertCount = useMemo(() => {
     let count = 0;
@@ -242,16 +234,16 @@ const App = () => {
   };
 
   const generateGuidePDF = () => {
-    const selectedStock = stocks.find(s => s.id === saleData.stockId);
-    const selectedField = fields.find(f => f.id === saleData.fieldId);
+    const selectedStock = stocks.find(s => s.id === guideData.stockId);
+    const selectedField = fields.find(f => f.id === guideData.fieldId);
     if (!selectedStock || !selectedField) return;
 
     handleRegisterSale({
-      stockId: saleData.stockId,
-      quantity: parseFloat(saleData.quantity),
-      pricePerUnit: parseFloat(saleData.price),
-      clientName: saleData.clientName,
-      date: saleData.date,
+      stockId: guideData.stockId,
+      quantity: parseFloat(guideData.quantity),
+      pricePerUnit: parseFloat(guideData.price),
+      clientName: guideData.clientName,
+      date: guideData.date,
       fieldId: selectedField.id
     });
 
@@ -278,19 +270,19 @@ const App = () => {
     doc.text("DESTINATÁRIO:", 110, 42);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(saleData.clientName, 110, 48);
-    doc.text(`NIF: ${saleData.clientNif || 'N/A'}`, 110, 53);
-    doc.text(`Descarga: ${saleData.destination || 'Morada do Cliente'}`, 110, 58);
+    doc.text(guideData.clientName, 110, 48);
+    doc.text(`NIF: ${guideData.clientNif || 'N/A'}`, 110, 53);
+    doc.text(`Descarga: ${guideData.destination || 'Morada do Cliente'}`, 110, 58);
     doc.setFillColor(240, 240, 240);
     doc.rect(14, 65, 182, 15, 'F');
-    doc.text(`Viatura: ${saleData.plate.toUpperCase()}`, 20, 75);
-    doc.text(`Data Início: ${saleData.date}`, 120, 75);
+    doc.text(`Viatura: ${guideData.plate.toUpperCase()}`, 20, 75);
+    doc.text(`Data Início: ${guideData.date}`, 120, 75);
 
     const tableRows = [[
       selectedStock.name,
-      `${saleData.quantity} ${selectedStock.unit}`,
-      `${saleData.price} €`,
-      `${(parseFloat(saleData.quantity) * parseFloat(saleData.price)).toFixed(2)} €`
+      `${guideData.quantity} ${selectedStock.unit}`,
+      `${guideData.price} €`,
+      `${(parseFloat(guideData.quantity) * parseFloat(guideData.price)).toFixed(2)} €`
     ]];
     autoTable(doc, {
       startY: 85,
@@ -304,14 +296,12 @@ const App = () => {
     doc.setTextColor(150);
     doc.text("Este documento não substitui a fatura oficial. Válido para circulação.", 14, finalY);
     doc.text(`Emitido via OrivaSmart App`, 14, finalY + 5);
-    doc.save(`Guia_Transporte_${saleData.clientName.replace(/\s/g, '_')}.pdf`);
+    doc.save(`Guia_Transporte_${guideData.clientName.replace(/\s/g, '_')}.pdf`);
 
-    setShowGuideModal(false);
-    setSaleStep(1);
-    setSaleData({ stockId: '', quantity: '', clientName: '', clientNif: '', destination: '', plate: '', date: new Date().toISOString().split('T')[0], price: '', fieldId: '' });
+    closeModal('guide');
   };
 
-  const shouldHideNav = isChildModalOpen || isSettingsOpen || isNotificationCenterOpen || isTeamManagerOpen || isOmniSearchOpen || !!taskProofTask || showGuideModal;
+
 
   if (viewMode === 'public' && publicBatchId) {
     return <PublicProductPage batchId={publicBatchId} />;
@@ -355,7 +345,7 @@ const App = () => {
       {/* CRITICAL ALERT TOAST */}
       {notifications.some(n => n.type === 'critical' && !n.read) && (
         <div
-          onClick={() => setIsNotificationCenterOpen(true)}
+          onClick={() => openModal('notificationCenter')}
           className="fixed top-12 left-1/2 -translate-x-1/2 z-[150] bg-red-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-bounce-in cursor-pointer hover:scale-105 transition-transform"
         >
           <div className="w-2 h-2 rounded-full bg-white animate-ping" />
@@ -438,13 +428,15 @@ const App = () => {
             users={users}
             currentUser={currentUser}
             animals={animals}
+            feedItems={feedItems}
+            hasUnreadFeed={hasUnreadFeed}
+            alertCount={alertCount}
             onToggleTask={(id) => updateTask(id, { completed: !tasks.find(t => t.id === id)?.completed })}
             onAddTask={handleAddTask}
             onDeleteTask={deleteTask}
-            onWeatherClick={() => setIsNotificationsOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onOpenNotifications={() => setIsNotificationCenterOpen(true)}
-            onModalChange={setIsChildModalOpen}
+            onWeatherClick={() => openModal('notifications')}
+            onOpenSettings={() => openModal('settings')}
+            onOpenNotifications={() => openModal('notificationCenter')}
             onUpdateMachineHours={(id, hours) => updateMachine(id, { engineHours: hours })}
             onAddMachineLog={(id, log) => {
               const machine = machines.find(m => m.id === id);
@@ -469,12 +461,11 @@ const App = () => {
                 });
               }
             }}
-            onTaskClick={(task) => setTaskProofTask(task)}
+            onTaskClick={(task) => openModal('taskProof', task)}
             onNavigate={(tab) => {
-              if (tab === 'team') setIsTeamManagerOpen(true);
+              if (tab === 'team' || tab === 'feed') openModal('fieldFeed');
               else setActiveTab(tab as any);
             }}
-            alertCount={alertCount}
           />
         )}
         {activeTab === 'animal' && (
@@ -494,7 +485,6 @@ const App = () => {
               completed: false,
               status: 'pending'
             })}
-            onModalChange={setIsChildModalOpen}
           />
         )}
         {activeTab === 'cultivation' && (
@@ -514,11 +504,10 @@ const App = () => {
             }}
             onAddField={(f) => addField({ ...f, id: Date.now().toString(), yieldPerHa: 0, coordinates: [41.442, -8.723], polygon: [], irrigationStatus: false, humidity: 50, temp: 20, healthScore: 100, harvestWindow: 'Próxima Época', history: [], logs: [], sensors: [] })}
             onRegisterSensor={handleRegisterSensor}
-            onModalChange={setIsChildModalOpen}
             operatorName={userName}
             onRegisterSale={handleRegisterSale}
             onHarvest={handleHarvest}
-            onViewTraceability={setTraceabilityBatch}
+            onViewTraceability={(batch) => openModal('traceability', batch)}
             onDeleteField={deleteField}
           />
         )}
@@ -530,8 +519,7 @@ const App = () => {
               onAddStock={(item) => addStock({ ...item, id: Date.now().toString() })}
               onEditStock={(id, updates) => updateStock(id, updates)}
               onDeleteStock={deleteStock}
-              onModalChange={setIsChildModalOpen}
-              onOpenGuide={() => setShowGuideModal(true)}
+              onOpenGuide={() => openModal('guide')}
             />
           ) : (
             <AccessDenied title="Stocks & Armazém" />
@@ -541,8 +529,8 @@ const App = () => {
           <MachineManager
             machines={machines}
             stocks={stocks}
-            onUpdateHours={(id, hours) => updateMachine(id, { engineHours: hours })}
-            onAddLog={(id, log) => {
+            onUpdateHours={(id: string, hours: number) => updateMachine(id, { engineHours: hours })}
+            onAddLog={(id: string, log: Omit<MaintenanceLog, 'id'>) => {
               const machine = machines.find(m => m.id === id);
               if (!machine) return;
               const logId = Date.now().toString();
@@ -585,8 +573,7 @@ const App = () => {
               }
             }}
             onUpdateMachine={updateMachine}
-            onAddMachine={(m) => addMachine({ ...m, id: Date.now().toString(), logs: [] })}
-            onModalChange={setIsChildModalOpen}
+            onAddMachine={(m: Omit<Machine, 'id' | 'logs'>) => addMachine({ ...m, id: Date.now().toString(), logs: [] })}
           />
         )}
         {activeTab === 'finance' && (
@@ -595,7 +582,6 @@ const App = () => {
               transactions={transactions}
               stocks={stocks}
               onAddTransaction={(tx) => addTransaction({ ...tx, id: Date.now().toString() })}
-              onModalChange={setIsChildModalOpen}
             />
           ) : (
             <AccessDenied title="Finanças" />
@@ -608,7 +594,7 @@ const App = () => {
       <VoiceAssistant onCommand={handleVoiceCommand} />
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${shouldHideNav ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${isAnyModalOpenValue ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}>
         {[
           { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
@@ -649,7 +635,7 @@ const App = () => {
       {/* Global Modals */}
       <SettingsModal
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
+        onClose={() => closeModal('settings')}
         onResetData={() => hydrate()}
         currentName={userName}
         onSaveName={() => { }} // Name managed by Team Profile now
@@ -660,8 +646,8 @@ const App = () => {
       />
 
       <OmniSearch
-        isOpen={isOmniSearchOpen}
-        onClose={() => setIsOmniSearchOpen(false)}
+        isOpen={modals.omniSearch}
+        onClose={() => closeModal('omniSearch')}
         fields={fields}
         animals={animals}
         machines={machines}
@@ -675,7 +661,7 @@ const App = () => {
 
       <NotificationsModal
         isOpen={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
+        onClose={() => closeModal('notifications')}
         weather={weatherData}
         animals={animals}
         fields={fields}
@@ -687,26 +673,23 @@ const App = () => {
       {/* TEAM CONNECT MODAL (Opened from Settings Button for now - could be in Settings Menu) */}
       {isSettingsOpen && (
         <button
-          onClick={() => { setIsSettingsOpen(false); setIsTeamManagerOpen(true); }}
+          onClick={() => { closeModal('settings'); openModal('teamManager'); }}
           className="fixed top-24 right-6 z-[160] bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg animate-slide-left flex items-center gap-2"
         >
           <Users size={16} /> Equipa
         </button>
       )}
 
-      {isTeamManagerOpen && (
-        <TeamManager
-          users={users}
-          currentUser={currentUser}
-          onSwitchUser={(id) => setCurrentUserId(id)}
-          onClose={() => setIsTeamManagerOpen(false)}
+      {modals.fieldFeed && (
+        <FieldFeed
+          onClose={() => closeModal('fieldFeed')}
         />
       )}
 
       {taskProofTask && (
         <TaskProofModal
           isOpen={!!taskProofTask}
-          onClose={() => setTaskProofTask(null)}
+          onClose={() => closeModal('taskProof')}
           task={taskProofTask}
           currentUser={currentUser}
           onSubmitProof={handleSubmitProof}
@@ -718,14 +701,14 @@ const App = () => {
       {traceabilityBatch && (
         <TraceabilityModal
           isOpen={!!traceabilityBatch}
-          onClose={() => setTraceabilityBatch(null)}
+          onClose={() => closeModal('traceability')}
           batch={traceabilityBatch}
         />
       )}
 
       {/* --- e-GUIAS MODAL (GLOBAL) --- */}
       {showGuideModal && (
-        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowGuideModal(false)}>
+        <div className="fixed inset-0 z-[150] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => closeModal('guide')}>
           <div
             className="bg-white dark:bg-neutral-900 w-full max-w-md p-6 rounded-t-[2.5rem] shadow-2xl animate-slide-up border-t border-white/20 max-h-[95vh] overflow-y-auto custom-scrollbar"
             onClick={e => e.stopPropagation()}
@@ -737,19 +720,19 @@ const App = () => {
                 </h3>
                 <p className="text-xs font-bold text-gray-400 uppercase mt-1">Comercialização & Guia</p>
               </div>
-              <button onClick={() => setShowGuideModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+              <button onClick={() => closeModal('guide')} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
                 <X size={20} className="dark:text-white" />
               </button>
             </div>
 
-            {saleStep === 1 ? (
+            {guideStep === 1 ? (
               <div className="space-y-5">
                 {/* Field Selector (Location) */}
                 <div>
                   <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Local de Carga (Parcela)</label>
                   <select
-                    value={saleData.fieldId}
-                    onChange={(e) => setSaleData({ ...saleData, fieldId: e.target.value })}
+                    value={guideData.fieldId}
+                    onChange={(e) => updateGuideData({ guideData: { fieldId: e.target.value } })}
                     className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
                   >
                     <option value="">Selecione o local...</option>
@@ -763,8 +746,8 @@ const App = () => {
                 <div>
                   <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">O que vai vender?</label>
                   <select
-                    value={saleData.stockId}
-                    onChange={(e) => setSaleData({ ...saleData, stockId: e.target.value })}
+                    value={guideData.stockId}
+                    onChange={(e) => updateGuideData({ guideData: { stockId: e.target.value } })}
                     className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 appearance-none"
                   >
                     <option value="">Selecione o produto...</option>
@@ -782,8 +765,8 @@ const App = () => {
                       type="number"
                       placeholder="0"
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.quantity}
-                      onChange={(e) => setSaleData({ ...saleData, quantity: e.target.value })}
+                      value={guideData.quantity}
+                      onChange={(e) => updateGuideData({ guideData: { quantity: e.target.value } })}
                     />
                   </div>
                   <div>
@@ -792,16 +775,16 @@ const App = () => {
                       type="number"
                       placeholder="0.00"
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.price}
-                      onChange={(e) => setSaleData({ ...saleData, price: e.target.value })}
+                      value={guideData.price}
+                      onChange={(e) => updateGuideData({ guideData: { price: e.target.value } })}
                     />
                   </div>
                 </div>
 
                 <button
-                  onClick={() => setSaleStep(2)}
-                  disabled={!saleData.stockId || !saleData.quantity || !saleData.price || !saleData.fieldId}
-                  className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!saleData.stockId || !saleData.quantity || !saleData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
+                  onClick={() => updateGuideData({ guideStep: 2 })}
+                  disabled={!guideData.stockId || !guideData.quantity || !guideData.price || !guideData.fieldId}
+                  className={`w-full py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 mt-4 transition-all ${!guideData.stockId || !guideData.quantity || !guideData.fieldId ? 'bg-gray-300 dark:bg-neutral-800 cursor-not-allowed text-gray-500' : 'bg-orange-500 shadow-lg shadow-orange-500/30 active:scale-95'}`}
                 >
                   Próximo: Dados de Transporte
                 </button>
@@ -814,14 +797,14 @@ const App = () => {
                   <input
                     placeholder="Nome do Cliente"
                     className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 mb-2"
-                    value={saleData.clientName}
-                    onChange={(e) => setSaleData({ ...saleData, clientName: e.target.value })}
+                    value={guideData.clientName}
+                    onChange={(e) => updateGuideData({ guideData: { clientName: e.target.value } })}
                   />
                   <input
                     placeholder="NIF (Opcional)"
                     className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                    value={saleData.clientNif}
-                    onChange={(e) => setSaleData({ ...saleData, clientNif: e.target.value })}
+                    value={guideData.clientNif}
+                    onChange={(e) => updateGuideData({ guideData: { clientNif: e.target.value } })}
                   />
                 </div>
 
@@ -832,8 +815,8 @@ const App = () => {
                     <input
                       placeholder="AA-00-BB"
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none uppercase focus:ring-2 focus:ring-orange-500"
-                      value={saleData.plate}
-                      onChange={(e) => setSaleData({ ...saleData, plate: e.target.value })}
+                      value={guideData.plate}
+                      onChange={(e) => updateGuideData({ guideData: { plate: e.target.value } })}
                     />
                   </div>
                   <div>
@@ -841,18 +824,18 @@ const App = () => {
                     <input
                       type="date"
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500"
-                      value={saleData.date}
-                      onChange={(e) => setSaleData({ ...saleData, date: e.target.value })}
+                      value={guideData.date}
+                      onChange={(e) => updateGuideData({ guideData: { date: e.target.value } })}
                     />
                   </div>
                 </div>
 
                 <div className="flex gap-3 pt-2">
-                  <button onClick={() => setSaleStep(1)} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
+                  <button onClick={() => updateGuideData({ guideStep: 1 })} className="px-6 py-4 bg-gray-200 dark:bg-neutral-800 rounded-[1.5rem] font-bold text-gray-600 dark:text-gray-300">Voltar</button>
                   <button
                     onClick={generateGuidePDF}
-                    disabled={!saleData.clientName || !saleData.plate}
-                    className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!saleData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
+                    disabled={!guideData.clientName || !guideData.plate}
+                    className={`flex-1 py-4 rounded-[1.5rem] font-bold text-white flex items-center justify-center gap-2 transition-all ${!guideData.clientName ? 'bg-gray-300 cursor-not-allowed' : 'bg-agro-green shadow-lg shadow-agro-green/30 active:scale-95'}`}
                   >
                     <FileCheck size={20} /> Emitir Guia & Registar
                   </button>
@@ -866,7 +849,7 @@ const App = () => {
       {/* NOTIFICATION CENTER */}
       <NotificationCenter
         isOpen={isNotificationCenterOpen}
-        onClose={() => setIsNotificationCenterOpen(false)}
+        onClose={() => closeModal('notificationCenter')}
         notifications={notifications}
         onMarkAsRead={markNotificationRead}
         onMarkAllAsRead={() => notifications.forEach(n => markNotificationRead(n.id))}
@@ -893,7 +876,7 @@ const App = () => {
           } else {
             setActiveTab(path as any);
           }
-          setIsNotificationCenterOpen(false);
+          closeModal('notificationCenter');
         }}
       />
 

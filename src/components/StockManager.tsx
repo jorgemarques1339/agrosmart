@@ -5,6 +5,7 @@ import { Plus, Minus, AlertTriangle, TrendingUp, Zap, Droplets, Leaf, Info, X, S
 import clsx from 'clsx';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { StockItem } from '../types';
+import { useStore } from '../store/useStore';
 
 interface StockManagerProps {
   stocks: StockItem[];
@@ -13,7 +14,6 @@ interface StockManagerProps {
   onAddStock: (item: Omit<StockItem, 'id'>) => void;
   onEditStock: (id: string, updates: Partial<StockItem>) => void;
   onDeleteStock?: (id: string) => void;
-  onModalChange?: (isOpen: boolean) => void;
   onOpenGuide?: () => void;
 }
 
@@ -485,7 +485,8 @@ const AutoOrderModal = ({ item, isOpen, onClose }: { item: StockItem | null, isO
   );
 };
 
-const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDeleteStock, onModalChange, onOpenGuide }: StockManagerProps) => {
+const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDeleteStock, onOpenGuide }: StockManagerProps) => {
+  const { setChildModalOpen } = useStore();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
@@ -513,8 +514,8 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
   const [orderItem, setOrderItem] = useState<StockItem | null>(null);
 
   useEffect(() => {
-    if (onModalChange) onModalChange(isAddModalOpen || !!selectedItem || isOrderModalOpen);
-  }, [isAddModalOpen, selectedItem, isOrderModalOpen, onModalChange]);
+    setChildModalOpen(isAddModalOpen || !!selectedItem || isOrderModalOpen);
+  }, [isAddModalOpen, selectedItem, isOrderModalOpen, setChildModalOpen]);
 
   const handleCreate = () => {
     if (newItem.name && newItem.quantity && newItem.pricePerUnit) {

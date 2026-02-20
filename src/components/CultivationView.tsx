@@ -18,7 +18,6 @@ interface CultivationViewProps {
     onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void;
     onAddField: (field: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => void;
     onRegisterSensor: (fieldId: string, sensor: Sensor) => void;
-    onModalChange?: (isOpen: boolean) => void;
     operatorName: string;
     onRegisterSale: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
     onHarvest: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
@@ -36,13 +35,13 @@ const CultivationView: React.FC<CultivationViewProps> = ({
     onUseStock,
     onAddField,
     onRegisterSensor,
-    onModalChange,
     operatorName,
     onRegisterSale,
     onHarvest,
     onViewTraceability,
     onDeleteField
 }) => {
+    const { setChildModalOpen } = useStore();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
     const [showIoTWizard, setShowIoTWizard] = useState(false);
@@ -59,10 +58,8 @@ const CultivationView: React.FC<CultivationViewProps> = ({
     const [selectedCrop, setSelectedCrop] = useState(CROP_TYPES[0]);
 
     useEffect(() => {
-        if (onModalChange) {
-            onModalChange(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal || showRouteOptimizer);
-        }
-    }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, showRouteOptimizer, onModalChange]);
+        setChildModalOpen(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal || showRouteOptimizer);
+    }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, showRouteOptimizer, setChildModalOpen]);
 
     const handleSubmit = () => {
         if (newName && newArea) {
@@ -145,7 +142,6 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                         onRegisterSensor={onRegisterSensor}
                         onRegisterSale={onRegisterSale}
                         onHarvest={onHarvest}
-                        onModalChange={setAnyFieldOpen}
                         onDelete={onDeleteField}
                     />
                 ))}

@@ -48,15 +48,6 @@ const OmniSearch: React.FC<OmniSearchProps> = ({
     // Handle global keyboard shortcuts (Ctrl+K or Cmd+K)
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                if (isOpen) {
-                    onClose();
-                } else {
-                    // Open search (this relies on the parent component triggering the state)
-                    // The parent should also listen for this to change `isOpen`
-                }
-            }
             if (e.key === 'Escape' && isOpen) {
                 onClose();
             }

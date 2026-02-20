@@ -9,9 +9,10 @@ import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents, useMa
 import L from 'leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
-import { Field, Mission } from '../types';
+import { Field, Mission, FeedItem } from '../types';
 import { haptics } from '../utils/haptics';
 import OfflineTileLayer from './OfflineTileLayer';
+import { useStore } from '../store/useStore';
 
 // --- HELPERS ---
 
@@ -76,6 +77,7 @@ const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate 
     const [battery, setBattery] = useState(100);
     const [isDrawing, setIsDrawing] = useState(true);
     const [isGeofenceViolated, setIsGeofenceViolated] = useState(false);
+    const feedItems = useStore(state => state.feedItems);
 
     // Initial position for the "lead" drone
     const [leadPos, setLeadPos] = useState<[number, number] | null>(null);
@@ -397,6 +399,25 @@ const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate 
                                 />
                             );
                         })}
+
+                        {/* SOCIAL FEED MARKERS */}
+                        {feedItems.map(item => (
+                            <Marker
+                                key={`feed-${item.id}`}
+                                position={item.location}
+                                icon={L.divIcon({
+                                    className: 'custom-div-icon',
+                                    html: `<div class="relative group">
+                                            <div class="w-8 h-8 rounded-full border-2 ${item.type === 'alert' ? 'border-red-500 bg-red-100' : 'border-indigo-500 bg-white'} flex items-center justify-center shadow-lg transition-transform group-hover:scale-125">
+                                                <span class="text-xs font-bold">${item.userAvatar}</span>
+                                            </div>
+                                            <div class="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                                                ${item.userName}: ${item.content.substring(0, 20)}...
+                                            </div>
+                                           </div>`
+                                })}
+                            />
+                        ))}
 
                         {leadPos && <MapCenterer coords={leadPos} />}
                     </MapContainer>

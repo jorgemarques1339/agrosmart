@@ -6,16 +6,17 @@ import {
    Check, Calendar, MapPin, Sun, Cloud,
    CloudRain, CloudLightning, ArrowRight, Activity,
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
-   ChevronDown, PawPrint, Leaf, Search
+   ChevronDown, PawPrint, Leaf, Search, MessageSquare
 } from 'lucide-react';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
-   StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice
+   StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice, FeedItem
 } from '../types';
 import MarketPrices from './MarketPrices';
 import FarmCopilot from './FarmCopilot';
 import MorningBriefingModal from './MorningBriefingModal';
 import { calculateCarbonFootprint } from '../utils/carbonCalculator';
+import { useStore } from '../store/useStore';
 
 interface DashboardHomeProps {
    userName: string;
@@ -34,11 +35,12 @@ interface DashboardHomeProps {
    onWeatherClick: () => void;
    onOpenSettings: () => void;
    onOpenNotifications: () => void;
-   onModalChange: (isOpen: boolean) => void;
    onUpdateMachineHours: (id: string, hours: number) => void;
    onAddMachineLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
    onTaskClick: (task: Task) => void;
    onNavigate: (tab: string) => void;
+   feedItems: FeedItem[];
+   hasUnreadFeed: boolean;
    alertCount: number;
 }
 
@@ -58,10 +60,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    onOpenSettings,
    onOpenNotifications,
    onNavigate,
-   onModalChange,
    alertCount,
-   onTaskClick
+   onTaskClick,
+   feedItems = [],
+   hasUnreadFeed = false
 }) => {
+   const { setChildModalOpen, openModal } = useStore();
    const [isInlineInputOpen, setIsInlineInputOpen] = useState(false);
    const [scrolled, setScrolled] = useState(false); // New state for scroll
 
@@ -83,12 +87,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // Estado para o Modal de Morning Briefing
    const [isBriefingModalOpen, setIsBriefingModalOpen] = useState(false);
 
-   // Atualizar pai sobre modal aberto
+   // Atualizar estado global de modal aberto (para esconder nav)
    React.useEffect(() => {
-      if (onModalChange) {
-         onModalChange(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen);
-      }
-   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, onModalChange]);
+      setChildModalOpen(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen);
+   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, setChildModalOpen]);
 
    // Handle scroll for top bar
    React.useEffect(() => {
@@ -243,7 +245,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
                <div className="flex items-center gap-2">
                   <button
-                     onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
+                     onClick={() => openModal('omniSearch')}
                      className={`p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
                                 ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
                   >
@@ -402,26 +404,30 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
                {/* Col 2: Lone Worker Safety (NEW) */}
                <div
-                  onClick={() => onNavigate('team')}
+                  onClick={() => onNavigate('feed')}
                   className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
                >
                   <div className="relative">
                      <div className="text-indigo-500 transition-transform group-hover:scale-110 duration-300">
-                        <Activity size={24} strokeWidth={2.5} />
+                        <MessageSquare size={24} strokeWidth={2.5} />
                      </div>
-                     {/* Alerta Visual de Emergência se houver algum user em 'emergency' ou 'warning' */}
-                     {users.some(u => u.safetyStatus?.status === 'emergency') && (
+                     {/* Alerta Visual de Emergência ou Novo Post (Sonar Effect) */}
+                     {users.some(u => u.safetyStatus?.status === 'emergency') ? (
                         <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping border-2 border-white dark:border-neutral-900" />
-                     )}
-                     {users.some(u => u.safetyStatus?.status === 'warning') && !users.some(u => u.safetyStatus?.status === 'emergency') && (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
-                     )}
+                     ) : hasUnreadFeed ? (
+                        <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                           <div className="absolute w-3 h-3 bg-red-500 rounded-full animate-ping opacity-75" />
+                           <div className="relative w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white dark:border-neutral-900" />
+                        </div>
+                     ) : feedItems.length > 0 ? (
+                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
+                     ) : null}
                   </div>
                   <div className="text-center px-1">
-                     <span className={`block text-base sm:text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
-                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'SOS' : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
+                     <span className={`block text-base sm:text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') || hasUnreadFeed ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
+                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'SOS' : (hasUnreadFeed || feedItems.length > 0) ? `${feedItems.length} msg` : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
                      </span>
-                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Equipa</span>
+                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Feed</span>
                   </div>
                </div>
 
