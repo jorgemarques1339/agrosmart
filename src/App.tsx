@@ -60,7 +60,7 @@ const App = () => {
     addAnimalBatch, updateAnimalBatch, deleteAnimalBatch, applyBatchAction,
     addMachine, updateMachine,
     addTask, updateTask, deleteTask,
-    updateUser,
+    updateUser, addUser, deleteUser,
     addTransaction, addNotification, markNotificationRead,
     toggleIrrigation, addLogToField, registerSale, harvestField,
     animalBatches, feedItems, hasUnreadFeed,
@@ -85,7 +85,28 @@ const App = () => {
       setViewMode('public');
       setPublicBatchId(batchId);
     }
-  }, []);
+
+    // QR Onboarding
+    const onboardId = params.get('onboard');
+    if (onboardId && onboardId !== currentUserId) {
+      const userExists = users.find(u => u.id === onboardId);
+      if (userExists) {
+        setCurrentUserId(onboardId);
+        // Clear param
+        const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+        window.history.replaceState({ path: newUrl }, '', newUrl);
+
+        addNotification({
+          id: `onboard-${Date.now()}`,
+          title: 'Configuração Concluída',
+          message: `Bem-vindo à SmartAgro, ${userExists.name}! O teu perfil foi configurado.`,
+          type: 'success',
+          timestamp: new Date().toISOString(),
+          read: false
+        });
+      }
+    }
+  }, [users, currentUserId, setCurrentUserId, addNotification]);
 
   // UI Local States moved to Store
   const { modals, isChildModalOpen } = ui;
@@ -430,6 +451,8 @@ const App = () => {
             animals={animals}
             feedItems={feedItems}
             hasUnreadFeed={hasUnreadFeed}
+            syncStatus={useStore.getState().syncStatus}
+            lastSyncTime={useStore.getState().lastSyncTime}
             alertCount={alertCount}
             onToggleTask={(id) => updateTask(id, { completed: !tasks.find(t => t.id === id)?.completed })}
             onAddTask={handleAddTask}
@@ -594,42 +617,65 @@ const App = () => {
       <VoiceAssistant onCommand={handleVoiceCommand} />
 
       {/* Bottom Navigation */}
-      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-between z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${isAnyModalOpenValue ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+      <nav className={`fixed bottom-4 left-1/2 -translate-x-1/2 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-2xl rounded-[2.5rem] px-2 py-3 flex items-end justify-center gap-2 z-40 w-[96%] max-w-sm md:max-w-md mx-auto backdrop-blur-md bg-opacity-90 dark:bg-opacity-90 transition-all duration-300 ease-in-out ${isAnyModalOpenValue ? 'translate-y-[200%] opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
         }`}>
-        {[
-          { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
-          { id: 'cultivation', icon: Sprout, label: 'Cultivo' },
-          { id: 'animal', icon: PawPrint, label: 'Animais' },
-          { id: 'stocks', icon: Package, label: 'Stock', restricted: currentUser.role !== 'admin' },
-          { id: 'machines', icon: Tractor, label: 'Frota' },
-          { id: 'finance', icon: Wallet, label: 'Finanças', restricted: currentUser.role !== 'admin' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => { haptics.light(); setActiveTab(tab.id as any); }}
-            className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl relative ${activeTab === tab.id
-              ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1'
-              : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-transparent p-2 mb-1'
-              }`}
-          >
-            {tab.restricted ? (
-              <div className="relative">
-                <tab.icon size={22} strokeWidth={2} className="opacity-50" />
-                <div className="absolute -top-1 -right-1 bg-gray-200 dark:bg-neutral-700 rounded-full p-0.5">
-                  <Lock size={8} className="text-gray-500" />
-                </div>
-              </div>
-            ) : (
-              <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
-            )}
+        {(() => {
+          const allTabs = [
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Home' },
+            { id: 'cultivation', icon: Sprout, label: 'Cultivo' },
+            { id: 'animal', icon: PawPrint, label: 'Animais' },
+            { id: 'stocks', icon: Package, label: 'Stock' },
+            { id: 'machines', icon: Tractor, label: 'Frota' },
+            { id: 'finance', icon: Wallet, label: 'Finanças' },
+          ];
 
-            {activeTab === tab.id && (
-              <span className="text-[9px] font-bold mt-1 animate-fade-in whitespace-nowrap leading-none">
-                {tab.label}
-              </span>
-            )}
-          </button>
-        ))}
+          const filteredTabs = allTabs.filter(tab => {
+            const role = currentUser.role;
+            const specialty = currentUser.specialty?.toLowerCase() || '';
+
+            if (role === 'admin') return true;
+            if (tab.id === 'dashboard') return true;
+
+            // Farmer / Cultivation
+            if (role === 'farmer' || specialty.includes('agric') || specialty.includes('gest')) {
+              if (['cultivation', 'stocks'].includes(tab.id)) return true;
+            }
+
+            // Vet / Animals
+            if (role === 'vet' || specialty.includes('vet') || specialty.includes('anim')) {
+              if (tab.id === 'animal') return true;
+            }
+
+            // Mechanic / Fleet
+            if (role === 'mechanic' || specialty.includes('mecan') || specialty.includes('máquin')) {
+              if (tab.id === 'machines') return true;
+            }
+
+            // Admin only for Finance
+            if (tab.id === 'finance') return (role as string) === 'admin';
+
+            return tab.id === 'dashboard';
+          });
+
+          return filteredTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => { haptics.light(); setActiveTab(tab.id as any); }}
+              className={`transition-all duration-300 flex flex-col items-center justify-center rounded-2xl relative ${activeTab === tab.id
+                ? 'bg-agro-green text-white shadow-lg shadow-agro-green/30 -translate-y-2 py-2 px-3 min-w-[56px] mb-1'
+                : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 bg-transparent p-2 mb-1'
+                }`}
+            >
+              <tab.icon size={22} strokeWidth={activeTab === tab.id ? 2.5 : 2} />
+
+              {activeTab === tab.id && (
+                <span className="text-[9px] font-bold mt-1 animate-fade-in whitespace-nowrap leading-none">
+                  {tab.label}
+                </span>
+              )}
+            </button>
+          ));
+        })()}
       </nav>
 
       {/* Global Modals */}
@@ -638,11 +684,16 @@ const App = () => {
         onClose={() => closeModal('settings')}
         onResetData={() => hydrate()}
         currentName={userName}
-        onSaveName={() => { }} // Name managed by Team Profile now
+        onSaveName={(name) => {
+          updateUser(currentUserId, { name });
+          haptics.success();
+        }}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setDarkMode(!isDarkMode)}
         isSolarMode={isSolarMode}
         onToggleSolarMode={() => setSolarMode(!isSolarMode)}
+        syncStatus={useStore.getState().syncStatus}
+        lastSyncTime={useStore.getState().lastSyncTime}
       />
 
       <OmniSearch
@@ -678,6 +729,21 @@ const App = () => {
         >
           <Users size={16} /> Equipa
         </button>
+      )}
+
+      {isTeamManagerOpen && (
+        <TeamManager
+          users={users}
+          currentUser={currentUser}
+          onAddUser={addUser}
+          onDeleteUser={deleteUser}
+          onSwitchUser={(id) => {
+            setCurrentUserId(id);
+            closeModal('teamManager');
+            setActiveTab('dashboard');
+          }}
+          onClose={() => closeModal('teamManager')}
+        />
       )}
 
       {modals.fieldFeed && (

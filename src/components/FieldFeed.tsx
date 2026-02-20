@@ -4,7 +4,8 @@ import {
     Users, MessageSquare, Camera, Mic, MapPin,
     X, Send, ImageIcon, AlertTriangle, Clock,
     MoreHorizontal, Heart, MessageCircle, Share2,
-    CheckCircle, Navigation, Radio, Shield, LogOut, ChevronDown
+    CheckCircle, Navigation, Radio, Shield, LogOut, ChevronDown,
+    Video, Play, Volume2, Square
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -19,7 +20,8 @@ interface FieldFeedProps {
 const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
     const {
         users, feedItems, currentUserId,
-        addFeedItem, setCurrentUserId, notifications
+        addFeedItem, setCurrentUserId, notifications,
+        openModal
     } = useStore();
 
     // Reset unread flag when feed is opened
@@ -29,13 +31,52 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
 
 
     const [activeTab, setActiveTab] = useState<'feed' | 'team'>('feed');
-    const [postType, setPostType] = useState<'text' | 'photo' | 'voice' | 'alert'>('text');
+    const [postType, setPostType] = useState<'text' | 'photo' | 'voice' | 'video' | 'alert'>('text');
     const [newPostContent, setNewPostContent] = useState('');
     const [isPosting, setIsPosting] = useState(false);
+    const [stream, setStream] = useState<MediaStream | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const videoRef = React.useRef<HTMLVideoElement>(null);
 
     const currentUser = useMemo(() =>
         users.find(u => u.id === currentUserId) || users[0],
         [users, currentUserId]);
+
+    const stopMedia = () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            setStream(null);
+        }
+        setIsRecording(false);
+    };
+
+    const startMedia = async (type: 'video' | 'voice') => {
+        stopMedia();
+        try {
+            const constraints = {
+                audio: true,
+                video: type === 'video' ? { facingMode: 'environment' } : false
+            };
+            const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+            setStream(newStream);
+            if (type === 'video' && videoRef.current) {
+                videoRef.current.srcObject = newStream;
+            }
+        } catch (err) {
+            console.error("Error accessing media devices:", err);
+            alert("Não foi possível aceder à câmara/microfone. Por favor, verifique as permissões.");
+            setPostType('text');
+        }
+    };
+
+    React.useEffect(() => {
+        if (postType === 'video' || postType === 'voice') {
+            startMedia(postType as 'video' | 'voice');
+        } else {
+            stopMedia();
+        }
+        return () => stopMedia();
+    }, [postType]);
 
     const handlePost = async () => {
         if (!newPostContent.trim() && postType === 'text') return;
@@ -60,6 +101,13 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
             setNewPostContent('Transcrevendo áudio...');
             await new Promise(r => setTimeout(r, 1500));
             newItem.content = "Detectado stress hídrico severo na zona norte da Vinha. Recomendo irrigação extra.";
+        }
+
+        if (postType === 'video') {
+            setNewPostContent('Processando vídeo...');
+            await new Promise(r => setTimeout(r, 2000));
+            newItem.content = "Registo visual da manutenção preventiva no pivô central.";
+            newItem.mediaUrl = "https://assets.mixkit.co/videos/preview/mixkit-sprinklers-watering-a-green-lawn-1358-large.mp4";
         }
 
         await addFeedItem(newItem);
@@ -134,13 +182,58 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
                                     <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-lg font-bold">
                                         {currentUser.avatar}
                                     </div>
-                                    <textarea
-                                        className="flex-1 bg-transparent p-2 outline-none dark:text-white font-bold text-sm resize-none custom-scrollbar"
-                                        placeholder={postType === 'alert' ? "O que aconteceu? (Praga, avaria, SOS...)" : "O que está a acontecer no campo?"}
-                                        rows={2}
-                                        value={newPostContent}
-                                        onChange={(e) => setNewPostContent(e.target.value)}
-                                    />
+                                    <div className="flex-1 min-h-[80px] flex flex-col gap-2">
+                                        <textarea
+                                            className="w-full bg-transparent p-2 outline-none dark:text-white font-bold text-sm resize-none custom-scrollbar"
+                                            placeholder={postType === 'alert' ? "O que aconteceu? (Praga, avaria, SOS...)" : "O que está a acontecer no campo?"}
+                                            rows={2}
+                                            value={newPostContent}
+                                            onChange={(e) => setNewPostContent(e.target.value)}
+                                        />
+
+                                        {postType === 'video' && stream && (
+                                            <motion.div
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-orange-500/30 shadow-lg"
+                                            >
+                                                <video
+                                                    ref={videoRef}
+                                                    autoPlay
+                                                    muted
+                                                    playsInline
+                                                    className="w-full h-full object-cover"
+                                                />
+                                                <div className="absolute top-3 left-3 flex items-center gap-2">
+                                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-glow" />
+                                                    <span className="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-md">LIVE PREVIEW</span>
+                                                </div>
+                                            </motion.div>
+                                        )}
+
+                                        {postType === 'voice' && stream && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="h-20 bg-purple-500/10 rounded-2xl border border-purple-500/20 flex items-center justify-center gap-4 overflow-hidden"
+                                            >
+                                                <div className="flex items-center gap-1">
+                                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                                                        <motion.div
+                                                            key={i}
+                                                            animate={{ height: [12, 32, 12] }}
+                                                            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                                                            className="w-1.5 bg-purple-500 rounded-full shadow-lg shadow-purple-500/20"
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest">A gravar áudio...</span>
+                                                    <span className="text-[8px] font-bold text-purple-400 uppercase">Input detectado</span>
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-white/5">
                                     <div className="flex gap-2">
@@ -161,6 +254,12 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
                                             className={clsx("p-2 rounded-xl transition-all", postType === 'voice' ? "bg-purple-100 text-purple-600" : "text-gray-400")}
                                         >
                                             <Mic size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => setPostType('video')}
+                                            className={clsx("p-2 rounded-xl transition-all", postType === 'video' ? "bg-orange-100 text-orange-600" : "text-gray-400")}
+                                        >
+                                            <Video size={18} />
                                         </button>
                                         <button
                                             onClick={() => setPostType('alert')}
@@ -253,19 +352,64 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
                                             )}
 
                                             {item.type === 'voice' && (
-                                                <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-2xl flex items-center gap-3 mb-4 border border-indigo-100 dark:border-indigo-900/20">
-                                                    <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center">
-                                                        <Mic size={20} />
-                                                    </div>
-                                                    <div className="flex-1 space-y-1">
-                                                        <div className="h-1 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden">
-                                                            <motion.div
-                                                                animate={{ x: [0, 100, 0] }}
-                                                                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                                                                className="w-1/3 h-full bg-indigo-600 rounded-full"
-                                                            />
+                                                <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-2xl flex items-center gap-4 mb-4 border border-indigo-100 dark:border-indigo-900/20">
+                                                    <button className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform">
+                                                        <Play size={20} fill="currentColor" />
+                                                    </button>
+                                                    <div className="flex-1 space-y-2">
+                                                        <div className="flex justify-between items-end">
+                                                            <div className="flex gap-0.5 items-end h-6">
+                                                                {[0.4, 0.7, 0.5, 0.9, 0.6, 0.3, 0.8, 0.5, 0.4, 0.6, 0.9, 0.7, 0.5, 0.8, 0.4].map((h, i) => (
+                                                                    <motion.div
+                                                                        key={i}
+                                                                        initial={{ height: "20%" }}
+                                                                        animate={{ height: `${h * 100}%` }}
+                                                                        transition={{ duration: 1, repeat: Infinity, repeatType: 'reverse', delay: i * 0.1 }}
+                                                                        className="w-1 bg-indigo-400 rounded-full"
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                            <span className="text-[10px] font-black text-indigo-400 font-mono tracking-tighter">00:14 / 00:14</span>
                                                         </div>
-                                                        <p className="text-[8px] font-black uppercase text-indigo-400 tracking-widest">Audio Recording • 0:14</p>
+                                                        <div className="h-1 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden">
+                                                            <div className="w-full h-full bg-indigo-600 rounded-full" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {item.type === 'video' && (
+                                                <div className="relative rounded-[1.5rem] overflow-hidden mb-4 border border-gray-100 dark:border-white/5 bg-black group/video shadow-2xl">
+                                                    <video
+                                                        src={item.mediaUrl || "https://assets.mixkit.co/videos/preview/mixkit-sprinklers-watering-a-green-lawn-1358-large.mp4"}
+                                                        className="w-full aspect-video object-cover opacity-90"
+                                                        muted
+                                                        playsInline
+                                                        loop
+                                                        autoPlay
+                                                    />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                                                        <div className="flex items-center gap-3 w-full">
+                                                            <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center active:scale-90 transition-transform">
+                                                                <Play size={18} fill="currentColor" />
+                                                            </button>
+                                                            <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
+                                                                <motion.div
+                                                                    animate={{ x: [0, 100, 0] }}
+                                                                    transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+                                                                    className="w-1/4 h-full bg-agro-green"
+                                                                />
+                                                            </div>
+                                                            <Volume2 size={18} className="text-white opacity-80" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="absolute top-4 left-4 flex gap-2">
+                                                        <span className="px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase rounded-md flex items-center gap-1 shadow-lg">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
+                                                        </span>
+                                                        <span className="px-2 py-1 bg-black/40 backdrop-blur-md text-white text-[8px] font-black uppercase rounded-md shadow-lg border border-white/10">
+                                                            HD 1080P
+                                                        </span>
                                                     </div>
                                                 </div>
                                             )}
@@ -379,9 +523,6 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
                                 ))}
                             </div>
 
-                            <button className="w-full py-5 bg-gray-900 dark:bg-white text-white dark:text-black rounded-[2rem] font-black text-sm uppercase tracking-widest flex items-center justify-center gap-3 active:scale-95 transition-all mt-4">
-                                <Users size={20} /> Adicionar Membro
-                            </button>
                         </motion.div>
                     )}
                 </AnimatePresence>

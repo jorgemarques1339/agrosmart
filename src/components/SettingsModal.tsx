@@ -15,6 +15,8 @@ interface SettingsModalProps {
   onToggleDarkMode: () => void;
   isSolarMode: boolean;
   onToggleSolarMode: () => void;
+  syncStatus?: 'idle' | 'syncing' | 'error' | 'offline';
+  lastSyncTime?: string | null;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -26,7 +28,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   isDarkMode,
   onToggleDarkMode,
   isSolarMode,
-  onToggleSolarMode
+  onToggleSolarMode,
+  syncStatus = 'idle',
+  lastSyncTime = null
 }) => {
   const { permissions, setPermission } = useStore();
   const [tempName, setTempName] = useState(currentName);
@@ -373,7 +377,51 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 5. Secção: Segurança & Backup */}
+          {/* 5. Secção: Cloud Sync (NEW) */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <Activity size={14} /> Cloud Sync & Central Cloud
+            </h3>
+
+            <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-900/30 space-y-4">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${syncStatus === 'syncing' ? 'bg-indigo-500 text-white animate-pulse' :
+                      syncStatus === 'error' ? 'bg-red-500 text-white' :
+                        syncStatus === 'offline' ? 'bg-gray-500 text-white' : 'bg-green-500 text-white'
+                    }`}>
+                    <Monitor size={18} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Backup em Nuvem</h4>
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5">
+                      {syncStatus === 'syncing' ? 'A transferir dados...' :
+                        syncStatus === 'offline' ? 'Sem internet - Local Only' :
+                          `Último sync: ${lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Nunca'}`}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    const { syncManager } = await import('../services/SyncManager');
+                    syncManager.sync();
+                  }}
+                  disabled={syncStatus === 'syncing'}
+                  className="p-2 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-indigo-100 dark:border-indigo-900/30 text-indigo-600 active:scale-90 transition-all disabled:opacity-50"
+                  title="Sincronizar Agora"
+                >
+                  <Download size={18} className={syncStatus === 'syncing' ? 'animate-bounce' : ''} />
+                </button>
+              </div>
+
+              <p className="text-[10px] text-indigo-700/60 dark:text-indigo-300/60 italic">
+                O agricultor e o dono da quinta verão os seus posts do Feed e notas de cultivo em tempo real assim que houver ligação.
+              </p>
+            </div>
+          </section>
+
+          {/* 6. Secção: Segurança & Backup */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Shield size={14} /> Segurança de Dados

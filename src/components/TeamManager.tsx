@@ -1,127 +1,267 @@
 
 import React, { useState } from 'react';
-import { User, Shield, CheckCircle, UserPlus, X, LogOut, Briefcase } from 'lucide-react';
+import {
+  User, Shield, CheckCircle, UserPlus, X, LogOut,
+  Trash2, Mail, BadgeCheck, Users, Briefcase,
+  Stethoscope, Settings as SettingsIcon, Wrench, Sprout,
+  ArrowRight, Activity, QrCode
+} from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { UserProfile } from '../types';
+import { haptics } from '../utils/haptics';
 
 interface TeamManagerProps {
   users: UserProfile[];
   currentUser: UserProfile;
+  onAddUser: (user: UserProfile) => void;
+  onDeleteUser: (userId: string) => void;
   onSwitchUser: (userId: string) => void;
   onClose: () => void;
 }
 
-const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onSwitchUser, onClose }) => {
-  const [showInvite, setShowInvite] = useState(false);
+const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser, onDeleteUser, onSwitchUser, onClose }) => {
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState<UserProfile['role']>('farmer');
+  const [showQRUser, setShowQRUser] = useState<UserProfile | null>(null);
+
+  const isAdmin = currentUser.role === 'admin';
+
+  const roleConfig = {
+    admin: { label: 'Administrador', icon: Shield, color: 'text-slate-600 bg-slate-100', dot: 'bg-slate-500' },
+    farmer: { label: 'Agricultor', icon: Sprout, color: 'text-emerald-600 bg-emerald-100', dot: 'bg-emerald-500' },
+    vet: { label: 'Veterinário(a)', icon: Stethoscope, color: 'text-purple-600 bg-purple-100', dot: 'bg-purple-500' },
+    mechanic: { label: 'Mecânico', icon: Wrench, color: 'text-blue-600 bg-blue-100', dot: 'bg-blue-500' },
+    operator: { label: 'Operador', icon: Briefcase, color: 'text-orange-600 bg-orange-100', dot: 'bg-orange-500' },
+  };
+
+  const handleCreate = () => {
+    if (!newName) return;
+    const newUser: UserProfile = {
+      id: `u-${Date.now()}`,
+      name: newName,
+      role: newRole,
+      avatar: newName.charAt(0).toUpperCase(),
+      safetyStatus: {
+        status: 'safe',
+        lastMovement: new Date().toISOString(),
+        batteryLevel: 100
+      }
+    };
+    onAddUser(newUser);
+    setNewName('');
+    setShowAddForm(false);
+    haptics.success();
+  };
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/70 backdrop-blur-md animate-fade-in p-4" onClick={onClose}>
       <div
-        className="bg-white dark:bg-neutral-900 w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl animate-scale-up border border-white/20"
+        className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-md rounded-[2.5rem] flex flex-col max-h-[90vh] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-6">
+        {/* Header */}
+        <div className="p-8 pb-4 flex justify-between items-center border-b border-gray-100 dark:border-white/5">
           <div>
-            <h3 className="text-xl font-black dark:text-white">A Minha Equipa</h3>
-            <p className="text-xs text-gray-500 font-bold uppercase">Gestão & Perfis</p>
+            <h3 className="text-2xl font-black dark:text-white flex items-center gap-2">
+              <Users className="text-emerald-500" /> Gestão da Equipa
+            </h3>
+            <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">Controlo de Acessos & Perfis</p>
           </div>
-          <button onClick={onClose} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+          <button onClick={onClose} className="p-3 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
             <X size={20} className="dark:text-white" />
           </button>
         </div>
 
-        {/* Current User Card */}
-        <div className="bg-agro-green/10 border border-agro-green rounded-2xl p-4 mb-6 flex items-center gap-4">
-          <div className="w-12 h-12 bg-agro-green text-white rounded-full flex items-center justify-center text-lg font-bold shadow-md">
-            {currentUser.avatar}
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] font-bold text-agro-green uppercase tracking-wider mb-0.5">Sessão Atual</p>
-            <h4 className="font-bold text-gray-900 dark:text-white text-lg leading-none">{currentUser.name}</h4>
-            <p className="text-xs text-gray-500 capitalize">{currentUser.role === 'admin' ? 'Administrador' : 'Operador'}</p>
-          </div>
-          <div className="bg-green-500 p-1.5 rounded-full text-white">
-            <CheckCircle size={14} />
-          </div>
-        </div>
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 custom-scrollbar">
 
-        {/* Users List */}
-        <div className="space-y-3 mb-6 max-h-[400px] overflow-y-auto custom-scrollbar">
-          <p className="text-xs font-bold text-gray-400 uppercase ml-2">Monitorização em Tempo Real</p>
-          {users.map(user => (
+          {/* Admin Tools: Add Section */}
+          {isAdmin && !showAddForm && (
             <button
-              key={user.id}
-              onClick={() => onSwitchUser(user.id)}
-              className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all ${user.id === currentUser.id
-                ? 'bg-agro-green/5 border-agro-green/20'
-                : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-neutral-700 hover:border-indigo-400 active:scale-95'
-                }`}
+              onClick={() => setShowAddForm(true)}
+              className="w-full py-4 px-6 bg-emerald-500 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all group"
             >
-              <div className="relative">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold shadow-sm ${user.role === 'admin' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                  }`}>
-                  {user.avatar}
-                </div>
-                {/* Safety Status Badge */}
-                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-neutral-900 ${user.safetyStatus?.status === 'emergency' ? 'bg-red-500 animate-ping' :
-                  user.safetyStatus?.status === 'warning' ? 'bg-amber-500' : 'bg-green-500'
-                  }`} />
+              <div className="flex items-center gap-3">
+                <UserPlus size={20} />
+                Adicionar Novo Membro
+              </div>
+              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          )}
+
+          {/* Add Form (Visible only to Admin when active) */}
+          {showAddForm && (
+            <div className="bg-white dark:bg-neutral-900 rounded-[2rem] p-6 border border-emerald-100 dark:border-emerald-900/30 shadow-xl animate-slide-up space-y-4">
+              <div className="flex justify-between items-center">
+                <h4 className="font-black text-sm uppercase text-emerald-600 dark:text-emerald-400">Novo Utilizador</h4>
+                <button onClick={() => setShowAddForm(false)} className="text-gray-400"><X size={16} /></button>
               </div>
 
-              <div className="flex-1 text-left">
-                <h5 className="font-bold text-gray-800 dark:text-white text-sm flex items-center gap-2">
-                  {user.name}
-                  {user.id === currentUser.id && <span className="text-[8px] bg-agro-green text-white px-1.5 py-0.5 rounded font-black">EU</span>}
-                </h5>
-                <div className="flex flex-col gap-1 mt-1">
-                  <div className="flex items-center gap-2 text-[9px] text-gray-500 font-bold uppercase tracking-tighter">
-                    <span className={`flex items-center gap-1 ${user.safetyStatus?.status === 'emergency' ? 'text-red-500' : ''}`}>
-                      {user.safetyStatus?.status === 'emergency' ? 'ALERTA MAN DOWN' : user.role === 'admin' ? 'Administrador' : user.specialty || 'Operador'}
-                    </span>
-                    {user.safetyStatus?.batteryLevel !== undefined && (
-                      <span className={`flex items-center gap-1 ${user.safetyStatus.batteryLevel < 20 ? 'text-red-500' : 'text-gray-400'}`}>
-                        • {(user.safetyStatus.batteryLevel)}% Bat.
-                      </span>
-                    )}
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Nome Completo</label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    placeholder="ex: João Silva"
+                    className="w-full p-4 bg-gray-50 dark:bg-[#151515] rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Perfil de Acesso (Role)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(Object.keys(roleConfig) as Array<keyof typeof roleConfig>).map(role => {
+                      const config = roleConfig[role];
+                      return (
+                        <button
+                          key={role}
+                          onClick={() => setNewRole(role as any)}
+                          className={`p-3 rounded-xl border flex flex-col items-center gap-1 transition-all ${newRole === role
+                            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-500 text-emerald-600'
+                            : 'bg-white dark:bg-neutral-800 border-gray-100 dark:border-white/5 text-gray-400 hover:border-gray-200'
+                            }`}
+                        >
+                          <config.icon size={18} />
+                          <span className="text-[9px] font-black uppercase">{config.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <p className="text-[8px] text-gray-400 font-medium">
-                    Último sinal: {new Date(user.safetyStatus?.lastMovement || '').toLocaleTimeString()}
-                  </p>
                 </div>
-              </div>
 
-              {user.id !== currentUser.id && (
-                <div className="p-2 bg-gray-50 dark:bg-neutral-800 rounded-full text-gray-400 transition-colors group-hover:text-indigo-500">
-                  <LogOut size={14} />
-                </div>
-              )}
-            </button>
-          ))}
+                <button
+                  onClick={handleCreate}
+                  disabled={!newName}
+                  className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-600/20 active:scale-95 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                >
+                  <BadgeCheck size={18} /> Criar Acesso Instantâneo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Members List */}
+          <div className="space-y-4">
+            <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2 flex items-center gap-2">
+              <Activity size={12} className="text-emerald-500" /> Membros da Equipa ({users.length})
+            </h4>
+
+            <div className="grid gap-3">
+              {users.map(user => {
+                const config = roleConfig[user.role as keyof typeof roleConfig] || roleConfig.operator;
+                const isMe = user.id === currentUser.id;
+
+                return (
+                  <div
+                    key={user.id}
+                    className={`group relative p-4 rounded-3xl border transition-all flex items-center gap-4 ${isMe ? 'bg-emerald-50/30 dark:bg-emerald-900/5 border-emerald-100 dark:border-emerald-900/20' : 'bg-white dark:bg-neutral-900 border-gray-100 dark:border-white/5'
+                      }`}
+                  >
+                    {/* Avatar with Status */}
+                    <div className="relative">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-black shadow-inner ${config.color}`}>
+                        {user.avatar}
+                      </div>
+                      <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-lg border-2 border-white dark:border-neutral-900 ${user.safetyStatus?.status === 'emergency' ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'
+                        }`} />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h5 className="font-bold text-gray-900 dark:text-white truncate">
+                          {user.name}
+                        </h5>
+                        {isMe && <span className="bg-emerald-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md">VOCÊ</span>}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <div className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+                        <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">
+                          {config.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {!isMe && (
+                        <button
+                          onClick={() => { haptics.medium(); onSwitchUser(user.id); }}
+                          className="p-2.5 rounded-2xl bg-gray-50 dark:bg-neutral-800 text-gray-400 hover:text-emerald-500 transition-colors"
+                          title="Simular sessão"
+                        >
+                          <LogOut size={16} />
+                        </button>
+                      )}
+
+                      {isAdmin && (
+                        <button
+                          onClick={() => { haptics.light(); setShowQRUser(user); }}
+                          className="p-2.5 rounded-2xl bg-gray-50 dark:bg-neutral-800 text-gray-400 hover:text-indigo-500 transition-colors"
+                          title="Gerar QR de Acesso"
+                        >
+                          <QrCode size={16} />
+                        </button>
+                      )}
+
+                      {isAdmin && !isMe && (
+                        <button
+                          onClick={() => { haptics.warning(); onDeleteUser(user.id); }}
+                          className="p-2.5 rounded-2xl bg-gray-50 dark:bg-red-900/10 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Invite Section */}
-        {showInvite ? (
-          <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-2xl animate-slide-up text-center border border-dashed border-gray-300 dark:border-neutral-700">
-            <p className="text-xs font-bold text-gray-500 mb-2">Código de Convite</p>
-            <p className="text-2xl font-black text-gray-900 dark:text-white tracking-widest mb-2 select-all">ORIVA-2024</p>
-            <p className="text-[10px] text-gray-400">Partilhe este código com o novo membro.</p>
-            <button
-              onClick={() => setShowInvite(false)}
-              className="mt-3 text-xs font-bold text-red-500 hover:underline"
-            >
-              Fechar
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowInvite(true)}
-            className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-[1.5rem] font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
-          >
-            <UserPlus size={18} />
-            Adicionar Membro
-          </button>
-        )}
-
+        {/* Footer Info */}
+        <div className="p-6 bg-gray-50 dark:bg-neutral-800/50 text-center border-t border-gray-100 dark:border-white/5">
+          <p className="text-[10px] text-gray-400 font-medium">
+            Protocolo de Segurança Oriva-Vision ativo. <br />
+            Localização e Telemetria sincronizados via End-to-End.
+          </p>
+        </div>
       </div>
+
+      {/* QR Code Modal Overlay */}
+      {showQRUser && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 backdrop-blur-xl animate-fade-in p-6" onClick={() => setShowQRUser(null)}>
+          <div className="bg-white dark:bg-neutral-900 p-8 rounded-[3rem] shadow-2xl max-w-xs w-full text-center space-y-6 animate-scale-up border border-indigo-500/30" onClick={e => e.stopPropagation()}>
+            <div>
+              <h4 className="text-xl font-black dark:text-white uppercase italic tracking-tighter">Acesso Pessoal</h4>
+              <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">{showQRUser.name}</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl shadow-inner inline-block mx-auto border-4 border-indigo-50">
+              <QRCodeSVG
+                value={`${window.location.origin}${window.location.pathname}?onboard=${showQRUser.id}`}
+                size={180}
+                level="H"
+                includeMargin={false}
+              />
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500 font-bold leading-relaxed px-4">
+                Pede à <span className="text-indigo-600">{showQRUser.name.split(' ')[0]}</span> para ler este código com a câmara do telemóvel para instalar e configurar a app instantaneamente.
+              </p>
+
+              <button
+                onClick={() => setShowQRUser(null)}
+                className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-2xl font-black text-xs uppercase tracking-widest"
+              >
+                Concluido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

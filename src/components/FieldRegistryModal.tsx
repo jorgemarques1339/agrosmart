@@ -30,8 +30,10 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
     // Phytosanitary specific
     const [productName, setProductName] = useState('');
     const [apv, setApv] = useState('');
+    const [activeSubstance, setActiveSubstance] = useState('');
     const [safetyDays, setSafetyDays] = useState('');
     const [target, setTarget] = useState('');
+    const [operatorName, setOperatorName] = useState('');
 
     // Observation specific
     const [notes, setNotes] = useState('');
@@ -115,8 +117,10 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                     productName,
                     stockId: selectedStockId,
                     apv,
+                    activeSubstance,
                     safetyDays: Number(safetyDays),
                     target,
+                    operator: operatorName,
                     quantity: Number(quantity),
                     unit,
                     description: `Aplicação Fito: ${productName}`
@@ -353,12 +357,32 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                                                 />
                                                             </div>
                                                             <div>
+                                                                <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Substância Ativa</label>
+                                                                <input
+                                                                    value={activeSubstance}
+                                                                    onChange={e => setActiveSubstance(e.target.value)}
+                                                                    placeholder="ex: Glifosato"
+                                                                    className="w-full bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 font-bold text-sm border border-gray-200 dark:border-white/10"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                            <div>
                                                                 <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">IS (Dias)</label>
                                                                 <input
                                                                     type="number"
                                                                     value={safetyDays}
                                                                     onChange={e => setSafetyDays(e.target.value)}
                                                                     placeholder="0"
+                                                                    className="w-full bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 font-bold text-sm border border-gray-200 dark:border-white/10"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Aplicador (Nome)</label>
+                                                                <input
+                                                                    value={operatorName}
+                                                                    onChange={e => setOperatorName(e.target.value)}
+                                                                    placeholder="Nome do Aplicador"
                                                                     className="w-full bg-white dark:bg-neutral-900 rounded-xl px-3 py-2 font-bold text-sm border border-gray-200 dark:border-white/10"
                                                                 />
                                                             </div>

@@ -243,62 +243,133 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
   // --- DGAV PDF EXPORT ---
   const handleExportDGAV = () => {
     const doc = new jsPDF();
+    const green: [number, number, number] = [62, 104, 55];
 
-    // 1. Header & Title
-    doc.setFillColor(62, 104, 55); // Agro Green
-    doc.rect(0, 0, 210, 20, 'F');
+    // 1. HEADER (Logo Placeholder & Title)
+    doc.setFillColor(green[0], green[1], green[2]);
+    doc.rect(0, 0, 210, 40, 'F');
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("CADERNO DE CAMPO - RELATÓRIO DGAV", 105, 13, { align: 'center' });
-
-    // 2. Plot Identification
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("IDENTIFICAÇÃO DA PARCELA", 14, 30);
-
+    doc.text("AgroSmart Enterprise", 105, 18, { align: 'center' });
+    doc.setFontSize(12);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Nome: ${field.name}`, 14, 36);
-    doc.text(`Cultura: ${field.crop}`, 14, 41);
-    doc.text(`Área: ${field.areaHa} ha`, 100, 36);
-    doc.text(`Coordenadas: ${field.coordinates.join(', ')}`, 100, 41);
-    doc.text(`Responsável: Eng. Técnico Agrícola`, 14, 46); // Placeholder
+    doc.text("RELATÓRIO DE ATIVIDADES - CADERNO DE CAMPO (DGAV/IFAP)", 105, 28, { align: 'center' });
 
-    doc.setDrawColor(200);
-    doc.line(14, 50, 196, 50);
-
-    // 3. Operations Table
+    // 2. IDENTIFICATION BLOCK
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("REGISTO DE OPERAÇÕES CULTURAIS", 14, 60);
+    doc.text("1. IDENTIFICAÇÃO DA EXPLORAÇÃO E PARCELA", 14, 55);
 
-    const tableRows = field.logs?.map(log => [
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Proprietário / Empresa: Oriva Farms Lda.`, 14, 62);
+    doc.text(`Nº de Beneficiário (IFAP): 001234567`, 14, 67);
+    doc.text(`Parcelário (i-Digital): Parcela ${field.name}`, 14, 72);
+    doc.text(`Localização: ${field.coordinates.join(', ')}`, 14, 77);
+
+    doc.text(`Cultura: ${field.crop}`, 110, 62);
+    doc.text(`Área da Parcela: ${field.areaHa} ha`, 110, 67);
+    doc.text(`Data de Emissão: ${new Date().toLocaleDateString()}`, 110, 72);
+
+    // 3. TREATMENT TABLE (FITOSSANITÁRIOS)
+    const treatmentLogs = field.logs?.filter(l => l.type === 'treatment') || [];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("2. REGISTO DE PRODUTOS FITOSSANITÁRIOS", 14, 90);
+
+    const treatRows = treatmentLogs.map(log => [
       log.date,
-      log.type.toUpperCase(),
-      log.productName || log.description,
-      log.quantity ? `${log.quantity} ${log.unit || ''}` : '-',
-      "Realizado"
-    ]) || [];
+      log.productName || 'N/A',
+      log.apv || '-',
+      log.activeSubstance || '-',
+      log.target || '-',
+      `${log.quantity} ${log.unit}`,
+      log.safetyDays ? `${log.safetyDays} dias` : '-',
+      log.operator || 'Oriva Tech'
+    ]);
 
     autoTable(doc, {
-      startY: 65,
-      head: [['Data', 'Tipo', 'Descrição / Produto', 'Qtd.', 'Estado']],
-      body: tableRows,
-      theme: 'striped',
-      headStyles: { fillColor: [62, 104, 55] },
-      styles: { fontSize: 8 },
+      startY: 95,
+      head: [['Data', 'Produto', 'Nº APV', 'S. Ativa', 'Alvo', 'Dose Total', 'IS', 'Aplicador']],
+      body: treatRows,
+      theme: 'grid',
+      headStyles: { fillColor: green, fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 2 },
+      columnStyles: { 1: { fontStyle: 'bold' } }
     });
 
-    // 4. Footer
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Relatório gerado automaticamente via OrivaSmart App.", 14, finalY);
-    doc.text(`Data de Emissão: ${new Date().toLocaleDateString()}`, 14, finalY + 5);
+    // 4. FERTILIZATION TABLE
+    const fertLogs = field.logs?.filter(l => l.type === 'fertilization') || [];
+    let currentY = (doc as any).lastAutoTable.finalY + 15;
 
-    doc.save(`Caderno_Campo_${field.name.replace(/\s/g, '_')}.pdf`);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("3. REGISTO DE FERTILIZAÇÃO E MELHORAMENTO", 14, currentY);
+
+    const fertRows = fertLogs.map(log => [
+      log.date,
+      log.productName || 'Fertilizante',
+      `${log.quantity} ${log.unit}`,
+      "-",
+      "Realizado"
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Data', 'Fertilizante / Adubo', 'Quantidade', 'Teor N-P-K', 'Estado']],
+      body: fertRows,
+      theme: 'grid',
+      headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+      styles: { fontSize: 7 }
+    });
+
+    // 5. OTHER OPERATIONS
+    const otherLogs = field.logs?.filter(l => !['treatment', 'fertilization'].includes(l.type)) || [];
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("4. OUTRAS OPERAÇÕES CULTURAIS E OBSERVAÇÕES", 14, currentY);
+
+    const otherRows = otherLogs.map(log => [
+      log.date,
+      log.type.toUpperCase(),
+      log.description,
+      "Conforme"
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Data', 'Tipo de Operação', 'Descrição Detalhada', 'Observação']],
+      body: otherRows,
+      theme: 'striped',
+      headStyles: { fillColor: [150, 150, 150], fontSize: 8 },
+      styles: { fontSize: 7 }
+    });
+
+    // 6. SIGNATURE BLOCK
+    currentY = (doc as any).lastAutoTable.finalY + 25;
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 30;
+    }
+
+    doc.setDrawColor(0);
+    doc.line(14, currentY, 80, currentY);
+    doc.line(120, currentY, 186, currentY);
+
+    doc.setFontSize(8);
+    doc.text("O Responsável Técnico (Assinatura)", 14, currentY + 5);
+    doc.text("O Aplicador (Assinatura / Carimbo)", 120, currentY + 5);
+
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    const footerText = "Relatório certificado pela AgroSmart Enterprise v1.4 - Gerado em Conformidade com o Regulamento (CE) nº 1107/2009.";
+    doc.text(footerText, 105, 285, { align: 'center' });
+
+    doc.save(`Caderno_Campo_${field.name.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   useEffect(() => {

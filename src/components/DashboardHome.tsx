@@ -8,6 +8,7 @@ import {
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
    ChevronDown, PawPrint, Leaf, Search, MessageSquare, Zap, Battery, Target, TrendingUp, Clock
 } from 'lucide-react';
+import clsx from 'clsx';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
    StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice, FeedItem
@@ -42,6 +43,8 @@ interface DashboardHomeProps {
    feedItems: FeedItem[];
    hasUnreadFeed: boolean;
    alertCount: number;
+   syncStatus: 'idle' | 'syncing' | 'error' | 'offline';
+   lastSyncTime: string | null;
 }
 
 const DashboardHome: React.FC<DashboardHomeProps> = ({
@@ -63,7 +66,9 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    alertCount,
    onTaskClick,
    feedItems = [],
-   hasUnreadFeed = false
+   hasUnreadFeed = false,
+   syncStatus = 'idle',
+   lastSyncTime = null
 }) => {
    const { setChildModalOpen, openModal } = useStore();
    const [isInlineInputOpen, setIsInlineInputOpen] = useState(false);
@@ -322,6 +327,30 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   </button>
 
                   <button
+                     onClick={onOpenSettings}
+                     className={`relative p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
+                     title={`Sincronização: ${syncStatus}`}
+                  >
+                     <div className="relative">
+                        <Cloud size={18} strokeWidth={2.5} className={clsx("sm:w-[22px] sm:h-[22px]", syncStatus === 'syncing' && "animate-pulse text-indigo-500")} />
+                        {syncStatus === 'syncing' && (
+                           <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="w-full h-full rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                           </div>
+                        )}
+                        {syncStatus === 'offline' && (
+                           <div className="absolute -top-1 -right-1 bg-gray-500 text-white rounded-full p-0.5 border border-white dark:border-neutral-900">
+                              <X size={6} />
+                           </div>
+                        )}
+                     </div>
+                     {syncStatus === 'syncing' && (
+                        <span className="text-[8px] font-black uppercase tracking-tighter hidden lg:block animate-pulse">A Sincronizar...</span>
+                     )}
+                  </button>
+
+                  <button
                      onClick={onOpenNotifications}
                      className={`relative p-1.5 sm:p-3 rounded-full transition-all
                                 ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
@@ -332,6 +361,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                         <span className={`absolute top-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white dark:border-neutral-900 ${alertCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-red-500'}`} />
                      )}
                   </button>
+
+
 
                   <button
                      onClick={onOpenSettings}
@@ -967,7 +998,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                               >
                                  <div className={`p-2 md:p-3 rounded-2xl ${insight.priority === 'high' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-neutral-800'
                                     }`}>
-                                    {React.cloneElement(insight.icon as React.ReactElement, { size: 20 })}
+                                    {insight.icon}
                                  </div>
                                  <div className="flex-1 min-w-0">
                                     <h5 className="font-black text-gray-900 dark:text-white text-xs md:text-sm uppercase tracking-tight mb-0.5">

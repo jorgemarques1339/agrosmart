@@ -22,7 +22,7 @@ export interface FeedItem {
   userId: string;
   userName: string;
   userAvatar: string;
-  type: 'text' | 'photo' | 'voice' | 'alert';
+  type: 'text' | 'photo' | 'voice' | 'video' | 'alert';
   content: string;
   mediaUrl?: string;
   location: [number, number];
@@ -33,7 +33,7 @@ export interface FeedItem {
 export interface UserProfile {
   id: string;
   name: string;
-  role: 'admin' | 'operator';
+  role: 'admin' | 'farmer' | 'vet' | 'mechanic' | 'operator';
   avatar: string; // URL ou Initials
   specialty?: string; // ex: "Veterinária", "Máquinas"
   safetyStatus?: {

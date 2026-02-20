@@ -23,6 +23,8 @@ export interface AppState {
     hasUnreadFeed: boolean;
     alertCount: number;
     isHydrated: boolean;
+    syncStatus: 'idle' | 'syncing' | 'error' | 'offline';
+    lastSyncTime: string | null;
 
     // Global UI & Prefs
     activeTab: string;
@@ -47,6 +49,7 @@ export interface AppState {
     setDarkMode: (isDark: boolean) => void;
     setSolarMode: (isSolar: boolean) => void;
     setOnline: (isOnline: boolean) => void;
+    setSyncStatus: (status: AppState['syncStatus']) => void;
     setWeatherData: (data: WeatherForecast[]) => void;
     setDetailedForecast: (data: DetailedForecast[]) => void;
     setCurrentUserId: (id: string) => void;
@@ -80,6 +83,8 @@ export interface AppState {
     updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
     deleteTask: (id: string) => Promise<void>;
 
+    addUser: (user: UserProfile) => Promise<void>;
+    deleteUser: (id: string) => Promise<void>;
     updateUser: (id: string, updates: Partial<UserProfile>) => Promise<void>;
 
     addTransaction: (tx: Transaction) => Promise<void>;
@@ -152,6 +157,8 @@ export const useStore = create<AppState>((set, get) => ({
     hasUnreadFeed: false,
     alertCount: 0,
     isHydrated: false,
+    syncStatus: 'idle',
+    lastSyncTime: localStorage.getItem('oriva_last_sync') || null,
     focusedTarget: null,
 
     // UI Initial
@@ -313,7 +320,8 @@ export const useStore = create<AppState>((set, get) => ({
         localStorage.setItem('oriva_solar_mode', String(isSolar));
         set({ isSolarMode: isSolar });
     },
-    setOnline: (isOnline) => set({ isOnline }),
+    setOnline: (isOnline) => set({ isOnline, syncStatus: isOnline ? 'idle' : 'offline' }),
+    setSyncStatus: (status) => set({ syncStatus: status }),
     setWeatherData: (weatherData) => set({ weatherData }),
     setDetailedForecast: (data) => set({ detailedForecast: data }),
     setCurrentUserId: (id) => {
@@ -328,11 +336,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     addField: async (field) => {
         await db.fields.add(field);
+        syncManager.addToQueue('ADD_FIELD', field);
         set(state => ({ fields: [...state.fields, field] }));
     },
 
     updateField: async (id, updates) => {
         await db.fields.update(id, updates);
+        syncManager.addToQueue('UPDATE_FIELD', { id, updates });
         set(state => ({
             fields: state.fields.map(f => f.id === id ? { ...f, ...updates } : f)
         }));
@@ -340,6 +350,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     deleteField: async (id) => {
         await db.fields.delete(id);
+        syncManager.addToQueue('DELETE_FIELD', id);
         set(state => ({ fields: state.fields.filter(f => f.id !== id) }));
     },
 
@@ -347,11 +358,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     addStock: async (item) => {
         await db.stocks.add(item);
+        syncManager.addToQueue('ADD_STOCK', item);
         set(state => ({ stocks: [...state.stocks, item] }));
     },
 
     updateStock: async (id, updates) => {
         await db.stocks.update(id, updates);
+        syncManager.addToQueue('UPDATE_STOCK', { id, updates });
         set(state => ({
             stocks: state.stocks.map(s => s.id === id ? { ...s, ...updates } : s)
         }));
@@ -359,16 +372,19 @@ export const useStore = create<AppState>((set, get) => ({
 
     deleteStock: async (id) => {
         await db.stocks.delete(id);
+        syncManager.addToQueue('DELETE_STOCK', id);
         set(state => ({ stocks: state.stocks.filter(s => s.id !== id) }));
     },
 
     addAnimal: async (animal) => {
         await db.animals.add(animal);
+        syncManager.addToQueue('ADD_ANIMAL', animal);
         set(state => ({ animals: [...state.animals, animal] }));
     },
 
     updateAnimal: async (id, updates) => {
         await db.animals.update(id, updates);
+        syncManager.addToQueue('UPDATE_ANIMAL', { id, updates });
         set(state => ({
             animals: state.animals.map(a => a.id === id ? { ...a, ...updates } : a)
         }));
@@ -385,6 +401,7 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         await db.animals.update(id, updates);
+        syncManager.addToQueue('ADD_PRODUCTION', { id, record, updates });
         set(state => ({
             animals: state.animals.map(a => a.id === id ? { ...a, ...updates } : a)
         }));
@@ -392,11 +409,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     addAnimalBatch: async (batch) => {
         await db.animalBatches.add(batch);
+        syncManager.addToQueue('ADD_ANIMAL_BATCH', batch);
         set(state => ({ animalBatches: [...state.animalBatches, batch] }));
     },
 
     updateAnimalBatch: async (id, updates) => {
         await db.animalBatches.update(id, updates);
+        syncManager.addToQueue('UPDATE_ANIMAL_BATCH', { id, updates });
         set(state => ({
             animalBatches: state.animalBatches.map(b => b.id === id ? { ...b, ...updates } : b)
         }));
@@ -404,6 +423,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     deleteAnimalBatch: async (id) => {
         await db.animalBatches.delete(id);
+        syncManager.addToQueue('DELETE_ANIMAL_BATCH', id);
         set(state => ({ animalBatches: state.animalBatches.filter(b => b.id !== id) }));
     },
 
@@ -428,6 +448,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         await db.transactions.add(transaction);
         await db.notifications.add(notification);
+        syncManager.addToQueue('RECLAIM_CREDITS', { transaction, amount });
 
         set(state => ({
             transactions: [transaction, ...state.transactions],
@@ -448,6 +469,7 @@ export const useStore = create<AppState>((set, get) => ({
 
         const newHistory = [...(batch.history || []), log];
         await db.animalBatches.update(batchId, { history: newHistory });
+        syncManager.addToQueue('APPLY_BATCH_ACTION', { batchId, actionType, description, log });
 
         set(state => ({
             animalBatches: state.animalBatches.map(b => b.id === batchId ? { ...b, history: newHistory } : b)
@@ -468,11 +490,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     addMachine: async (machine) => {
         await db.machines.add(machine);
+        syncManager.addToQueue('ADD_MACHINE', machine);
         set(state => ({ machines: [...state.machines, machine] }));
     },
 
     updateMachine: async (id, updates) => {
         await db.machines.update(id, updates);
+        syncManager.addToQueue('UPDATE_MACHINE', { id, updates });
         set(state => ({
             machines: state.machines.map(m => m.id === id ? { ...m, ...updates } : m)
         }));
@@ -496,8 +520,21 @@ export const useStore = create<AppState>((set, get) => ({
         set(state => ({ tasks: state.tasks.filter(t => t.id !== id) }));
     },
 
+    addUser: async (user) => {
+        await db.users.add(user);
+        syncManager.addToQueue('ADD_USER', user);
+        set(state => ({ users: [...state.users, user] }));
+    },
+
+    deleteUser: async (id) => {
+        await db.users.delete(id);
+        syncManager.addToQueue('DELETE_USER', id);
+        set(state => ({ users: state.users.filter(u => u.id !== id) }));
+    },
+
     updateUser: async (id, updates) => {
         await db.users.update(id, updates);
+        syncManager.addToQueue('UPDATE_USER', { id, updates });
         set(state => ({
             users: state.users.map(u => u.id === id ? { ...u, ...updates } : u)
         }));
@@ -522,6 +559,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     toggleIrrigation: async (id, status) => {
         await db.fields.update(id, { irrigationStatus: status });
+        syncManager.addToQueue('TOGGLE_IRRIGATION', { id, status });
         set(state => ({
             fields: state.fields.map(f => f.id === id ? { ...f, irrigationStatus: status } : f)
         }));
@@ -554,6 +592,7 @@ export const useStore = create<AppState>((set, get) => ({
 
     addFeedItem: async (item) => {
         await db.feed.add(item);
+        syncManager.addToQueue('ADD_FEED_ITEM', item);
         set(state => ({
             feedItems: [item, ...state.feedItems],
             hasUnreadFeed: true

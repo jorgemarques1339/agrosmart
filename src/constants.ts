@@ -11,11 +11,11 @@ export const INITIAL_WEATHER: WeatherForecast[] = [
 
 const MOCK_USERS: UserProfile[] = [
   {
-    id: 'u1', name: 'Carlos Dono', role: 'admin', avatar: 'CD', specialty: 'Gestão',
+    id: 'u1', name: 'Carlos (Admin)', role: 'admin', avatar: 'CD', specialty: 'Administrador',
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 85 }
   },
   {
-    id: 'u2', name: 'João Tratorista', role: 'operator', avatar: 'JT', specialty: 'Máquinas',
+    id: 'u2', name: 'João Tratorista', role: 'mechanic', avatar: 'JT', specialty: 'Mecânico',
     safetyStatus: {
       status: 'warning',
       lastMovement: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
@@ -24,8 +24,12 @@ const MOCK_USERS: UserProfile[] = [
     }
   },
   {
-    id: 'u3', name: 'Maria Vet', role: 'operator', avatar: 'MV', specialty: 'Animais',
+    id: 'u3', name: 'Sílvia Vet', role: 'vet', avatar: 'SV', specialty: 'Veterinária',
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 92 }
+  },
+  {
+    id: 'u4', name: 'Ricardo Horta', role: 'farmer', avatar: 'RH', specialty: 'Agricultor',
+    safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 78 }
   },
 ];
 
