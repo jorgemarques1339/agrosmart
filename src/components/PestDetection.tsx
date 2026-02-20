@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Camera, CheckCircle, AlertTriangle, RefreshCw,
   Brain, Loader2, Thermometer, Droplets, CloudRain,
-  ChevronDown, Scan, ShieldCheck, Microscope, Info
+  ChevronDown, Scan, ShieldCheck, Microscope, Info,
+  Zap, Cloud, Battery, Infinity
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as tf from '@tensorflow/tfjs';
@@ -11,6 +12,7 @@ import * as mobilenet from '@tensorflow-models/mobilenet';
 import { MediterraneanCulture, AgriculturalDisease, DiagnosticResult } from '../types';
 import { MEDITERRANEAN_DISEASES } from '../data/agriculturalDiseases';
 import { useStore } from '../store/useStore';
+import { AICloudService } from '../services/aiCloud';
 
 interface PestDetectionProps {
   onSaveDiagnostic?: (diagnostic: DiagnosticResult) => void;
@@ -39,27 +41,45 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
   const [predictions, setPredictions] = useState<any[]>([]);
   const [isCultureSelectorOpen, setIsCultureSelectorOpen] = useState(false);
 
+  // Engine & Battery States
+  const [engineMode, setEngineMode] = useState<'local' | 'cloud'>('local');
+  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
+  const [isLowBattery, setIsLowBattery] = useState(false);
+  const [isCloudProcessing, setIsCloudProcessing] = useState(false);
+
   // HUD States
   const [scanStability, setScanStability] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const requestRef = useRef<number>(null);
+  const cloudIntervalRef = useRef<any>(null);
 
-  // Load model on mount
+  // Load model & Battery check
   useEffect(() => {
-    const loadModel = async () => {
+    const init = async () => {
+      // 1. Load Model
       try {
         await tf.ready();
-        const loadedModel = await mobilenet.load({
-          version: 2,
-          alpha: 0.5
-        });
+        const loadedModel = await mobilenet.load({ version: 2, alpha: 0.5 });
         setModel(loadedModel);
-      } catch (err) {
-        console.error("Failed to load model:", err);
+      } catch (err) { console.error("Model load failed", err); }
+
+      // 2. Battery Monitoring
+      if ('getBattery' in navigator) {
+        const battery = await (navigator as any).getBattery();
+        const updateBattery = () => {
+          setBatteryLevel(Math.round(battery.level * 100));
+          setIsLowBattery(battery.level < 0.20);
+          // Suggest cloud mode automatically if low battery
+          if (battery.level < 0.20) setEngineMode('cloud');
+        };
+        updateBattery();
+        battery.addEventListener('levelchange', updateBattery);
+        return () => battery.removeEventListener('levelchange', updateBattery);
       }
     };
-    loadModel();
+    init();
   }, []);
 
   const startAnalysis = async () => {
@@ -80,7 +100,9 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(e => console.error("Play prevented", e));
+        };
         setPermission('camera', true);
       }
     } catch (err) {
@@ -98,25 +120,54 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
     if (requestRef.current) {
       cancelAnimationFrame(requestRef.current);
     }
+    if (cloudIntervalRef.current) {
+      clearInterval(cloudIntervalRef.current);
+    }
+  };
+
+  const captureFrame = (): string | null => {
+    if (!videoRef.current || !canvasRef.current) return null;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.6); // Compress for cloud
   };
 
   const detectFrame = async () => {
-    if (!model || status !== 'scanning' || !videoRef.current) return;
+    if (status !== 'scanning' || !videoRef.current) return;
 
-    try {
-      const currentPredictions = await model.classify(videoRef.current);
-      setPredictions(currentPredictions);
+    if (engineMode === 'local' && model) {
+      try {
+        const currentPredictions = await model.classify(videoRef.current);
+        setPredictions(currentPredictions);
+        if (currentPredictions.length > 0) {
+          setScanStability(prev => Math.min(prev + 2, 100));
+        }
+      } catch (err) { console.error("Detection error:", err); }
 
-      // Update dummy stability based on prediction confidence
-      if (currentPredictions.length > 0) {
-        setScanStability(prev => Math.min(prev + 2, 100));
+      if (status === 'scanning') {
+        requestRef.current = requestAnimationFrame(detectFrame);
       }
-    } catch (err) {
-      console.error("Detection error:", err);
-    }
-
-    if (status === 'scanning') {
-      requestRef.current = requestAnimationFrame(detectFrame);
+    } else if (engineMode === 'cloud') {
+      // Cloud processing is handled via interval for better battery control
+      if (!cloudIntervalRef.current) {
+        cloudIntervalRef.current = setInterval(async () => {
+          const frame = captureFrame();
+          if (frame) {
+            setIsCloudProcessing(true);
+            const cloudResult = await AICloudService.analyzeFrame(frame, selectedCulture);
+            setIsCloudProcessing(false);
+            if (cloudResult.confidence) {
+              setScanStability(prev => Math.min(prev + 15, 100)); // Cloud is slower but more certain
+              // If very high confidence in cloud, we could auto-confirm but let's keep it manual
+            }
+          }
+        }, 2000);
+      }
     }
   };
 
@@ -217,6 +268,7 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
       {status === 'scanning' && (
         <div className="relative w-full aspect-[3/4] md:aspect-video rounded-[3rem] overflow-hidden bg-black shadow-2xl ring-8 ring-white/5">
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+          <canvas ref={canvasRef} className="hidden" />
 
           {/* HUD OVERLAY */}
           <div className="absolute inset-0 z-20 p-6 flex flex-col justify-between pointer-events-none">
@@ -224,17 +276,44 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
             {/* Top Info */}
             <div className="flex justify-between items-start">
               <div className="space-y-2">
-                <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-agro-green animate-pulse" />
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">Engine Specialized: ON</span>
+                <div className={`px-3 py-1 backdrop-blur-md rounded-full border flex items-center gap-2 ${engineMode === 'local' ? 'bg-indigo-500/20 border-indigo-500/30' : 'bg-cyan-500/20 border-cyan-500/30'}`}>
+                  {engineMode === 'local' ? <Zap size={10} className="text-indigo-400" /> : <Cloud size={10} className="text-cyan-400" />}
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                    AI Engine: {engineMode === 'local' ? 'EDGE_LOCAL' : 'EDGE_CLOUD'}
+                  </span>
                 </div>
-                <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/20">
-                  <span className="text-[10px] font-black text-white uppercase tracking-widest">SCAN_TARGET: {selectedCulture.toUpperCase()}</span>
-                </div>
+                {isLowBattery && (
+                  <div className="px-3 py-1 bg-rose-500/20 backdrop-blur-md rounded-full border border-rose-500/30 flex items-center gap-2">
+                    <Battery size={10} className="text-rose-400 animate-pulse" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Low Battery Mode</span>
+                  </div>
+                )}
               </div>
-              <button onClick={() => { setStatus('idle'); stopCamera(); }} className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white pointer-events-auto hover:bg-red-500 transition-colors">
-                <RefreshCw size={18} />
-              </button>
+
+              <div className="flex flex-col gap-2 items-end">
+                <button
+                  onClick={() => { setStatus('idle'); stopCamera(); }}
+                  className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white pointer-events-auto hover:bg-neutral-800 transition-colors"
+                >
+                  <RefreshCw size={18} />
+                </button>
+
+                {/* Engine Toggle Pill */}
+                <button
+                  onClick={() => {
+                    stopCamera();
+                    const newMode = engineMode === 'local' ? 'cloud' : 'local';
+                    setEngineMode(newMode);
+                    setTimeout(() => startAnalysis(), 100);
+                  }}
+                  className="px-3 py-2 bg-black/60 backdrop-blur-md rounded-2xl border border-white/10 text-white pointer-events-auto flex items-center gap-2 active:scale-95 transition-all"
+                >
+                  <div className={`w-2 h-2 rounded-full ${engineMode === 'local' ? 'bg-indigo-400' : 'bg-cyan-400'}`} />
+                  <span className="text-[9px] font-black uppercase tracking-tighter">
+                    {engineMode === 'local' ? 'Switch to Cloud API' : 'Switch to Local AI'}
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Scanning Brackets */}
@@ -244,7 +323,14 @@ const PestDetection: React.FC<PestDetectionProps> = ({ diseaseRisk, onSaveDiagno
                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-agro-green rounded-tr-xl" />
                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-agro-green rounded-bl-xl" />
                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-agro-green rounded-br-xl" />
-                <div className="absolute inset-0 bg-agro-green/5 animate-pulse" />
+                <div className={`absolute inset-0 transition-opacity ${isCloudProcessing ? 'bg-cyan-500/10 animate-pulse' : 'bg-agro-green/5 animate-pulse'}`} />
+
+                {engineMode === 'cloud' && isCloudProcessing && (
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+                    <Loader2 size={32} className="text-cyan-400 animate-spin mb-2" />
+                    <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">AI_OFFLOADING...</span>
+                  </div>
+                )}
               </div>
             </div>
 

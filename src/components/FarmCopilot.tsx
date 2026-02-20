@@ -1,18 +1,22 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import {
     Sparkles, ShieldAlert, CloudRain, Wind,
-    Thermometer, CheckCircle, TrendingUp, ChevronRight, Activity
+    Thermometer, CheckCircle, TrendingUp, ChevronRight, Activity, Tractor, Droplets, Sun
 } from 'lucide-react';
-import { WeatherForecast, DetailedForecast, Task, UserProfile } from '../types';
+import { WeatherForecast, DetailedForecast, Task, UserProfile, Machine, Field } from '../types';
 
 interface FarmCopilotProps {
+    userName: string;
     weather: WeatherForecast[];
     hourlyForecast: DetailedForecast[];
     tasks: Task[];
     users: UserProfile[];
+    machines: Machine[];
+    fields: Field[];
     alertCount: number;
     onNavigate: (tab: string) => void;
     onOpenWeather: () => void;
+    onOpenBriefing: () => void;
 }
 
 interface Insight {
@@ -26,43 +30,84 @@ interface Insight {
 }
 
 const FarmCopilot: React.FC<FarmCopilotProps> = ({
+    userName,
     weather,
     hourlyForecast,
     tasks,
     users,
+    machines,
+    fields,
     alertCount,
     onNavigate,
-    onOpenWeather
+    onOpenWeather,
+    onOpenBriefing
 }) => {
 
     const insights = useMemo(() => {
         const generatedInsights: Insight[] = [];
 
-        // 1. Safety Alerts (Highest Priority)
+        // 0. MORNING BRIEFING (Highest Priority Greeting)
+        const hour = new Date().getHours();
+        let greeting = 'Bom dia';
+        if (hour >= 13 && hour < 20) greeting = 'Boa tarde';
+        if (hour >= 20 || hour < 6) greeting = 'Boa noite';
+
+        generatedInsights.push({
+            id: 'briefing-greeting',
+            type: 'suggestion',
+            title: `${greeting}, ${userName.split(' ')[0]}!`,
+            description: 'Aqui está o resumo proativo para a tua exploração hoje.',
+            icon: <Sun size={20} className="text-yellow-500" />,
+            actionLabel: 'Ver Resumo',
+            action: onOpenBriefing
+        });
+
+        // 1. Safety Alerts (Urgent)
         const emergencyUsers = users.filter(u => u.safetyStatus?.status === 'emergency');
         if (emergencyUsers.length > 0) {
             generatedInsights.push({
                 id: 'safety-urgent',
                 type: 'urgent',
-                title: 'Emergência de Segurança Detetada',
-                description: `O trabalhador ${emergencyUsers[0].name} acionou um alerta SOS ou detetou-se uma queda. Tempo de resposta crítico.`,
+                title: 'Emergência de Segurança',
+                description: `O trabalhador ${emergencyUsers[0].name} acionou SOS ou queda detetada.`,
                 icon: <ShieldAlert size={20} className="text-red-500" />,
-                actionLabel: 'Ver Mapa SOS',
+                actionLabel: 'Ver Mapa',
                 action: () => onNavigate('team')
-            });
-        } else if (alertCount > 0) {
-            generatedInsights.push({
-                id: 'general-alerts',
-                type: 'warning',
-                title: 'Alertas Pendentes',
-                description: `Tem ${alertCount} alerta(s) de sistema ou sensores que requerem a sua atenção.`,
-                icon: <Activity size={20} className="text-orange-500" />,
-                actionLabel: 'Ver Alertas',
-                action: () => { } // This could trigger a notification modal in the future
             });
         }
 
-        // 2. Weather & Spraying Conditions
+        // 2. Proactive Maintenance (Machine Data)
+        machines.forEach(m => {
+            const hoursUntilService = (m.lastServiceHours + m.serviceInterval) - m.engineHours;
+            if (hoursUntilService <= 10 && hoursUntilService > 0) {
+                generatedInsights.push({
+                    id: `maintenance-${m.id}`,
+                    type: 'urgent',
+                    title: 'Manutenção Iminente',
+                    description: `O trator ${m.name} está a ${Math.round(hoursUntilService)}h da revisão agendada.`,
+                    icon: <Tractor size={20} className="text-rose-500" />,
+                    actionLabel: 'Agendar',
+                    action: () => onNavigate('machines')
+                });
+            }
+        });
+
+        // 3. Soil Stress Analysis (Field Sensors)
+        fields.forEach(f => {
+            if (f.humidity < 15) {
+                generatedInsights.push({
+                    id: `soil-stress-${f.id}`,
+                    type: 'warning',
+                    title: 'Stress Hídrico Crítico',
+                    description: `A parcela ${f.name} atingiu 15% de humidade. Recomenda-se rega urgente.`,
+                    icon: <Droplets size={20} className="text-blue-500" />,
+                    actionLabel: 'Ligar Rega',
+                    action: () => onNavigate('dashboard') // Or specific field view
+                });
+            }
+        });
+
+        // 4. Weather & Spraying Conditions
         const nextFewHours = hourlyForecast.slice(0, 6);
         const rainingSoon = nextFewHours.some(h => h.rainProb > 40);
         const highWindSoon = nextFewHours.some(h => h.windSpeed > 15);
@@ -71,10 +116,10 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
             generatedInsights.push({
                 id: 'weather-rain',
                 type: 'warning',
-                title: 'Aviso de Chuva Iminente',
-                description: 'Foi detetada probabilidade de chuva nas próximas horas. Suspenda pulverizações ou regas agendadas.',
+                title: 'Aviso de Chuva',
+                description: 'Probabilidade de chuva nas próximas horas. Suspenda pulverizações.',
                 icon: <CloudRain size={20} className="text-blue-500" />,
-                actionLabel: 'Ver Meteorologia',
+                actionLabel: 'Previsão',
                 action: onOpenWeather
             });
         } else if (highWindSoon) {
@@ -82,38 +127,35 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
                 id: 'weather-wind',
                 type: 'warning',
                 title: 'Vento Forte Previsto',
-                description: 'Vento acima de 15km/h nas próximas horas. Risco de deriva na aplicação de fitofármacos.',
+                description: 'Vento acima de 15km/h nas próximas horas. Risco de deriva.',
                 icon: <Wind size={20} className="text-teal-500" />,
-                actionLabel: 'Previsão Detalhada',
-                action: onOpenWeather
-            });
-        } else {
-            // Good conditions
-            generatedInsights.push({
-                id: 'weather-good',
-                type: 'success',
-                title: 'Janela Ideal de Pulverização',
-                description: 'Condições ótimas (sem chuva, vento fraco) detetadas para aplicar tratamentos nas próximas 6 horas.',
-                icon: <Sparkles size={20} className="text-emerald-500" />,
-                actionLabel: 'Análise de Risco',
+                actionLabel: 'Previsão',
                 action: onOpenWeather
             });
         }
 
-        // 3. Task Management
+        // 5. Task Management
         const pendingTasks = tasks.filter(t => !t.completed);
         if (pendingTasks.length > 0) {
             generatedInsights.push({
                 id: 'tasks-pending',
                 type: 'suggestion',
-                title: `Tem ${pendingTasks.length} tarefas por concluir hoje`,
-                description: 'Mantenha a equipa sincronizada. Acompanhe a colheita ou manutenções agendadas.',
-                icon: <CheckCircle size={20} className="text-indigo-500" />
+                title: `${pendingTasks.length} tarefas pendentes`,
+                description: 'Mantenha a equipa sincronizada e acompanhe os trabalhos de hoje.',
+                icon: <CheckCircle size={20} className="text-indigo-500" />,
+                actionLabel: 'Ver Todas',
+                action: () => onNavigate('tasks')
             });
         }
 
-        return generatedInsights;
-    }, [hourlyForecast, alertCount, tasks, users, onNavigate, onOpenWeather]);
+        // Sort: urgent first, then warnings, then others. Greeting stays first.
+        return generatedInsights.sort((a, b) => {
+            if (a.id === 'briefing-greeting') return -1;
+            if (b.id === 'briefing-greeting') return 1;
+            const priority = { urgent: 0, warning: 1, suggestion: 2, success: 3 };
+            return priority[a.type] - priority[b.type];
+        });
+    }, [userName, hourlyForecast, alertCount, tasks, users, machines, fields, onNavigate, onOpenWeather]);
 
     const scrollRef = useRef<HTMLDivElement>(null);
 

@@ -62,7 +62,9 @@ const SoilScanner: React.FC<SoilScannerProps> = ({ onSaveAnalysis }) => {
             streamRef.current = stream;
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
-                await videoRef.current.play();
+                videoRef.current.onloadedmetadata = () => {
+                    videoRef.current?.play().catch(e => console.error("Play prevented", e));
+                };
             }
         } catch (err) {
             console.error("Camera access denied:", err);

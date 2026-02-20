@@ -14,6 +14,7 @@ import {
 } from '../types';
 import MarketPrices from './MarketPrices';
 import FarmCopilot from './FarmCopilot';
+import MorningBriefingModal from './MorningBriefingModal';
 import { calculateCarbonFootprint } from '../utils/carbonCalculator';
 
 interface DashboardHomeProps {
@@ -79,12 +80,15 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // Estado para o Modal de Consumo de Água
    const [isWaterModalOpen, setIsWaterModalOpen] = useState(false);
 
+   // Estado para o Modal de Morning Briefing
+   const [isBriefingModalOpen, setIsBriefingModalOpen] = useState(false);
+
    // Atualizar pai sobre modal aberto
    React.useEffect(() => {
       if (onModalChange) {
-         onModalChange(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen);
+         onModalChange(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen);
       }
-   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, onModalChange]);
+   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, onModalChange]);
 
    // Handle scroll for top bar
    React.useEffect(() => {
@@ -241,16 +245,16 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <button
                      onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))}
                      className={`p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
                   >
                      <Search size={18} strokeWidth={2.5} className="sm:w-5 sm:h-5" />
-                     <span className={`text-[10px] font-black tracking-wider uppercase hidden sm:block ${scrolled ? 'text-gray-500' : 'text-white/80'}`}>Procurar</span>
+                     <span className={`text-[10px] font-black tracking-wider uppercase hidden sm:block ${scrolled ? 'text-gray-500' : 'text-gray-900 dark:text-white/80'}`}>Procurar</span>
                   </button>
 
                   <button
                      onClick={onOpenNotifications}
                      className={`relative p-1.5 sm:p-3 rounded-full transition-all
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
                      title="Alertas"
                   >
                      <Bell size={18} strokeWidth={2.5} className="sm:w-6 sm:h-6" />
@@ -262,7 +266,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <button
                      onClick={onOpenSettings}
                      className={`relative p-1.5 sm:p-3 rounded-full transition-all
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/20 backdrop-blur-md text-white shadow-lg'} hover:scale-105`}
+                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
                      title="Definições"
                   >
                      <Settings size={18} strokeWidth={2.5} className="sm:w-[22px] sm:h-[22px]" />
@@ -362,13 +366,17 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
          {/* --- FARM COPILOT (AI INSIGHTS) --- */}
          <FarmCopilot
+            userName={userName}
             weather={weather}
             hourlyForecast={hourlyForecast}
             tasks={tasks}
             users={users}
+            machines={machines}
+            fields={fields}
             alertCount={alertCount}
             onNavigate={onNavigate}
             onOpenWeather={() => setIsWeatherModalOpen(true)}
+            onOpenBriefing={() => setIsBriefingModalOpen(true)}
          />
 
          <div className="px-2">
@@ -796,6 +804,16 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
          )}
 
+         {/* --- MORNING BRIEFING MODAL --- */}
+         <MorningBriefingModal
+            isOpen={isBriefingModalOpen}
+            onClose={() => setIsBriefingModalOpen(false)}
+            userName={userName}
+            machines={machines}
+            fields={fields}
+            users={users}
+            onNavigate={onNavigate}
+         />
       </div >
    );
 };

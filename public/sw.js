@@ -102,3 +102,71 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// --- PUSH NOTIFICATIONS ---
+
+self.addEventListener('push', (event) => {
+  console.log('[SW] Push Received:', event);
+
+  let data = {
+    title: 'OrivaSmart Alerta',
+    body: 'Nova atualização do sistema.',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    tag: 'critical-alert'
+  };
+
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon,
+    badge: data.badge,
+    tag: data.tag,
+    vibrate: [200, 100, 200],
+    data: {
+      url: data.url || '/'
+    },
+    actions: [
+      { action: 'open', title: 'Abrir App' },
+      { action: 'close', title: 'Fechar' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification Clicked:', event.notification.tag);
+
+  event.notification.close();
+
+  if (event.action === 'close') return;
+
+  const urlToOpen = event.notification.data.url || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if there is already a window/tab open with the target URL
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If no window/tab is open, open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});

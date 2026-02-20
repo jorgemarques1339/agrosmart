@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Trash2, User, Save, Info, Moon, Sun, Monitor, Download, Upload, Shield, CheckCircle, MapPin, Camera, Zap, Activity } from 'lucide-react';
+import { X, Trash2, User, Save, Info, Moon, Sun, Monitor, Download, Upload, Shield, CheckCircle, MapPin, Camera, Zap, Activity, BellRing } from 'lucide-react';
 import { STORAGE_KEY } from '../constants';
 import { useStore } from '../store/useStore';
+import { PushNotificationManager } from '../utils/pushNotifications';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -33,6 +34,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [isTesting, setIsTesting] = useState(false);
   const [stressTestStatus, setStressTestStatus] = useState<string | null>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    setNotifPermission(Notification.permission);
+  }, [isOpen]);
 
   // Sincronizar o estado local quando o modal abre ou o nome muda externamente
   useEffect(() => {
@@ -222,7 +228,60 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 2. Secção: Permissões de Hardware */}
+          {/* 2. Secção: Notificações Push */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium text-blue-500 dark:text-blue-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <BellRing size={14} /> Comunicação Proativa
+            </h3>
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-3xl border border-blue-100 dark:border-blue-900/30 space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h4 className="text-sm font-bold text-blue-900 dark:text-blue-100">Notificações Push</h4>
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-0.5">Alertas críticos com a app fechada.</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    const granted = await PushNotificationManager.requestPermission();
+                    setNotifPermission(granted ? 'granted' : 'denied');
+                  }}
+                  disabled={notifPermission === 'granted'}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${notifPermission === 'granted'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400 cursor-default'
+                    : 'bg-blue-600 text-white shadow-lg active:scale-95'
+                    }`}
+                >
+                  {notifPermission === 'granted' ? 'Ativadas' : 'Ativar'}
+                </button>
+              </div>
+
+              {notifPermission === 'granted' && (
+                <div className="pt-2 border-t border-blue-100 dark:border-blue-900/30 flex gap-2">
+                  <button
+                    onClick={() => PushNotificationManager.triggerTestPush(
+                      "🚜 Alerta de Frota",
+                      "O Trator Case IH atingiu 500h de trabalho. Manutenção necessária.",
+                      "app://machines"
+                    )}
+                    className="flex-1 py-3 bg-white dark:bg-neutral-800 border border-blue-200 dark:border-blue-800/50 rounded-2xl text-blue-700 dark:text-blue-300 font-bold text-[10px] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                  >
+                    Teste: Frota
+                  </button>
+                  <button
+                    onClick={() => PushNotificationManager.scheduleDelayedPush(
+                      "🌩️ Alerta Meteorológico",
+                      "Trovoada iminente em Laundos. Remova drones e cubra culturas sensíveis.",
+                      5000
+                    )}
+                    className="flex-1 py-3 bg-white dark:bg-neutral-800 border border-orange-200 dark:border-orange-800/50 rounded-2xl text-orange-700 dark:text-orange-300 font-bold text-[10px] hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+                  >
+                    Teste: 5s Atraso
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* 3. Secção: Permissões de Hardware */}
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Shield size={14} /> Permissões de Hardware
@@ -267,7 +326,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 3. Secção: Aparência */}
+          {/* 4. Secção: Aparência */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider">Aparência</h3>
 
@@ -314,7 +373,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </section>
 
-          {/* 4. Secção: Segurança & Backup */}
+          {/* 5. Secção: Segurança & Backup */}
           <section className="space-y-4">
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Shield size={14} /> Segurança de Dados
@@ -419,17 +478,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
             </div>
-          </section>
-
-          {/* Secção: Zona de Perigo */}
-          <section className="pt-2">
-            <button
-              onClick={handleResetConfirm}
-              className="w-full p-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900/30 rounded-[1.5rem] font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform hover:bg-red-100 dark:hover:bg-red-900/20"
-            >
-              <Trash2 size={18} />
-              Limpar Todos os Dados
-            </button>
           </section>
 
         </div>
