@@ -303,6 +303,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
 
   useEffect(() => {
     setChildModalOpen(isOpen || showHarvestModal || showActionMenu || showRegistryModal);
+    return () => setChildModalOpen(false);
   }, [isOpen, showHarvestModal, showActionMenu, showRegistryModal, setChildModalOpen]);
 
   // Deep Link / Focus Logic

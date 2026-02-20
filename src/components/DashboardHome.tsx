@@ -6,7 +6,7 @@ import {
    Check, Calendar, MapPin, Sun, Cloud,
    CloudRain, CloudLightning, ArrowRight, Activity,
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
-   ChevronDown, PawPrint, Leaf, Search, MessageSquare
+   ChevronDown, PawPrint, Leaf, Search, MessageSquare, Zap, Battery, Target, TrendingUp, Clock
 } from 'lucide-react';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
@@ -87,10 +87,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // Estado para o Modal de Morning Briefing
    const [isBriefingModalOpen, setIsBriefingModalOpen] = useState(false);
 
+   // Estado para o Modal de Energia
+   const [isEnergyModalOpen, setIsEnergyModalOpen] = useState(false);
+
    // Atualizar estado global de modal aberto (para esconder nav)
    React.useEffect(() => {
-      setChildModalOpen(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen);
-   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, setChildModalOpen]);
+      setChildModalOpen(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen || isEnergyModalOpen);
+      return () => setChildModalOpen(false);
+   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, isEnergyModalOpen, setChildModalOpen]);
 
    // Handle scroll for top bar
    React.useEffect(() => {
@@ -166,6 +170,70 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       const totalArea = fields.reduce((acc, f) => acc + f.areaHa, 0);
       return Math.round(totalArea * 4.5); // m3 per day estimate
    }, [fields]);
+
+   const solarEnergy = useMemo(() => {
+      if (!currentWeather) return 0;
+      const condition = currentWeather.condition;
+      const production = condition === 'sunny' ? 12.4 : condition === 'cloudy' ? 5.8 : 1.2;
+      return production;
+   }, [currentWeather]);
+
+   const solarForecast = useMemo(() => {
+      const now = new Date();
+      const currentHour = now.getHours();
+
+      return Array.from({ length: 12 }).map((_, i) => {
+         const hour = (currentHour + i) % 24;
+         // Solar peak around 13:00 - 15:00
+         let factor = 0;
+         if (hour >= 7 && hour <= 19) {
+            factor = Math.sin((hour - 7) * Math.PI / 12);
+         }
+
+         const baseProduction = currentWeather?.condition === 'sunny' ? 15 : currentWeather?.condition === 'cloudy' ? 8 : 2;
+         const production = Number((baseProduction * factor).toFixed(1));
+
+         return { hour: `${hour}:00`, production };
+      });
+   }, [currentWeather]);
+
+   const energyInsights = useMemo(() => {
+      const insights = [];
+      const currentProd = solarEnergy;
+
+      if (currentProd > 10) {
+         insights.push({
+            id: 'i1',
+            type: 'irrigation',
+            title: 'Excesso de Produção',
+            description: 'Produção solar alta. Ideal para avançar rega da Parcela A.',
+            priority: 'high',
+            icon: <Droplets size={16} className="text-cyan-500" />
+         });
+      }
+
+      if (currentProd > 5) {
+         insights.push({
+            id: 'i2',
+            type: 'charge',
+            title: 'Carga Recomendada',
+            description: 'Otimize auto-consumo: Carregue o Trator T1 agora.',
+            priority: 'medium',
+            icon: <Battery size={16} className="text-emerald-500" />
+         });
+      } else {
+         insights.push({
+            id: 'i3',
+            type: 'wait',
+            title: 'Baixa Produção',
+            description: 'Aguarde até às 11:00 para tarefas de alto consumo.',
+            priority: 'low',
+            icon: <Sun size={16} className="text-amber-500" />
+         });
+      }
+
+      return insights;
+   }, [solarEnergy]);
 
    const waterConsumptionByCrop = useMemo(() => {
       const breakdown: Record<string, { area: number, consumption: number }> = {};
@@ -347,12 +415,23 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   Cotações
                </button>
 
-               {/* Button 2: Scan NFC (Blue-Indigo Glow) */}
+               {/* Button 2: Feed (Dynamic State) */}
                <button
-                  onClick={() => onNavigate('animal')}
-                  className="flex-1 py-4 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-bold text-sm shadow-[0_10px_20px_rgba(129,140,248,0.4)] active:scale-95 transition-all duration-200"
+                  onClick={() => onNavigate('feed')}
+                  className={`flex-1 py-4 rounded-full font-bold text-sm active:scale-95 transition-all duration-200 relative overflow-hidden flex items-center justify-center gap-2
+                    ${hasUnreadFeed
+                        ? 'bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_10px_20px_rgba(239,68,68,0.4)]'
+                        : 'bg-gradient-to-r from-blue-400 to-indigo-500 text-white shadow-[0_10px_20px_rgba(129,140,248,0.4)]'
+                     }`}
                >
-                  Scan NFC
+                  {hasUnreadFeed && (
+                     <span className="absolute inset-0 bg-white/20 animate-pulse" />
+                  )}
+                  <MessageSquare size={16} strokeWidth={2.5} className={hasUnreadFeed ? 'animate-bounce' : ''} />
+                  Feed
+                  {hasUnreadFeed && (
+                     <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-neutral-900 animate-ping" />
+                  )}
                </button>
 
                {/* Button 3: Contas (Emerald-Green Glow) */}
@@ -402,32 +481,19 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   </div>
                </div>
 
-               {/* Col 2: Lone Worker Safety (NEW) */}
+               {/* Col 2: Solar Energy Production */}
                <div
-                  onClick={() => onNavigate('feed')}
+                  onClick={() => setIsEnergyModalOpen(true)}
                   className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
                >
-                  <div className="relative">
-                     <div className="text-indigo-500 transition-transform group-hover:scale-110 duration-300">
-                        <MessageSquare size={24} strokeWidth={2.5} />
-                     </div>
-                     {/* Alerta Visual de Emergência ou Novo Post (Sonar Effect) */}
-                     {users.some(u => u.safetyStatus?.status === 'emergency') ? (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping border-2 border-white dark:border-neutral-900" />
-                     ) : hasUnreadFeed ? (
-                        <div className="absolute -top-1 -right-1 flex items-center justify-center">
-                           <div className="absolute w-3 h-3 bg-red-500 rounded-full animate-ping opacity-75" />
-                           <div className="relative w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-white dark:border-neutral-900" />
-                        </div>
-                     ) : feedItems.length > 0 ? (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full animate-pulse border-2 border-white dark:border-neutral-900" />
-                     ) : null}
+                  <div className="text-amber-500 transition-transform group-hover:scale-110 duration-300">
+                     <Zap size={24} strokeWidth={2.5} />
                   </div>
                   <div className="text-center px-1">
-                     <span className={`block text-base sm:text-lg font-black leading-none mb-1 ${users.some(u => u.safetyStatus?.status === 'emergency') || hasUnreadFeed ? 'text-red-500 animate-pulse' : 'text-gray-900 dark:text-white'}`}>
-                        {users.filter(u => u.safetyStatus?.status === 'emergency').length > 0 ? 'SOS' : (hasUnreadFeed || feedItems.length > 0) ? `${feedItems.length} msg` : `${users.filter(u => u.safetyStatus?.status === 'safe').length}/${users.length}`}
+                     <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
+                        {solarEnergy}kW
                      </span>
-                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Feed</span>
+                     <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Energia</span>
                   </div>
                </div>
 
@@ -805,6 +871,134 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                      <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium text-center italic">
                         "Estes valores são estimativas baseadas nos coeficientes de evapotranspiração médios para a sua região."
                      </p>
+                  </div>
+               </div>
+            </div>
+         )}
+
+
+         {/* --- ENERGY MONITORING MODAL --- */}
+         {isEnergyModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-4 sm:p-6 md:p-10" onClick={() => setIsEnergyModalOpen(false)}>
+               <div
+                  className="bg-[#FDFDF5] dark:bg-[#0A0A0A] w-full max-w-sm md:max-w-2xl h-[85vh] md:h-auto md:max-h-[90vh] flex flex-col rounded-[2.5rem] shadow-2xl animate-scale-up border border-white/20 overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+               >
+                  {/* Header */}
+                  <div className="p-6 md:p-8 pb-2 md:pb-4">
+                     <div className="flex justify-between items-start mb-4 md:mb-6">
+                        <div>
+                           <h3 className="text-xl md:text-2xl font-black dark:text-white">Autoconsumo Solar</h3>
+                           <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">Otimização Energética</p>
+                        </div>
+                        <button onClick={() => setIsEnergyModalOpen(false)} className="p-2 md:p-3 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
+                           <X size={20} className="dark:text-white md:w-6 md:h-6" />
+                        </button>
+                     </div>
+
+                     <div className="bg-amber-50 dark:bg-amber-900/10 p-5 md:p-8 rounded-3xl border border-amber-100 dark:border-amber-900/30 mb-6 relative overflow-hidden group">
+                        <div className="relative z-10 flex justify-between items-end">
+                           <div>
+                              <span className="text-4xl md:text-6xl font-black text-amber-600 dark:text-amber-400 tracking-tighter leading-none block">
+                                 {solarEnergy}kW
+                              </span>
+                              <span className="text-[10px] md:text-xs font-bold text-amber-500/80 uppercase tracking-widest block mt-1 md:mt-2 flex items-center gap-1">
+                                 <Sun size={12} className="animate-spin-slow" /> Produção Atual
+                              </span>
+                           </div>
+                           <div className="flex flex-col items-end">
+                              <span className="text-xs md:text-sm font-black text-amber-600/60 uppercase">Eficiência</span>
+                              <span className="text-lg md:text-2xl font-black text-amber-600">94%</span>
+                           </div>
+                        </div>
+                        <Zap size={100} className="absolute -right-4 -bottom-4 text-amber-500/10 -rotate-12 transition-transform group-hover:scale-110 duration-700 md:w-40 md:h-40" />
+                     </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-8 custom-scrollbar space-y-8 md:space-y-12">
+
+                     {/* 1. Production Forecast Chart (Simple CSS) */}
+                     <section>
+                        <div className="flex items-center justify-between mb-4 md:mb-6">
+                           <h4 className="text-[10px] md:text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                              <Clock size={14} /> Previsão 12h
+                           </h4>
+                        </div>
+                        <div className="flex items-end justify-between h-24 md:h-40 gap-1 md:gap-2 px-1">
+                           {solarForecast.map((item, idx) => {
+                              const maxProd = Math.max(...solarForecast.map(f => f.production));
+                              const height = (item.production / maxProd) * 100;
+                              const isCurrent = idx === 0;
+
+                              return (
+                                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
+                                    <div className="w-full relative flex items-end justify-center h-full">
+                                       <div
+                                          className={`w-full rounded-t-lg transition-all duration-1000 ${isCurrent ? 'bg-amber-500' : 'bg-amber-200 dark:bg-amber-900/30 group-hover:bg-amber-300'}`}
+                                          style={{ height: `${height}%` }}
+                                       />
+                                    </div>
+                                    <span className={`text-[7px] md:text-[9px] font-bold ${isCurrent ? 'text-amber-600' : 'text-gray-400'}`}>
+                                       {item.hour.split(':')[0]}
+                                    </span>
+                                 </div>
+                              );
+                           })}
+                        </div>
+                     </section>
+
+                     {/* 2. Proactive Insights (Smart Recommendations) */}
+                     <section className="space-y-4 md:space-y-6">
+                        <div className="flex items-center justify-between">
+                           <h4 className="text-[10px] md:text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
+                              <Target size={14} /> Sugestões de Otimização
+                           </h4>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
+                           {energyInsights.map((insight) => (
+                              <div
+                                 key={insight.id}
+                                 className={`p-4 md:p-6 rounded-3xl border animate-slide-up flex gap-4 items-start ${insight.priority === 'high'
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30 shadow-sm shadow-emerald-500/10'
+                                    : 'bg-white dark:bg-neutral-800/40 border-gray-100 dark:border-neutral-800'
+                                    }`}
+                              >
+                                 <div className={`p-2 md:p-3 rounded-2xl ${insight.priority === 'high' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-neutral-800'
+                                    }`}>
+                                    {React.cloneElement(insight.icon as React.ReactElement, { size: 20 })}
+                                 </div>
+                                 <div className="flex-1 min-w-0">
+                                    <h5 className="font-black text-gray-900 dark:text-white text-xs md:text-sm uppercase tracking-tight mb-0.5">
+                                       {insight.title}
+                                    </h5>
+                                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
+                                       {insight.description}
+                                    </p>
+                                 </div>
+                                 <button className="p-1.5 md:p-2 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-400 hover:text-agro-green transition-colors">
+                                    <ArrowRight size={16} />
+                                 </button>
+                              </div>
+                           ))}
+                        </div>
+                     </section>
+
+                     {/* 3. Potential Savings Card */}
+                     <div className="bg-indigo-600 rounded-3xl p-5 md:p-8 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
+                        <div className="relative z-10">
+                           <div className="flex items-center gap-2 mb-3">
+                              <Activity size={18} className="text-indigo-200" />
+                              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-indigo-100">Impacto Mensal</span>
+                           </div>
+                           <h4 className="text-2xl md:text-4xl font-black mb-1 md:mb-2">Poupança de 240€</h4>
+                           <p className="text-[10px] md:text-sm font-medium text-indigo-100 leading-relaxed max-w-[80%]">
+                              Ao otimizar a rega para janelas solares, reduziu a dependência da rede em 35% este mês.
+                           </p>
+                        </div>
+                        <TrendingUp size={120} className="absolute -right-6 -bottom-6 text-white/10 -rotate-6 group-hover:rotate-0 transition-transform duration-700 md:w-48 md:h-48" />
+                     </div>
                   </div>
                </div>
             </div>

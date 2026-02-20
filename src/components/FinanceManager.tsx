@@ -46,6 +46,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
   useEffect(() => {
     setChildModalOpen(isModalOpen);
+    return () => setChildModalOpen(false);
   }, [isModalOpen, setChildModalOpen]);
 
   // --- Lógica de Negócio: Cálculo de Métricas Financeiras ---

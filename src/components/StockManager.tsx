@@ -515,6 +515,7 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
 
   useEffect(() => {
     setChildModalOpen(isAddModalOpen || !!selectedItem || isOrderModalOpen);
+    return () => setChildModalOpen(false);
   }, [isAddModalOpen, selectedItem, isOrderModalOpen, setChildModalOpen]);
 
   const handleCreate = () => {

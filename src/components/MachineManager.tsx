@@ -96,6 +96,7 @@ const MachineManager: React.FC<MachineManagerProps> = ({
 
   useEffect(() => {
     setChildModalOpen(!!selectedMachine || isAddModalOpen || !!detailMachine);
+    return () => setChildModalOpen(false);
   }, [selectedMachine, isAddModalOpen, detailMachine, setChildModalOpen]);
 
   // [FIX] Sync detailMachine when global state changes (e.g. ISO-BUS update)

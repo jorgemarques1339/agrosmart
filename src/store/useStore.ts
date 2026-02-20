@@ -131,7 +131,8 @@ export const isAnyModalOpen = (state: AppState) => {
         modals.teamManager ||
         modals.omniSearch ||
         !!modals.taskProof ||
-        !!modals.traceability ||
+        modals.traceability ||
+        modals.fieldFeed ||
         modals.guide;
 };
 

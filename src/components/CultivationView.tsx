@@ -59,6 +59,7 @@ const CultivationView: React.FC<CultivationViewProps> = ({
 
     useEffect(() => {
         setChildModalOpen(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal || showRouteOptimizer);
+        return () => setChildModalOpen(false);
     }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, showRouteOptimizer, setChildModalOpen]);
 
     const handleSubmit = () => {

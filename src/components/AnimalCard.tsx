@@ -46,6 +46,7 @@ const AnimalProfile = ({
   // Atualizar estado global de modal aberto (para esconder nav)
   useEffect(() => {
     setChildModalOpen(showProductionModal || showVetModal || showReproductionModal);
+    return () => setChildModalOpen(false);
   }, [showProductionModal, showVetModal, showReproductionModal, setChildModalOpen]);
 
   const chartData = useMemo(() => {
