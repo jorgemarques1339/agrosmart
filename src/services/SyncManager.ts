@@ -80,66 +80,106 @@ export class SyncManager {
     public async processQueue() {
         if (this.isSyncing || !navigator.onLine) return;
 
-        // Process both pending and failed items to ensure recovery
-        const itemsToProcess = await db.syncQueue
-            .filter(item => item.status === 'pending' || item.status === 'failed')
-            .toArray();
-
+        this.isSyncing = true;
         const store = await this.getStore();
-        store.setSyncStatus('syncing');
 
-        if (itemsToProcess.length > 0) {
-            console.log(`[SyncManager] Pushing ${itemsToProcess.length} items...`);
-            // 1. PUSH LOCAL CHANGES
-            for (const item of itemsToProcess) {
-                try {
-                    await db.syncQueue.update(item.id!, { status: 'syncing' });
+        try {
+            let hasProcessedAnything = false;
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
 
-                    const table = this.mapOperationToTable(item.operation);
-                    const payload = this.preparePayload(item.operation, item.data);
+            // Exhaustion Loop: Keep processing while there are items, up to a limit
+            while (true) {
+                const itemsToProcess = await db.syncQueue
+                    .filter(item => item.status === 'pending' || item.status === 'failed')
+                    .toArray();
 
-                    if (table) {
-                        const { error } = await supabase
-                            .from(table)
-                            .upsert(payload, { onConflict: 'id' });
+                if (itemsToProcess.length === 0 || retryCount >= MAX_RETRIES) break;
 
-                        if (error) {
-                            console.error(`[Sync] Fail: ${table}`, error.message);
-                            throw error;
+                store.setSyncStatus('syncing');
+                console.log(`[SyncManager] Pushing ${itemsToProcess.length} items (Attempt ${retryCount + 1})...`);
+
+                for (const item of itemsToProcess) {
+                    try {
+                        await db.syncQueue.update(item.id!, { status: 'syncing' });
+
+                        const table = this.mapOperationToTable(item.operation);
+                        const payload = this.preparePayload(item.operation, item.data);
+
+                        if (table) {
+                            const { error } = await supabase
+                                .from(table)
+                                .upsert(payload, { onConflict: 'id' });
+
+                            if (error) {
+                                // Specific Error: Unique Constraint (Tag NFC already in use)
+                                if (error.code === '23505' || error.message?.includes('unique constraint')) {
+                                    await this.notifyRemoteUpdate(
+                                        'Erro de Registo',
+                                        `A Tag NFC "${item.data.tagId || 'lida'}" já está associada a outro animal.`,
+                                        'critical'
+                                    );
+                                    // Move to failed and don't retry this specific item automatically in this loop
+                                    await db.syncQueue.update(item.id!, { status: 'failed' });
+                                    continue;
+                                }
+
+                                // Specific Error: Credentials Missing
+                                if (error.message?.includes('credentials missing')) {
+                                    console.warn('[SyncManager] Local-only mode detected.');
+                                    await db.syncQueue.update(item.id!, { status: 'pending' }); // Leave pending
+                                    throw new Error('Local-Only Mode');
+                                }
+
+                                throw error;
+                            }
                         }
+
+                        await db.syncQueue.delete(item.id!);
+                        hasProcessedAnything = true;
+                    } catch (error) {
+                        console.error(`[Sync] Error item ${item.id}:`, error);
+                        await db.syncQueue.update(item.id!, { status: 'failed' });
                     }
-
-                    await db.syncQueue.delete(item.id!);
-                } catch (error) {
-                    console.error(`[Sync] Error item ${item.id}:`, error);
-                    await db.syncQueue.update(item.id!, { status: 'failed' });
                 }
+
+                retryCount++;
+                // Small delay to allow other DB operations
+                await new Promise(r => setTimeout(r, 500));
             }
-        }
 
-        // 2. PULL REMOTE CHANGES
-        await this.pullRemoteChanges();
+            // 2. PULL REMOTE CHANGES
+            await this.pullRemoteChanges();
 
-        const lastSync = new Date().toISOString();
-        localStorage.setItem('oriva_last_sync', lastSync);
+            const lastSync = new Date().toISOString();
+            localStorage.setItem('oriva_last_sync', lastSync);
 
-        // Re-get store to ensure we have the latest set function if needed, 
-        // though state is usually stable.
-        const finalStore = await this.getStore();
-        (finalStore as any).setState?.({ lastSyncTime: lastSync, syncStatus: 'idle' });
-        // Alternative using the store's own actions if available
-        if (typeof (finalStore as any).setSyncStatus === 'function') {
-            (finalStore as any).setSyncStatus('idle');
-        }
+            if (typeof (store as any).setState === 'function') {
+                (store as any).setState({ lastSyncTime: lastSync });
+            }
 
-        this.isSyncing = false;
-        haptics.success();
-        console.log('[SyncManager] Full synchronization process completed.');
+            if (hasProcessedAnything) {
+                await this.notifyRemoteUpdate(
+                    'Sincronização Concluída',
+                    'Todos os dados locais foram salvos na nuvem com sucesso.',
+                    'success'
+                );
+                haptics.success();
+            }
 
-        // Final check in case new items were added during sync
-        const remaining = await db.syncQueue.count();
-        if (remaining > 0) {
-            this.processQueue();
+            console.log('[SyncManager] Full synchronization process completed.');
+        } catch (error: any) {
+            console.error('[SyncManager] Critical sync error:', error);
+            if (error.message !== 'Local-Only Mode') {
+                store.setSyncStatus('error');
+            } else {
+                store.setSyncStatus('offline');
+            }
+        } finally {
+            this.isSyncing = false;
+            if (typeof (store as any).setSyncStatus === 'function') {
+                (store as any).setSyncStatus('idle');
+            }
         }
     }
 

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Molde OrivaSmart NFC - Imprimir</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .no-print {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 40px;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        kbd {
+            background: #eee;
+            border-radius: 3px;
+            border: 1px solid #b4b4b4;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, .2);
+            color: #333;
+            display: inline-block;
+            font-size: .85em;
+            font-weight: 700;
+            line-height: 1;
+            padding: 2px 4px;
+            white-space: nowrap;
+        }
+
+        /* Essential for 1:1 Print Scale */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+
+            .no-print {
+                display: none;
+            }
+
+            .page {
+                box-shadow: none;
+                border: none;
+                margin: 0;
+            }
+        }
+
+        .page {
+            background: white;
+            width: 210mm;
+            height: 297mm;
+            /* A4 */
+            padding: 15mm;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            position: relative;
+            box-sizing: border-box;
+        }
+
+        .tag-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20mm;
+        }
+
+        /* THE ACTUAL MOLD - 1:1 Scale */
+        .tag-mold {
+            width: 60mm;
+            height: 105mm;
+            /* Total height including head and neck */
+            position: relative;
+            margin-bottom: 10mm;
+        }
+
+        /* Cutting Line */
+        .cut-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 1.5px solid #000;
+            clip-path: polygon(20% 0%, 80% 0%, 100% 15%, 100% 25%,
+                    65% 25%, 65% 35%,
+                    100% 35%, 100% 90%, 90% 100%, 10% 100%, 0% 90%, 0% 35%,
+                    35% 35%, 35% 25%,
+                    0% 25%, 0% 15%);
+            background: #FFD700;
+            /* Farm Yellow */
+        }
+
+        .tag-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            padding-top: 45mm;
+            /* Move text down to the body of the tag */
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .logo {
+            font-weight: 900;
+            font-size: 16pt;
+            letter-spacing: -1px;
+            color: #000;
+            margin: 0;
+        }
+
+        .sub-text {
+            font-size: 7pt;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(0, 0, 0, 0.6);
+            margin-top: 2px;
+            font-weight: bold;
+        }
+
+        .nfc-zone {
+            width: 25mm;
+            height: 25mm;
+            border: 1px dashed rgba(0, 0, 0, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 8mm;
+            font-size: 6pt;
+            color: rgba(0, 0, 0, 0.4);
+            font-weight: bold;
+        }
+
+        .ruler {
+            position: absolute;
+            bottom: 10mm;
+            left: 10mm;
+            width: 50mm;
+            height: 5mm;
+            border-left: 1px solid #000;
+            border-right: 1px solid #000;
+            border-bottom: 1px solid #000;
+            font-size: 8pt;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="no-print">
+        <h1 style="color: #000;">🖨️ Molde Imprimível OrivaSmart</h1>
+        <p>Este documento está configurado para <strong>escala real (1:1)</strong>.</p>
+        <p>Prime <kbd>Ctrl</kbd> + <kbd>P</kbd> para imprimir.</p>
+        <div
+            style="background: #fff3cd; padding: 10px; border-radius: 8px; border: 1px solid #ffeeba; margin-top: 10px;">
+            <strong>Configuração de Impressão:</strong><br>
+            Escala: <strong>100%</strong> (Não usar "Ajustar à página")
+        </div>
+    </div>
+
+    <div class="page">
+        <div class="tag-container">
+
+            <!-- Tag 1 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+            <!-- Tag 2 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+            <!-- Tag 3 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+            <!-- Tag 4 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+            <!-- Tag 5 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+            <!-- Tag 6 (Frente) -->
+            <div class="tag-mold">
+                <div class="cut-line"></div>
+                <div class="tag-content">
+                    <h2 class="logo">OrivaSmart</h2>
+                    <p class="sub-text">NFC CONNECT</p>
+                    <div class="nfc-zone">COLAR NFC AQUI</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Ruler for calibration check -->
+        <div class="ruler">CALIBRAÇÃO: BLOCO DE 50mm</div>
+    </div>
+
+</body>
+
+</html>

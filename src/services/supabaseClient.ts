@@ -10,4 +10,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = (supabaseUrl && supabaseAnonKey)
     ? createClient(supabaseUrl, supabaseAnonKey)
-    : { from: () => ({ select: () => ({ data: [], error: null }), upsert: () => ({ error: null }) }), channel: () => ({ on: () => ({ subscribe: () => { } }) }) } as any;
+    : {
+        from: () => ({
+            select: () => ({ data: [], error: { message: 'Supabase credentials missing. Running in local-only mode.' } }),
+            upsert: () => ({ error: { message: 'Supabase credentials missing. Running in local-only mode.' } })
+        }),
+        channel: () => ({ on: () => ({ subscribe: () => { } }) })
+    } as any;
