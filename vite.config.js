@@ -5,11 +5,20 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   // Garante caminhos absolutos para a Vercel
-  base: '/', 
+  base: '/',
   build: {
-    // Pasta de saída padrão
     outDir: 'dist',
-    // Limpa a pasta antes de construir
-    emptyOutDir: true, 
+    emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-utils': ['jspdf', 'jspdf-autotable', 'lucide-react'],
+          'vendor-maps': ['leaflet', 'react-leaflet']
+        }
+      }
+    }
   }
 })
