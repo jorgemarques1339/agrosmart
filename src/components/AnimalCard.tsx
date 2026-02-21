@@ -12,6 +12,7 @@ import AnimalDetailsModal from './AnimalDetailsModal';
 import clsx from 'clsx';
 import { haptics } from '../utils/haptics';
 import { useStore } from '../store/useStore';
+import { nfcService } from '../utils/nfc';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({
@@ -120,28 +121,19 @@ const AnimalProfile = ({
   };
 
   const handleNFCScan = async () => {
-    if (!('NDEFReader' in window)) {
-      alert("NFC não é suportado neste browser ou requer HTTPS.");
-      return;
-    }
-
     try {
       setIsScanningNFC(true);
-      const ndef = new (window as any).NDEFReader();
-      await ndef.scan();
+      const serialNumber = await nfcService.scanTag();
 
-      ndef.onreading = (event: any) => {
-        const serialNumber = event.serialNumber;
-        if (onUpdateAnimal) {
-          onUpdateAnimal(animal.id, { tagId: serialNumber });
-          haptics.success();
-        }
-        setIsScanningNFC(false);
-      };
-    } catch (error) {
+      if (onUpdateAnimal) {
+        onUpdateAnimal(animal.id, { tagId: serialNumber });
+        haptics.success();
+      }
+    } catch (error: any) {
       console.error("NFC Error:", error);
+      alert(error.message || "Falha ao ler Tag.");
+    } finally {
       setIsScanningNFC(false);
-      alert("Falha ao iniciar scan NFC.");
     }
   };
 
@@ -623,14 +615,28 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
   const activeAnimal = foundAnimal || propAnimal;
 
   // --- Handlers ---
-  const startScan = () => {
-    setViewState('loading');
-    setTimeout(() => {
-      // Simulate finding an animal
-      const randomAnimal = animals[Math.floor(Math.random() * animals.length)];
-      setFoundAnimal(randomAnimal);
-      setViewState('profile');
-    }, 2500);
+  const startScan = async () => {
+    try {
+      setViewState('loading');
+      const serialNumber = await nfcService.scanTag();
+
+      // Look for the animal locally
+      const animal = animals.find(a => a.tagId === serialNumber);
+
+      if (animal) {
+        setFoundAnimal(animal);
+        setViewState('profile');
+      } else {
+        alert(`Tag lida (${serialNumber}), mas não corresponde a nenhum animal registado.`);
+        setViewState('scanning');
+      }
+    } catch (error: any) {
+      console.error("Scan Error:", error);
+      setViewState('scanning');
+      if (error.message.includes('negada')) {
+        alert("Permissão NFC negada. Ativa o NFC nas definições.");
+      }
+    }
   };
 
   const handleReset = () => {
@@ -639,12 +645,17 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
     if (propOnReset) propOnReset();
   };
 
-  const startNfcScanForForm = () => {
-    setIsScanningTag(true);
-    setTimeout(() => {
-      setTagForm(prev => ({ ...prev, tagId: `PT-${Math.floor(Math.random() * 89999) + 10000}` }));
+  const startNfcScanForForm = async () => {
+    try {
+      setIsScanningTag(true);
+      const serialNumber = await nfcService.scanTag();
+      setTagForm(prev => ({ ...prev, tagId: serialNumber }));
+    } catch (error: any) {
+      console.error("Form NFC Error:", error);
+      alert(error.message || "Erro no NFC.");
+    } finally {
       setIsScanningTag(false);
-    }, 2000);
+    }
   };
 
   const handleSaveTag = () => {
