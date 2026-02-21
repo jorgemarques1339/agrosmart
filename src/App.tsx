@@ -40,6 +40,7 @@ import CultivationView from './components/CultivationView';
 import CarbonDashboard from './components/CarbonDashboard';
 import { supabaseRealtime } from './services/SupabaseRealtime';
 import { syncManager } from './services/SyncManager';
+import { iotManager } from './services/IoTManager';
 import OmniSearch from './components/OmniSearch';
 import { haptics } from './utils/haptics';
 import { Login } from './components/Login';
@@ -175,12 +176,14 @@ const App = () => {
   }, [isDarkMode]);
 
   useEffect(() => {
-    // Initialize Cloud Sync Listeners
+    // Initialize Cloud Sync & IoT Listeners
     supabaseRealtime.init();
-    syncManager.processQueue(); // Start pushing any pending local changes
+    syncManager.processQueue();
+    iotManager.init();
 
     return () => {
       supabaseRealtime.stop();
+      iotManager.stop();
     };
   }, []);
 
@@ -224,6 +227,14 @@ const App = () => {
     const field = fields.find(f => f.id === fieldId);
     if (!field) return;
     updateField(fieldId, { sensors: [...(field.sensors || []), sensor] });
+    addNotification({
+      id: `iot-success-${Date.now()}`,
+      title: 'Sensor Registado',
+      message: `O dispositivo "${sensor.name}" foi associado ao campo ${field.name} com sucesso.`,
+      type: 'success',
+      timestamp: new Date().toISOString(),
+      read: false
+    });
   };
 
   const handleSubmitProof = (taskId: string, proof: string) => {

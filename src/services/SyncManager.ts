@@ -106,14 +106,49 @@ export class SyncManager {
                         await db.syncQueue.update(item.id!, { status: 'syncing' });
 
                         const table = this.mapOperationToTable(item.operation);
-                        const payload = this.preparePayload(item.operation, item.data);
-
                         if (table) {
-                            const { error } = await supabase
-                                .from(table)
-                                .upsert(payload, { onConflict: 'id' });
+                            let payload = this.preparePayload(item.operation, item.data);
+
+                            // --- DEFENSIVE SYNC SAFETY NET ---
+                            const isDelete = item.operation.startsWith('DELETE_');
+                            const needsHealing = !isDelete && (table === 'fields' || table === 'animals') && (!payload.name || (table === 'fields' && !payload.crop));
+
+                            if (needsHealing) {
+                                console.warn(`[Sync] Defensive Action: Payload for ${table} is incomplete. Healing...`, payload);
+                                const dexieTable = (db as any)[table];
+                                if (dexieTable) {
+                                    const localGroundTruth = await dexieTable.get(payload.id);
+                                    if (localGroundTruth) {
+                                        const healedData = { ...localGroundTruth, ...(item.data.updates || item.data) };
+                                        payload = this.toSnakeCase(healedData);
+                                        console.log(`[Sync] Healed Payload:`, payload);
+                                    } else {
+                                        console.error(`[Sync] Critical: Could not heal payload for ${table}:${payload.id}. Local record also missing.`);
+                                    }
+                                }
+                            }
+
+                            console.log(`[Sync] Pushing to ${table}:`, payload);
+
+                            let error = null;
+
+                            if (isDelete) {
+                                const deleteId = typeof payload === 'string' ? payload : payload.id;
+                                console.log(`[Sync] Executing DELETE on ${table} for id: ${deleteId}`);
+                                const result = await supabase
+                                    .from(table)
+                                    .delete()
+                                    .eq('id', deleteId);
+                                error = result.error;
+                            } else {
+                                const result = await supabase
+                                    .from(table)
+                                    .upsert(payload, { onConflict: 'id' });
+                                error = result.error;
+                            }
 
                             if (error) {
+                                console.error(`[Sync] Supabase Error (${table}):`, error);
                                 // Specific Error: Unique Constraint (Tag NFC already in use)
                                 if (error.code === '23505' || error.message?.includes('unique constraint')) {
                                     await this.notifyRemoteUpdate(
@@ -234,7 +269,7 @@ export class SyncManager {
                         continue;
                     }
 
-                    const camelData = data.map(item => this.toCamelCase(item));
+                    const camelData = data.map((item: any) => this.toCamelCase(item));
 
                     // 1. Update IndexDB
                     const dexieTable = (db as any)[meta.remote];
@@ -298,10 +333,13 @@ export class SyncManager {
             'ADD_FIELD': 'fields',
             'UPDATE_FIELD': 'fields',
             'DELETE_FIELD': 'fields',
+            'TOGGLE_IRRIGATION': 'fields',
+            'ADD_FIELD_LOG': 'fields',
             'ADD_ANIMAL': 'animals',
             'UPDATE_ANIMAL': 'animals',
             'ADD_STOCK': 'stocks',
             'UPDATE_STOCK': 'stocks',
+            'DELETE_STOCK': 'stocks',
             'ADD_MACHINE': 'machines',
             'UPDATE_MACHINE': 'machines',
             'ADD_TASK': 'tasks',
@@ -312,22 +350,31 @@ export class SyncManager {
             'ADD_PRODUCTION': 'animals',
             'RECLAIM_CREDITS': 'transactions',
             'ADD_ANIMAL_BATCH': 'animal_batches',
-            'UPDATE_ANIMAL_BATCH': 'animal_batches'
+            'UPDATE_ANIMAL_BATCH': 'animal_batches',
+            'REGISTER_SALE': 'transactions',
+            'ADD_TRANSACTION': 'transactions',
+            'HARVEST_FIELD': 'harvests'
         };
 
-        for (const key in mapping) {
-            if (op.includes(key)) return mapping[key];
-        }
-        return null;
+        return mapping[op] || null;
     }
 
     private preparePayload(op: string, data: any): any {
         let payload: any;
 
-        if (op.includes('UPDATE_')) {
-            payload = { id: data.id, ...data.updates };
+        // Resilience check: Handle both { id, updates } (legacy) and full state object
+        const isLegacyUpdate = data?.updates && data?.id;
+
+        if (op === 'UPDATE_FIELD' || op === 'UPDATE_ANIMAL' || op === 'UPDATE_STOCK' || op === 'UPDATE_MACHINE' || op === 'UPDATE_TASK' || op === 'UPDATE_USER' || op === 'UPDATE_ANIMAL_BATCH') {
+            payload = isLegacyUpdate ? { id: data.id, ...data.updates } : data;
+        } else if (op === 'TOGGLE_IRRIGATION') {
+            payload = { id: data.id, irrigationStatus: data.status };
+        } else if (op === 'ADD_FIELD_LOG') {
+            payload = { id: data.fieldId, logs: data.fullLogs };
+        } else if (op === 'HARVEST_FIELD') {
+            payload = data.harvest;
         } else if (op === 'ADD_PRODUCTION') {
-            payload = { id: data.id, ...data.updates };
+            payload = isLegacyUpdate ? { id: data.id, ...data.updates } : data;
         } else if (op === 'RECLAIM_CREDITS') {
             payload = data.transaction;
         } else {

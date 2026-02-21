@@ -404,10 +404,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateField: async (id, updates) => {
         await db.fields.update(id, updates);
-        syncManager.addToQueue('UPDATE_FIELD', { id, updates });
-        set(state => ({
-            fields: state.fields.map(f => f.id === id ? { ...f, ...updates } : f)
-        }));
+        const fullField = await db.fields.get(id);
+        if (fullField) {
+            syncManager.addToQueue('UPDATE_FIELD', fullField);
+            set(state => ({
+                fields: state.fields.map(f => f.id === id ? fullField : f)
+            }));
+        }
     },
 
     deleteField: async (id) => {
@@ -436,10 +439,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateStock: async (id, updates) => {
         await db.stocks.update(id, updates);
-        syncManager.addToQueue('UPDATE_STOCK', { id, updates });
-        set(state => ({
-            stocks: state.stocks.map(s => s.id === id ? { ...s, ...updates } : s)
-        }));
+        const fullStock = await db.stocks.get(id);
+        if (fullStock) {
+            syncManager.addToQueue('UPDATE_STOCK', fullStock);
+            set(state => ({
+                stocks: state.stocks.map(s => s.id === id ? fullStock : s)
+            }));
+        }
     },
 
     deleteStock: async (id) => {
@@ -456,10 +462,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateAnimal: async (id, updates) => {
         await db.animals.update(id, updates);
-        syncManager.addToQueue('UPDATE_ANIMAL', { id, updates });
-        set(state => ({
-            animals: state.animals.map(a => a.id === id ? { ...a, ...updates } : a)
-        }));
+        const fullAnimal = await db.animals.get(id);
+        if (fullAnimal) {
+            syncManager.addToQueue('UPDATE_ANIMAL', fullAnimal);
+            set(state => ({
+                animals: state.animals.map(a => a.id === id ? fullAnimal : a)
+            }));
+        }
     },
 
     addProduction: async (id, value, type) => {
@@ -473,10 +482,13 @@ export const useStore = create<AppState>((set, get) => ({
         };
 
         await db.animals.update(id, updates);
-        syncManager.addToQueue('ADD_PRODUCTION', { id, record, updates });
-        set(state => ({
-            animals: state.animals.map(a => a.id === id ? { ...a, ...updates } : a)
-        }));
+        const fullAnimal = await db.animals.get(id);
+        if (fullAnimal) {
+            syncManager.addToQueue('UPDATE_ANIMAL', fullAnimal);
+            set(state => ({
+                animals: state.animals.map(a => a.id === id ? fullAnimal : a)
+            }));
+        }
     },
 
     addAnimalBatch: async (batch) => {
@@ -487,10 +499,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateAnimalBatch: async (id, updates) => {
         await db.animalBatches.update(id, updates);
-        syncManager.addToQueue('UPDATE_ANIMAL_BATCH', { id, updates });
-        set(state => ({
-            animalBatches: state.animalBatches.map(b => b.id === id ? { ...b, ...updates } : b)
-        }));
+        const fullBatch = await db.animalBatches.get(id);
+        if (fullBatch) {
+            syncManager.addToQueue('UPDATE_ANIMAL_BATCH', fullBatch);
+            set(state => ({
+                animalBatches: state.animalBatches.map(b => b.id === id ? fullBatch : b)
+            }));
+        }
     },
 
     deleteAnimalBatch: async (id) => {
@@ -568,10 +583,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateMachine: async (id, updates) => {
         await db.machines.update(id, updates);
-        syncManager.addToQueue('UPDATE_MACHINE', { id, updates });
-        set(state => ({
-            machines: state.machines.map(m => m.id === id ? { ...m, ...updates } : m)
-        }));
+        const fullMachine = await db.machines.get(id);
+        if (fullMachine) {
+            syncManager.addToQueue('UPDATE_MACHINE', fullMachine);
+            set(state => ({
+                machines: state.machines.map(m => m.id === id ? fullMachine : m)
+            }));
+        }
     },
 
     addTask: async (task) => {
@@ -582,10 +600,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateTask: async (id, updates) => {
         await db.tasks.update(id, updates);
-        syncManager.addToQueue('UPDATE_TASK', { id, updates });
-        set(state => ({
-            tasks: state.tasks.map(t => t.id === id ? { ...t, ...updates } : t)
-        }));
+        const fullTask = await db.tasks.get(id);
+        if (fullTask) {
+            syncManager.addToQueue('UPDATE_TASK', fullTask);
+            set(state => ({
+                tasks: state.tasks.map(t => t.id === id ? fullTask : t)
+            }));
+        }
     },
     deleteTask: async (id) => {
         await db.tasks.delete(id);
@@ -606,10 +627,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     updateUser: async (id, updates) => {
         await db.users.update(id, updates);
-        syncManager.addToQueue('UPDATE_USER', { id, updates });
-        set(state => ({
-            users: state.users.map(u => u.id === id ? { ...u, ...updates } : u)
-        }));
+        const fullUser = await db.users.get(id);
+        if (fullUser) {
+            syncManager.addToQueue('UPDATE_USER', fullUser);
+            set(state => ({
+                users: state.users.map(u => u.id === id ? fullUser : u)
+            }));
+        }
     },
 
     addTransaction: async (tx) => {
@@ -631,10 +655,13 @@ export const useStore = create<AppState>((set, get) => ({
 
     toggleIrrigation: async (id, status) => {
         await db.fields.update(id, { irrigationStatus: status });
-        syncManager.addToQueue('TOGGLE_IRRIGATION', { id, status });
-        set(state => ({
-            fields: state.fields.map(f => f.id === id ? { ...f, irrigationStatus: status } : f)
-        }));
+        const fullField = await db.fields.get(id);
+        if (fullField) {
+            syncManager.addToQueue('UPDATE_FIELD', fullField);
+            set(state => ({
+                fields: state.fields.map(f => f.id === id ? fullField : f)
+            }));
+        }
     },
 
     addLogToField: async (fieldId, log, transaction, stockUpdate) => {
@@ -642,24 +669,37 @@ export const useStore = create<AppState>((set, get) => ({
         if (!field) return;
 
         const newLogs = [...(field.logs || []), log];
-
-        // Push to Sync Queue
-        syncManager.addToQueue('ADD_FIELD_LOG', { fieldId, log, transaction, stockUpdate });
-
         await db.fields.update(fieldId, { logs: newLogs });
+
         if (transaction) {
             await db.transactions.add(transaction);
+            syncManager.addToQueue('ADD_TRANSACTION', transaction);
+            set(state => ({ transactions: [transaction, ...state.transactions] }));
         }
 
         if (stockUpdate) {
-            await db.stocks.update(stockUpdate.id, { quantity: stockUpdate.quantity });
+            const item = get().stocks.find(s => s.id === stockUpdate.id);
+            if (item) {
+                const newQuantity = stockUpdate.quantity;
+                await db.stocks.update(item.id, { quantity: newQuantity });
+                // We'll update the store and sync below
+                const fullStock = await db.stocks.get(item.id);
+                if (fullStock) {
+                    syncManager.addToQueue('UPDATE_STOCK', fullStock);
+                    set(state => ({
+                        stocks: state.stocks.map(s => s.id === item.id ? fullStock : s)
+                    }));
+                }
+            }
         }
 
-        set(state => ({
-            fields: state.fields.map(f => f.id === fieldId ? { ...f, logs: newLogs } : f),
-            transactions: transaction ? [transaction, ...state.transactions] : state.transactions,
-            stocks: stockUpdate ? state.stocks.map(s => s.id === stockUpdate.id ? { ...s, quantity: stockUpdate.quantity } : s) : state.stocks
-        }));
+        const fullField = await db.fields.get(fieldId);
+        if (fullField) {
+            syncManager.addToQueue('UPDATE_FIELD', fullField);
+            set(state => ({
+                fields: state.fields.map(f => f.id === fieldId ? fullField : f)
+            }));
+        }
     },
 
     addFeedItem: async (item) => {
@@ -687,28 +727,38 @@ export const useStore = create<AppState>((set, get) => ({
         await db.transactions.add(saleData.transaction);
         syncManager.addToQueue('REGISTER_SALE', saleData);
 
-        // Update Stock
+        // Update Stock via Dexie-First
         const stock = get().stocks.find(s => s.id === saleData.stockId);
         if (stock) {
             const newQuantity = Math.max(0, stock.quantity - saleData.quantity);
             await db.stocks.update(saleData.stockId, { quantity: newQuantity });
+            const fullStock = await db.stocks.get(saleData.stockId);
+            if (fullStock) {
+                syncManager.addToQueue('UPDATE_STOCK', fullStock);
+                set(state => ({
+                    stocks: state.stocks.map(s => s.id === saleData.stockId ? fullStock : s)
+                }));
+            }
         }
 
-        // Update Field Log if provided
+        // Update Field Log if provided via Dexie-First
         if (saleData.fieldLog) {
             const field = get().fields.find(f => f.id === saleData.fieldLog?.fieldId);
             if (field) {
                 const newLogs = [...field.logs, saleData.fieldLog.log];
                 await db.fields.update(saleData.fieldLog.fieldId, { logs: newLogs });
-                set(state => ({
-                    fields: state.fields.map(f => f.id === saleData.fieldLog!.fieldId ? { ...f, logs: newLogs } : f)
-                }));
+                const fullField = await db.fields.get(saleData.fieldLog.fieldId);
+                if (fullField) {
+                    syncManager.addToQueue('UPDATE_FIELD', fullField);
+                    set(state => ({
+                        fields: state.fields.map(f => f.id === saleData.fieldLog!.fieldId ? fullField : f)
+                    }));
+                }
             }
         }
 
         set(state => ({
-            transactions: [saleData.transaction, ...state.transactions],
-            stocks: state.stocks.map(s => s.id === saleData.stockId ? { ...s, quantity: Math.max(0, s.quantity - saleData.quantity) } : s)
+            transactions: [saleData.transaction, ...state.transactions]
         }));
     },
 

@@ -27,6 +27,8 @@ import { db } from '../services/db';
 import { calculateMildioRisk } from '../utils/diseaseModel';
 import MissionControl from './MissionControl';
 
+import { iotManager } from '../services/IoTManager';
+
 interface FieldCardProps {
   field: Field;
   stocks?: StockItem[];
@@ -478,13 +480,19 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
     return activeTreatment;
   }, [field.logs]);
 
+  useEffect(() => {
+    iotManager.subscribeToField(field.id);
+  }, [field.id]);
+
   const handleIoTToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsLoadingIoT(true);
-    setTimeout(() => {
-      onToggleIrrigation(field.id, !field.irrigationStatus);
-      setIsLoadingIoT(false);
-    }, 1200);
+
+    // Send Real MQTT Command
+    iotManager.toggleIrrigation(field.id, !field.irrigationStatus);
+
+    // Reset loader after a short delay (visual feedback)
+    setTimeout(() => setIsLoadingIoT(false), 800);
   };
 
   const handleDelete = () => {

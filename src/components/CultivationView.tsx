@@ -344,16 +344,22 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                 onSave={onAddLog}
             />
 
-            {
-                showRouteOptimizer && (
-                    <RouteOptimizationModal
-                        isOpen={showRouteOptimizer}
-                        onClose={() => setShowRouteOptimizer(false)}
-                        fields={fields}
-                        forecast={detailedForecast}
-                    />
-                )
-            }
+            {showRouteOptimizer && (
+                <RouteOptimizationModal
+                    isOpen={showRouteOptimizer}
+                    onClose={() => setShowRouteOptimizer(false)}
+                    fields={fields}
+                    forecast={detailedForecast}
+                />
+            )}
+
+            {showIoTWizard && (
+                <IoTPairingWizard
+                    onClose={() => setShowIoTWizard(false)}
+                    fields={fields}
+                    onPair={onRegisterSensor}
+                />
+            )}
         </div >
     );
 };
