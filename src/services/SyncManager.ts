@@ -84,7 +84,7 @@ export class SyncManager {
         const store = await this.getStore();
 
         try {
-            let hasProcessedAnything = false;
+            let totalProcessed = 0;
             let retryCount = 0;
             const MAX_RETRIES = 3;
 
@@ -98,6 +98,8 @@ export class SyncManager {
 
                 store.setSyncStatus('syncing');
                 console.log(`[SyncManager] Pushing ${itemsToProcess.length} items (Attempt ${retryCount + 1})...`);
+
+                let successInThisPass = 0;
 
                 for (const item of itemsToProcess) {
                     try {
@@ -126,8 +128,7 @@ export class SyncManager {
 
                                 // Specific Error: Credentials Missing
                                 if (error.message?.includes('credentials missing')) {
-                                    console.warn('[SyncManager] Local-only mode detected.');
-                                    await db.syncQueue.update(item.id!, { status: 'pending' }); // Leave pending
+                                    console.warn('[SyncManager] Local-only mode detected. Aborting push.');
                                     throw new Error('Local-Only Mode');
                                 }
 
@@ -136,11 +137,20 @@ export class SyncManager {
                         }
 
                         await db.syncQueue.delete(item.id!);
-                        hasProcessedAnything = true;
-                    } catch (error) {
+                        successInThisPass++;
+                        totalProcessed++;
+                        console.log(`[Sync] Successfully synced ${item.operation} (${item.id})`);
+                    } catch (error: any) {
+                        if (error.message === 'Local-Only Mode') throw error;
                         console.error(`[Sync] Error item ${item.id}:`, error);
                         await db.syncQueue.update(item.id!, { status: 'failed' });
                     }
+                }
+
+                // If no items succeeded in this entire pass, don't keep retrying
+                if (successInThisPass === 0) {
+                    console.warn('[SyncManager] No items succeeded in this pass. Suspending retries.');
+                    break;
                 }
 
                 retryCount++;
@@ -158,10 +168,10 @@ export class SyncManager {
                 (store as any).setState({ lastSyncTime: lastSync });
             }
 
-            if (hasProcessedAnything) {
+            if (totalProcessed > 0) {
                 await this.notifyRemoteUpdate(
                     'Sincronização Concluída',
-                    'Todos os dados locais foram salvos na nuvem com sucesso.',
+                    `Gravados ${totalProcessed} registos na nuvem.`,
                     'success'
                 );
                 haptics.success();
@@ -170,15 +180,17 @@ export class SyncManager {
             console.log('[SyncManager] Full synchronization process completed.');
         } catch (error: any) {
             console.error('[SyncManager] Critical sync error:', error);
-            if (error.message !== 'Local-Only Mode') {
-                store.setSyncStatus('error');
-            } else {
+            if (error.message === 'Local-Only Mode') {
                 store.setSyncStatus('offline');
+            } else {
+                store.setSyncStatus('error');
             }
         } finally {
             this.isSyncing = false;
-            if (typeof (store as any).setSyncStatus === 'function') {
-                (store as any).setSyncStatus('idle');
+            // Only set to idle if we aren't already in an error/offline state
+            const currentStore = await this.getStore();
+            if (currentStore.syncStatus === 'syncing') {
+                store.setSyncStatus('idle');
             }
         }
     }

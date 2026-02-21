@@ -77,13 +77,12 @@ const App = () => {
     hydrate();
   }, [hydrate]);
 
-  // Force initial synchronization on load
+  // Initial hydration complete
   useEffect(() => {
-    if (isHydrated && isOnline) {
-      console.log('[App] Initial hydration complete. Triggering Cloud Sync...');
-      syncManager.processQueue();
+    if (isHydrated) {
+      console.log('[App] Local Data Hydrated.');
     }
-  }, [isHydrated, isOnline]);
+  }, [isHydrated]);
 
   // Routing Logic (Public vs App)
   const [viewMode, setViewMode] = useState<'app' | 'public'>('app');
