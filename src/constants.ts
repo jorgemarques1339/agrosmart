@@ -31,6 +31,12 @@ const MOCK_USERS: UserProfile[] = [
     id: 'u4', name: 'Ricardo Horta', role: 'farmer', avatar: 'RH', specialty: 'Agricultor',
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 78 }
   },
+  {
+    id: 'u5', name: 'Jorge Marques (Master)', role: 'admin', avatar: 'JM', specialty: 'Administrador Geral',
+    username: 'jorge_marques',
+    password: 'Cax1nasCity',
+    safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 100 }
+  },
 ];
 
 const MOCK_BATCHES: AnimalBatch[] = [

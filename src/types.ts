@@ -35,6 +35,8 @@ export interface UserProfile {
   name: string;
   role: 'admin' | 'farmer' | 'vet' | 'mechanic' | 'operator';
   avatar: string; // URL ou Initials
+  username?: string;
+  password?: string;
   specialty?: string; // ex: "Veterinária", "Máquinas"
   safetyStatus?: {
     status: 'safe' | 'warning' | 'emergency';

@@ -41,6 +41,11 @@ export interface AppState {
         motion: boolean;
     };
 
+    // Authentication
+    isAuthenticated: boolean;
+    login: (username: string, pass: string) => Promise<boolean>;
+    logout: () => void;
+
     // Hydration & Persistence
     hydrate: () => Promise<void>;
 
@@ -205,13 +210,14 @@ export const useStore = create<AppState>((set, get) => ({
     isOnline: navigator.onLine,
     weatherData: [],
     detailedForecast: [],
-    currentUserId: (localStorage.getItem('oriva_current_user') === 'user-1' || !localStorage.getItem('oriva_current_user')) ? 'u1' : localStorage.getItem('oriva_current_user')!,
+    currentUserId: localStorage.getItem('oriva_current_user') || 'guest',
     permissions: {
         gps: false,
         camera: false,
         nfc: false,
         motion: false
     },
+    isAuthenticated: localStorage.getItem('oriva_auth_state') === 'true',
 
     hydrate: async () => {
         // Migration logic during hydration
@@ -304,6 +310,17 @@ export const useStore = create<AppState>((set, get) => ({
             const { MOCK_STATE } = await import('../constants');
             await db.users.bulkAdd(MOCK_STATE.users);
             users = await db.users.toArray();
+        } else {
+            // [AUTO-PATCH] Ensure Jorge Marques (Master) is in the list
+            const masterExists = users.some(u => u.username === 'jorge_marques');
+            if (!masterExists) {
+                const { MOCK_STATE } = await import('../constants');
+                const master = MOCK_STATE.users.find(u => u.username === 'jorge_marques');
+                if (master) {
+                    await db.users.put(master);
+                    users = await db.users.toArray();
+                }
+            }
         }
 
         if (fields.length === 0 && stocks.length === 0) {
@@ -321,12 +338,15 @@ export const useStore = create<AppState>((set, get) => ({
             return get().hydrate();
         }
 
-        // Final Check: Ensure Admin user is used if session is stale or incorrect
+        // Authentication is handled via isAuthenticated state restored from localStorage
+        // and verified against the users list fetched from DB
         const currentId = get().currentUserId;
         const validUser = users.find(u => u.id === currentId);
-        if (!validUser || currentId === 'user-1' || currentId === 'guest') {
-            console.log('[Store] Invalid or default user detected. Reverting to Admin (u1).');
-            set({ currentUserId: 'u1' });
+
+        if (!validUser && get().isAuthenticated) {
+            console.warn('[Store] Authenticated user not found in DB. Resetting auth.');
+            set({ isAuthenticated: false, currentUserId: 'guest' });
+            localStorage.removeItem('oriva_auth_state');
         }
 
         set({
@@ -355,6 +375,24 @@ export const useStore = create<AppState>((set, get) => ({
     setPermission: (key, status) => set(state => ({
         permissions: { ...state.permissions, [key]: status }
     })),
+
+    login: async (username, pass) => {
+        const { users } = get();
+        const user = users.find(u => u.username === username && u.password === pass);
+        if (user) {
+            localStorage.setItem('oriva_auth_state', 'true');
+            localStorage.setItem('oriva_current_user', user.id);
+            set({ isAuthenticated: true, currentUserId: user.id });
+            return true;
+        }
+        return false;
+    },
+
+    logout: () => {
+        localStorage.removeItem('oriva_auth_state');
+        localStorage.removeItem('oriva_current_user');
+        set({ isAuthenticated: false, currentUserId: 'guest' });
+    },
 
     setFields: (fields) => set({ fields }),
 

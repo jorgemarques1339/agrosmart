@@ -42,6 +42,7 @@ import { supabaseRealtime } from './services/SupabaseRealtime';
 import { syncManager } from './services/SyncManager';
 import OmniSearch from './components/OmniSearch';
 import { haptics } from './utils/haptics';
+import { Login } from './components/Login';
 
 // API Configuration
 const WEATHER_API_KEY = 'c7f76605724ecafb54933077ede4166a';
@@ -54,7 +55,7 @@ const LON = -8.723;
 const App = () => {
   const {
     fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, isHydrated,
-    activeTab, isDarkMode, isSolarMode, isOnline, weatherData, detailedForecast, currentUserId,
+    activeTab, isDarkMode, isSolarMode, isOnline, weatherData, detailedForecast, currentUserId, isAuthenticated,
     hydrate, setActiveTab, setDarkMode, setSolarMode, setOnline, setWeatherData, setDetailedForecast, setCurrentUserId,
     addField, updateField, deleteField,
     addStock, updateStock, deleteStock,
@@ -378,6 +379,11 @@ const App = () => {
         </p>
       </div>
     );
+  }
+
+  // Auth Gate
+  if (!isAuthenticated) {
+    return <Login />;
   }
 
   return (
