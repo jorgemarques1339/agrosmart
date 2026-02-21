@@ -12,11 +12,14 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-utils': ['jspdf', 'jspdf-autotable', 'lucide-react'],
-          'vendor-maps': ['leaflet', 'react-leaflet']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react')) return 'vendor-react';
+            if (id.includes('supabase')) return 'vendor-supabase';
+            if (id.includes('jspdf') || id.includes('lucide-react')) return 'vendor-utils';
+            if (id.includes('leaflet')) return 'vendor-maps';
+            return 'vendor';
+          }
         }
       }
     }
