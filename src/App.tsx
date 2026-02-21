@@ -38,6 +38,8 @@ import LoneWorkerMonitor from './components/LoneWorkerMonitor';
 import IoTPairingWizard from './components/IoTPairingWizard';
 import CultivationView from './components/CultivationView';
 import CarbonDashboard from './components/CarbonDashboard';
+import { supabaseRealtime } from './services/SupabaseRealtime';
+import { syncManager } from './services/SyncManager';
 import OmniSearch from './components/OmniSearch';
 import { haptics } from './utils/haptics';
 
@@ -163,6 +165,16 @@ const App = () => {
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
+
+  useEffect(() => {
+    // Initialize Cloud Sync Listeners
+    supabaseRealtime.init();
+    syncManager.processQueue(); // Start pushing any pending local changes
+
+    return () => {
+      supabaseRealtime.stop();
+    };
+  }, []);
 
   useEffect(() => {
     if (isSolarMode) {

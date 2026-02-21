@@ -4,6 +4,7 @@ import { haptics } from '../utils/haptics';
 import * as Comlink from 'comlink';
 import type { DataSyncWorker } from '../workers/dataWorker';
 import { FeedItem } from '../types';
+import { supabase } from './supabaseClient';
 
 export class SyncManager {
     private static instance: SyncManager;
@@ -14,6 +15,7 @@ export class SyncManager {
     private constructor() {
         this.setupConnectivityListeners();
         this.initWorker();
+        console.log('[SyncManager] Initialized.');
     }
 
     private initWorker() {
@@ -32,18 +34,19 @@ export class SyncManager {
 
     private setupConnectivityListeners() {
         window.addEventListener('online', () => {
-            console.log('Connectivity restored. Starting sync...');
+            console.log('[SyncManager] Connectivity restored. Starting sync...');
             useStore.getState().setOnline(true);
             this.processQueue();
         });
 
         window.addEventListener('offline', () => {
-            console.log('Connectivity lost. Queuing operations...');
+            console.log('[SyncManager] Connectivity lost. Queuing operations...');
             useStore.getState().setOnline(false);
         });
     }
 
     public async addToQueue(operation: string, data: any) {
+        console.log(`[SyncManager] Adding to queue: ${operation}`);
         const item = {
             operation,
             data,
@@ -54,9 +57,10 @@ export class SyncManager {
         await db.syncQueue.add(item);
 
         if (navigator.onLine) {
+            console.log('[SyncManager] Online: triggering processQueue()...');
             this.processQueue();
         } else {
-            console.warn(`Offline: Operation ${operation} queued.`);
+            console.warn(`[SyncManager] Offline: Operation ${operation} queued.`);
             useStore.getState().setSyncStatus('offline');
             haptics.warning();
         }
@@ -69,25 +73,42 @@ export class SyncManager {
     public async processQueue() {
         if (this.isSyncing || !navigator.onLine) return;
 
-        const pendingItems = await db.syncQueue.where('status').equals('pending').toArray();
+        // Process both pending and failed items to ensure recovery
+        const itemsToProcess = await db.syncQueue
+            .filter(item => item.status === 'pending' || item.status === 'failed')
+            .toArray();
+
+        if (itemsToProcess.length === 0) return;
+
         this.isSyncing = true;
         useStore.getState().setSyncStatus('syncing');
 
-        console.log(`Processing ${pendingItems.length} items from sync queue...`);
+        console.log(`[SyncManager] Processing ${itemsToProcess.length} items...`);
 
         // 1. PUSH LOCAL CHANGES
-        for (const item of pendingItems) {
+        for (const item of itemsToProcess) {
             try {
                 await db.syncQueue.update(item.id!, { status: 'syncing' });
 
-                // --- SYNC LOGIC SIMULATION ---
-                // Mock API call
-                await new Promise(resolve => setTimeout(resolve, 800));
-                // -----------------------------
+                // --- REAL SUPABASE SYNC ---
+                const table = this.mapOperationToTable(item.operation);
+                const payload = this.preparePayload(item.operation, item.data);
+
+                if (table) {
+                    const { error } = await supabase
+                        .from(table)
+                        .upsert(payload, { onConflict: 'id' });
+
+                    if (error) {
+                        console.error(`[Sync] Fail: ${table}`, error.message);
+                        throw error;
+                    }
+                }
+                // --------------------------
 
                 await db.syncQueue.delete(item.id!);
             } catch (error) {
-                console.error(`Sync failed for item ${item.id}:`, error);
+                console.error(`[Sync] Error item ${item.id}:`, error);
                 await db.syncQueue.update(item.id!, { status: 'failed' });
             }
         }
@@ -110,109 +131,71 @@ export class SyncManager {
     }
 
     private async pullRemoteChanges() {
-        console.log("Pulling remote changes from Enterprise Cloud...");
-        await new Promise(r => setTimeout(r, 1200));
+        console.log("Pulling real remote changes from Supabase Cloud...");
 
-        const random = Math.random();
+        // In a real implementation, we would fetch the last modified date
+        // and only pull items newer than that. For this phase, we ensure 
+        // real-time listeners are active (implemented in App.tsx).
 
-        // 1. Simulate Remote Feed Post
-        if (random > 0.8) {
-            const remoteItem: FeedItem = {
-                id: `remote-feed-${Date.now()}`,
-                userId: 'user-admin',
-                userName: 'António (Dono)',
-                userAvatar: 'A',
-                type: 'text',
-                content: 'Bom trabalho com a rega de hoje. Verifiquem o Stock de Fertilizantes.',
-                location: [41.444, -8.725],
-                timestamp: new Date().toISOString()
-            };
+        // This method can still be used for a full manual refresh if needed.
+    }
 
-            const exists = await db.feed.get(remoteItem.id);
-            if (!exists) {
-                await db.feed.add(remoteItem);
-                useStore.setState(state => ({
-                    feedItems: [remoteItem, ...state.feedItems],
-                    hasUnreadFeed: true
-                }));
-                this.notifyRemoteUpdate(`Mensagem de ${remoteItem.userName}`, remoteItem.content, 'info');
-            }
+    private mapOperationToTable(op: string): string | null {
+        const mapping: Record<string, string> = {
+            'ADD_FIELD': 'fields',
+            'UPDATE_FIELD': 'fields',
+            'DELETE_FIELD': 'fields',
+            'ADD_ANIMAL': 'animals',
+            'UPDATE_ANIMAL': 'animals',
+            'ADD_STOCK': 'stocks',
+            'UPDATE_STOCK': 'stocks',
+            'ADD_MACHINE': 'machines',
+            'UPDATE_MACHINE': 'machines',
+            'ADD_TASK': 'tasks',
+            'UPDATE_TASK': 'tasks',
+            'ADD_USER': 'users',
+            'UPDATE_USER': 'users',
+            'ADD_FEED_ITEM': 'feed',
+            'ADD_PRODUCTION': 'animals',
+            'RECLAIM_CREDITS': 'transactions',
+            'ADD_ANIMAL_BATCH': 'animal_batches',
+            'UPDATE_ANIMAL_BATCH': 'animal_batches'
+        };
+
+        for (const key in mapping) {
+            if (op.includes(key)) return mapping[key];
+        }
+        return null;
+    }
+
+    private preparePayload(op: string, data: any): any {
+        let payload: any;
+
+        if (op.includes('UPDATE_')) {
+            payload = { id: data.id, ...data.updates };
+        } else if (op === 'ADD_PRODUCTION') {
+            payload = { id: data.id, ...data.updates };
+        } else if (op === 'RECLAIM_CREDITS') {
+            payload = data.transaction;
+        } else {
+            payload = data;
         }
 
-        // 2. Simulate Remote Field Log (Cultivation Note)
-        if (random > 0.6 && random <= 0.8) {
-            const { fields } = useStore.getState();
-            if (fields.length > 0) {
-                const targetField = fields[0];
-                const remoteLog: any = {
-                    id: `remote-log-${Date.now()}`,
-                    date: new Date().toISOString().split('T')[0],
-                    type: 'observation',
-                    description: 'Observação Remota: Solo parece seco na Parcela Norte.'
-                };
+        // Convert keys to snake_case to match SQL schema
+        return this.toSnakeCase(payload);
+    }
 
-                await db.fields.update(targetField.id, {
-                    logs: [...(targetField.logs || []), remoteLog]
-                });
+    private toSnakeCase(obj: any): any {
+        if (typeof obj !== 'object' || obj === null) return obj;
+        if (Array.isArray(obj)) return obj.map(v => this.toSnakeCase(v));
 
-                useStore.setState(state => ({
-                    fields: state.fields.map(f => f.id === targetField.id ? { ...f, logs: [...(f.logs || []), remoteLog] } : f)
-                }));
-
-                this.notifyRemoteUpdate(`Nota de Cultivo: ${targetField.name}`, remoteLog.description, 'success');
-            }
+        const snakeObj: any = {};
+        for (const key in obj) {
+            // Special cases for acronyms if needed, or just standard camelToSnake
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            snakeObj[snakeKey] = this.toSnakeCase(obj[key]);
         }
-
-        // 3. Simulate Stock Update
-        if (random > 0.4 && random <= 0.6) {
-            const { stocks } = useStore.getState();
-            if (stocks.length > 0) {
-                const targetStock = stocks[0];
-                const newQty = targetStock.quantity + 50;
-                await db.stocks.update(targetStock.id, { quantity: newQty });
-
-                useStore.setState(state => ({
-                    stocks: state.stocks.map(s => s.id === targetStock.id ? { ...s, quantity: newQty } : s)
-                }));
-
-                this.notifyRemoteUpdate('Stock Atualizado', `${targetStock.name} reforçado por Entrega Cloud.`, 'info');
-            }
-        }
-
-        // 4. Simulate Remote Task Assignment
-        if (random > 0.2 && random <= 0.4) {
-            const remoteTask: any = {
-                id: `remote-task-${Date.now()}`,
-                title: 'Verificação Urgente: Parcela B',
-                description: 'O dono solicitou uma inspeção visual rápida na Parcela B.',
-                priority: 'high',
-                completed: false,
-                date: new Date().toISOString().split('T')[0],
-                tags: ['Inspeção'],
-                userId: useStore.getState().currentUserId
-            };
-
-            await db.tasks.add(remoteTask);
-            useStore.setState(state => ({
-                tasks: [...state.tasks, remoteTask]
-            }));
-
-            this.notifyRemoteUpdate('Nova Tarefa Atribuída', remoteTask.title, 'critical');
-        }
-
-        // 5. Simulate Remote Machine Status
-        if (random > 0 && random <= 0.2) {
-            const { machines } = useStore.getState();
-            const targetMachine = machines[0];
-            const newStatus: any = targetMachine.status === 'active' ? 'maintenance' : 'active';
-            await db.machines.update(targetMachine.id, { status: newStatus });
-
-            useStore.setState(state => ({
-                machines: state.machines.map(m => m.id === targetMachine.id ? { ...m, status: newStatus } : m)
-            }));
-
-            this.notifyRemoteUpdate('Estado de Frota', `${targetMachine.name} marcado como ${newStatus === 'maintenance' ? 'Em Manutenção' : 'Ativo'} via Cloud.`, 'info');
-        }
+        return snakeObj;
     }
 
     private notifyRemoteUpdate(title: string, message: string, type: 'info' | 'success' | 'critical') {

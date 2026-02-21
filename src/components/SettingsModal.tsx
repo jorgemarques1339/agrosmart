@@ -387,8 +387,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${syncStatus === 'syncing' ? 'bg-indigo-500 text-white animate-pulse' :
-                      syncStatus === 'error' ? 'bg-red-500 text-white' :
-                        syncStatus === 'offline' ? 'bg-gray-500 text-white' : 'bg-green-500 text-white'
+                    syncStatus === 'error' ? 'bg-red-500 text-white' :
+                      syncStatus === 'offline' ? 'bg-gray-500 text-white' : 'bg-green-500 text-white'
                     }`}>
                     <Monitor size={18} />
                   </div>
