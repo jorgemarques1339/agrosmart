@@ -99,6 +99,17 @@ export interface AppState {
     registerSale: (saleData: { stockId: string, quantity: number, transaction: Transaction, fieldLog?: { fieldId: string, log: FieldLog } }) => Promise<void>;
     harvestField: (fieldId: string, stockItem: StockItem, harvest: ProductBatch) => Promise<void>;
 
+    // Bulk Setters for Sync
+    setAnimals: (animals: Animal[]) => void;
+    setMachines: (machines: Machine[]) => void;
+    setTasks: (tasks: Task[]) => void;
+    setUsers: (users: UserProfile[]) => void;
+    setFeedItems: (items: FeedItem[]) => void;
+    setTransactions: (transactions: Transaction[]) => void;
+    setHarvests: (harvests: ProductBatch[]) => void;
+    setAnimalBatches: (batches: AnimalBatch[]) => void;
+    setNotifications: (notifications: Notification[]) => void;
+
     // Map Focus
     focusedTarget: { type: 'sensor' | 'field', id: string } | null;
     setFocusedTarget: (target: { type: 'sensor' | 'field', id: string } | null) => void;
@@ -194,7 +205,7 @@ export const useStore = create<AppState>((set, get) => ({
     isOnline: navigator.onLine,
     weatherData: [],
     detailedForecast: [],
-    currentUserId: localStorage.getItem('oriva_current_user') || 'user-1',
+    currentUserId: (localStorage.getItem('oriva_current_user') === 'user-1' || !localStorage.getItem('oriva_current_user')) ? 'u1' : localStorage.getItem('oriva_current_user')!,
     permissions: {
         gps: false,
         camera: false,
@@ -288,7 +299,13 @@ export const useStore = create<AppState>((set, get) => ({
             await db.machines.update(exampleMachine.id, { isobusData: undefined });
         }
 
-        // Fill with MOCK_STATE if empty
+        // Fill with MOCK_STATE if empty or missing critical users
+        if (users.length === 0) {
+            const { MOCK_STATE } = await import('../constants');
+            await db.users.bulkAdd(MOCK_STATE.users);
+            users = await db.users.toArray();
+        }
+
         if (fields.length === 0 && stocks.length === 0) {
             // Import here to avoid circular dep if constants imports types
             const { MOCK_STATE } = await import('../constants');
@@ -299,7 +316,6 @@ export const useStore = create<AppState>((set, get) => ({
                 db.machines.bulkAdd(MOCK_STATE.machines),
                 db.transactions.bulkAdd(MOCK_STATE.transactions),
                 db.tasks.bulkAdd(MOCK_STATE.tasks),
-                db.users.bulkAdd(MOCK_STATE.users),
             ]);
             // Re-hydrate
             return get().hydrate();
@@ -353,6 +369,16 @@ export const useStore = create<AppState>((set, get) => ({
         syncManager.addToQueue('DELETE_FIELD', id);
         set(state => ({ fields: state.fields.filter(f => f.id !== id) }));
     },
+
+    setAnimals: (animals) => set({ animals }),
+    setMachines: (machines) => set({ machines }),
+    setTasks: (tasks) => set({ tasks }),
+    setUsers: (users) => set({ users }),
+    setFeedItems: (feedItems) => set({ feedItems }),
+    setTransactions: (transactions) => set({ transactions }),
+    setHarvests: (harvests) => set({ harvests }),
+    setAnimalBatches: (animalBatches) => set({ animalBatches }),
+    setNotifications: (notifications) => set({ notifications }),
 
     setStocks: (stocks) => set({ stocks }),
 

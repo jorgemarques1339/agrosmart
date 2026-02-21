@@ -1,5 +1,4 @@
 import { db } from './db';
-import { useStore } from '../store/useStore';
 import { haptics } from '../utils/haptics';
 import * as Comlink from 'comlink';
 import type { DataSyncWorker } from '../workers/dataWorker';
@@ -33,16 +32,23 @@ export class SyncManager {
     }
 
     private setupConnectivityListeners() {
-        window.addEventListener('online', () => {
+        window.addEventListener('online', async () => {
             console.log('[SyncManager] Connectivity restored. Starting sync...');
-            useStore.getState().setOnline(true);
+            const store = await this.getStore();
+            store.setOnline(true);
             this.processQueue();
         });
 
-        window.addEventListener('offline', () => {
+        window.addEventListener('offline', async () => {
             console.log('[SyncManager] Connectivity lost. Queuing operations...');
-            useStore.getState().setOnline(false);
+            const store = await this.getStore();
+            store.setOnline(false);
         });
+    }
+
+    private async getStore() {
+        const { useStore } = await import('../store/useStore');
+        return useStore.getState();
     }
 
     public async addToQueue(operation: string, data: any) {
@@ -61,7 +67,8 @@ export class SyncManager {
             this.processQueue();
         } else {
             console.warn(`[SyncManager] Offline: Operation ${operation} queued.`);
-            useStore.getState().setSyncStatus('offline');
+            const store = await this.getStore();
+            store.setSyncStatus('offline');
             haptics.warning();
         }
     }
@@ -78,50 +85,56 @@ export class SyncManager {
             .filter(item => item.status === 'pending' || item.status === 'failed')
             .toArray();
 
-        if (itemsToProcess.length === 0) return;
+        const store = await this.getStore();
+        store.setSyncStatus('syncing');
 
-        this.isSyncing = true;
-        useStore.getState().setSyncStatus('syncing');
+        if (itemsToProcess.length > 0) {
+            console.log(`[SyncManager] Pushing ${itemsToProcess.length} items...`);
+            // 1. PUSH LOCAL CHANGES
+            for (const item of itemsToProcess) {
+                try {
+                    await db.syncQueue.update(item.id!, { status: 'syncing' });
 
-        console.log(`[SyncManager] Processing ${itemsToProcess.length} items...`);
+                    const table = this.mapOperationToTable(item.operation);
+                    const payload = this.preparePayload(item.operation, item.data);
 
-        // 1. PUSH LOCAL CHANGES
-        for (const item of itemsToProcess) {
-            try {
-                await db.syncQueue.update(item.id!, { status: 'syncing' });
+                    if (table) {
+                        const { error } = await supabase
+                            .from(table)
+                            .upsert(payload, { onConflict: 'id' });
 
-                // --- REAL SUPABASE SYNC ---
-                const table = this.mapOperationToTable(item.operation);
-                const payload = this.preparePayload(item.operation, item.data);
-
-                if (table) {
-                    const { error } = await supabase
-                        .from(table)
-                        .upsert(payload, { onConflict: 'id' });
-
-                    if (error) {
-                        console.error(`[Sync] Fail: ${table}`, error.message);
-                        throw error;
+                        if (error) {
+                            console.error(`[Sync] Fail: ${table}`, error.message);
+                            throw error;
+                        }
                     }
-                }
-                // --------------------------
 
-                await db.syncQueue.delete(item.id!);
-            } catch (error) {
-                console.error(`[Sync] Error item ${item.id}:`, error);
-                await db.syncQueue.update(item.id!, { status: 'failed' });
+                    await db.syncQueue.delete(item.id!);
+                } catch (error) {
+                    console.error(`[Sync] Error item ${item.id}:`, error);
+                    await db.syncQueue.update(item.id!, { status: 'failed' });
+                }
             }
         }
 
-        // 2. PULL REMOTE CHANGES (Simulation)
+        // 2. PULL REMOTE CHANGES
         await this.pullRemoteChanges();
 
         const lastSync = new Date().toISOString();
         localStorage.setItem('oriva_last_sync', lastSync);
-        useStore.setState({ lastSyncTime: lastSync, syncStatus: 'idle' });
+
+        // Re-get store to ensure we have the latest set function if needed, 
+        // though state is usually stable.
+        const finalStore = await this.getStore();
+        (finalStore as any).setState?.({ lastSyncTime: lastSync, syncStatus: 'idle' });
+        // Alternative using the store's own actions if available
+        if (typeof (finalStore as any).setSyncStatus === 'function') {
+            (finalStore as any).setSyncStatus('idle');
+        }
 
         this.isSyncing = false;
         haptics.success();
+        console.log('[SyncManager] Full synchronization process completed.');
 
         // Final check in case new items were added during sync
         const remaining = await db.syncQueue.count();
@@ -131,13 +144,101 @@ export class SyncManager {
     }
 
     private async pullRemoteChanges() {
-        console.log("Pulling real remote changes from Supabase Cloud...");
+        console.log("[SyncManager] Pulling real remote changes from Supabase...");
 
-        // In a real implementation, we would fetch the last modified date
-        // and only pull items newer than that. For this phase, we ensure 
-        // real-time listeners are active (implemented in App.tsx).
+        const tables = [
+            { remote: 'fields', store: 'setFields' },
+            { remote: 'animals', store: 'setAnimals' },
+            { remote: 'stocks', store: 'setStocks' },
+            { remote: 'machines', store: 'setMachines' },
+            { remote: 'tasks', store: 'setTasks' },
+            { remote: 'users', store: 'setUsers' },
+            { remote: 'feed', store: 'setFeedItems' },
+            { remote: 'transactions', store: 'setTransactions' },
+            { remote: 'harvests', store: 'setHarvests' },
+            { remote: 'animal_batches', store: 'setAnimalBatches' },
+            { remote: 'notifications', store: 'setNotifications' }
+        ];
 
-        // This method can still be used for a full manual refresh if needed.
+        for (const meta of tables) {
+            try {
+                console.log(`[SyncManager] Pulling table: ${meta.remote}...`);
+                const { data, error } = await supabase
+                    .from(meta.remote)
+                    .select('*');
+
+                if (error) {
+                    console.error(`[SyncManager] Failed to pull ${meta.remote}:`, error.message);
+                    continue;
+                }
+
+                if (data) {
+                    console.log(`[SyncManager] Pulled ${data.length} items from ${meta.remote}`);
+
+                    // Special Case: Don't wipe users if cloud is empty but we have local ones
+                    // This protects the Admin profile during initial setup
+                    if (meta.remote === 'users' && data.length === 0) {
+                        console.warn('[SyncManager] Cloud users table is empty. Keeping local profiles.');
+                        continue;
+                    }
+
+                    const camelData = data.map(item => this.toCamelCase(item));
+
+                    // 1. Update IndexDB
+                    const dexieTable = (db as any)[meta.remote];
+                    if (dexieTable) {
+                        await dexieTable.bulkPut(camelData);
+                        console.log(`[SyncManager] Updated IndexedDB for ${meta.remote}`);
+                    }
+
+                    // 2. Update Store
+                    const state = await this.getStore();
+                    const storeAction = (state as any)[meta.store];
+                    if (typeof storeAction === 'function') {
+                        storeAction(camelData);
+                        console.log(`[SyncManager] Updated Store via ${meta.store}`);
+                    } else {
+                        const key = this.mapRemoteToStoreKey(meta.remote);
+                        const { useStore } = await import('../store/useStore');
+                        useStore.setState({ [key]: camelData } as any);
+                        console.log(`[SyncManager] Updated Store via Fallback key: ${key}`);
+                    }
+                }
+            } catch (err) {
+                console.error(`[SyncManager] Critical error pulling ${meta.remote}:`, err);
+            }
+        }
+    }
+
+    private mapRemoteToStoreKey(remote: string): string {
+        const mapping: Record<string, string> = {
+            'fields': 'fields',
+            'animals': 'animals',
+            'stocks': 'stocks',
+            'machines': 'machines',
+            'tasks': 'tasks',
+            'users': 'users',
+            'feed': 'feedItems',
+            'transactions': 'transactions',
+            'harvests': 'harvests',
+            'animal_batches': 'animalBatches',
+            'notifications': 'notifications'
+        };
+        return mapping[remote] || remote;
+    }
+
+    private toCamelCase(obj: any): any {
+        if (typeof obj !== 'object' || obj === null) return obj;
+        if (Array.isArray(obj)) return obj.map(v => this.toCamelCase(v));
+
+        const camelObj: any = {};
+        for (const key in obj) {
+            const camelKey = key.replace(/([-_][a-z])/g, group =>
+                group.toUpperCase().replace('-', '').replace('_', '')
+            );
+            camelObj[camelKey] = this.toCamelCase(obj[key]);
+        }
+        return camelObj;
     }
 
     private mapOperationToTable(op: string): string | null {
@@ -198,8 +299,9 @@ export class SyncManager {
         return snakeObj;
     }
 
-    private notifyRemoteUpdate(title: string, message: string, type: 'info' | 'success' | 'critical') {
-        useStore.getState().addNotification({
+    private async notifyRemoteUpdate(title: string, message: string, type: 'info' | 'success' | 'critical') {
+        const store = await this.getStore();
+        store.addNotification({
             id: `remote-notif-${Date.now()}`,
             title,
             message,
@@ -224,8 +326,9 @@ export class SyncManager {
         }
     }
 
-    public monitorIoTHealth() {
-        const { fields, addNotification, notifications } = useStore.getState();
+    public async monitorIoTHealth() {
+        const store = await this.getStore();
+        const { fields, addNotification, notifications } = store;
         const CRITICAL_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
         // const CRITICAL_THRESHOLD_MS = 60 * 1000; // Debug: 1 min
 

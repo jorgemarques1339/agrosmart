@@ -17,23 +17,32 @@ export class SupabaseRealtime {
     public init() {
         if (this.channel) return;
 
+        console.log('[SupabaseRealtime] Initializing subscription...');
+
         this.channel = supabase
             .channel('farm-realtime')
             .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+                console.log('[SupabaseRealtime] Event Received:', payload.eventType, payload.table);
                 this.handleCloudChange(payload);
             })
-            .subscribe();
-
-        console.log('Supabase Realtime listeners active.');
+            .subscribe((status) => {
+                console.log('[SupabaseRealtime] Status:', status);
+                if (status === 'CHANNEL_ERROR') {
+                    console.error('[SupabaseRealtime] Failed to connect to realtime. Check RLS and Publication.');
+                }
+            });
     }
 
     private async handleCloudChange(payload: any) {
         const { table, eventType, old: oldItem } = payload;
+
+        console.log(`[SupabaseRealtime] Raw Event: ${eventType} on ${table}`, payload.new);
+
         // Convert incoming snake_case data to camelCase for the app
         const newItem = this.toCamelCase(payload.new);
         const store = useStore.getState();
 
-        console.log(`Cloud Event: ${eventType} on ${table}`, newItem);
+        console.log(`[SupabaseRealtime] Processed Item:`, newItem);
 
         try {
             if (eventType === 'INSERT' || eventType === 'UPDATE') {
@@ -41,17 +50,19 @@ export class SupabaseRealtime {
                 const dexieTable = (db as any)[table];
                 if (dexieTable) {
                     await dexieTable.put(newItem);
+                    console.log(`[SupabaseRealtime] Updated local DB: ${table}`);
                 }
 
                 // 2. Sync to Zustand Store
                 this.updateStoreEntity(table, newItem);
+                console.log(`[SupabaseRealtime] Updated Store: ${table}`);
 
                 // 3. UI Feedback
                 if (eventType === 'INSERT') {
                     store.addNotification({
                         id: `cloud-notif-${Date.now()}`,
                         title: 'Atualização da Quinta',
-                        message: `Novo registo em ${table} adicionado por outro utilizador.`,
+                        message: `Novo registo em ${table} adicionado remotamente.`,
                         type: 'info',
                         timestamp: new Date().toISOString(),
                         read: false
@@ -68,7 +79,7 @@ export class SupabaseRealtime {
                 this.removeFromStore(table, oldItem.id);
             }
         } catch (err) {
-            console.error('Error handling cloud change:', err);
+            console.error('[SupabaseRealtime] Error handling change:', err);
         }
     }
 
