@@ -359,6 +359,27 @@ const App = () => {
   );
 
 
+  if (!isHydrated) {
+    return (
+      <div className="fixed inset-0 bg-[#0a0a0b] flex flex-col items-center justify-center z-[9999] p-6">
+        <div className="relative w-24 h-24 mb-8">
+          <div className="absolute inset-0 border-t-2 border-emerald-500 rounded-full animate-spin opacity-20" />
+          <div className="absolute inset-2 border-r-2 border-emerald-400 rounded-full animate-spin [animation-duration:1.5s]" />
+          <div className="absolute inset-4 border-b-2 border-emerald-300 rounded-full animate-spin [animation-duration:2s] opacity-40" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 bg-emerald-500/10 rounded-xl blur-xl animate-pulse" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-teal-200 bg-clip-text text-transparent animate-pulse tracking-tight">
+          AgroSmart
+        </h2>
+        <p className="text-emerald-500/40 text-[10px] mt-4 font-black tracking-[0.3em] uppercase">
+          Inicializando Ecossistema...
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-black overflow-hidden transition-colors duration-300">
 

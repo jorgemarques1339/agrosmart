@@ -321,6 +321,14 @@ export const useStore = create<AppState>((set, get) => ({
             return get().hydrate();
         }
 
+        // Final Check: Ensure Admin user is used if session is stale or incorrect
+        const currentId = get().currentUserId;
+        const validUser = users.find(u => u.id === currentId);
+        if (!validUser || currentId === 'user-1' || currentId === 'guest') {
+            console.log('[Store] Invalid or default user detected. Reverting to Admin (u1).');
+            set({ currentUserId: 'u1' });
+        }
+
         set({
             fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems,
             isHydrated: true
