@@ -311,16 +311,28 @@ export class SyncManager {
                     // 2. Update Store
                     const storeAction = (state as any)[meta.store];
                     if (typeof storeAction === 'function') {
-                        // For the store, we might want to keep the local conflicting version for now or show both.
-                        // For simplicity, we update the store with remote data except for items in active conflict.
+                        // Collect IDs that are pending DELETE for this table — do NOT re-add them
+                        const pendingDeleteIds = new Set(
+                            pendingOps
+                                .filter(op => {
+                                    const opTable = this.mapOperationToTable(op.operation);
+                                    const isDelete = op.operation.startsWith('DELETE_');
+                                    return isDelete && opTable === meta.remote;
+                                })
+                                .map(op => (typeof op.data === 'string' ? op.data : op.data?.id))
+                                .filter(Boolean)
+                        );
+
                         const currentStoreItems = (state as any)[this.mapRemoteToStoreKey(meta.remote)] || [];
-                        const mergedItems = currentStoreItems.map((local: any) => {
-                            const remote = itemsToUpdate.find(r => r.id === local.id);
-                            return remote || local;
-                        });
-                        // Add new remote items that aren't in store
+                        const mergedItems = currentStoreItems
+                            .filter((local: any) => !pendingDeleteIds.has(local.id)) // remove locally-deleted
+                            .map((local: any) => {
+                                const remote = itemsToUpdate.find(r => r.id === local.id);
+                                return remote || local;
+                            });
+                        // Add new remote items that aren't in store AND aren't pending delete
                         itemsToUpdate.forEach(remote => {
-                            if (!mergedItems.find((m: any) => m.id === remote.id)) {
+                            if (!mergedItems.find((m: any) => m.id === remote.id) && !pendingDeleteIds.has(remote.id)) {
                                 mergedItems.push(remote);
                             }
                         });
@@ -382,6 +394,7 @@ export class SyncManager {
             'UPDATE_MACHINE': 'machines',
             'ADD_TASK': 'tasks',
             'UPDATE_TASK': 'tasks',
+            'DELETE_TASK': 'tasks',
             'ADD_USER': 'users',
             'UPDATE_USER': 'users',
             'ADD_FEED_ITEM': 'feed',

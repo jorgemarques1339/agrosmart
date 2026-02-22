@@ -7,14 +7,26 @@ export const useFarmOperations = (userName: string) => {
         registerSale, harvestField, addTransaction
     } = useStore();
 
-    const handleAddTask = (title: string, type: 'task' | 'harvest', date?: string) => {
+    const handleAddTask = (
+        title: string,
+        type: 'task' | 'harvest',
+        date?: string,
+        relatedFieldId?: string,
+        relatedStockId?: string,
+        plannedQuantity?: number,
+        assignedTo?: string
+    ) => {
         addTask({
             id: Date.now().toString(),
             title,
             date: date || new Date().toISOString().split('T')[0],
             type,
             completed: false,
-            status: 'pending'
+            status: 'pending',
+            ...(relatedFieldId && { relatedFieldId }),
+            ...(relatedStockId && { relatedStockId }),
+            ...(plannedQuantity && { plannedQuantity }),
+            ...(assignedTo && { assignedTo }),
         });
     };
 

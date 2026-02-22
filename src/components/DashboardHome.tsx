@@ -17,6 +17,7 @@ import { motion } from 'framer-motion';
 import MarketPrices from './MarketPrices';
 import FarmCopilot from './FarmCopilot';
 import MorningBriefingModal from './MorningBriefingModal';
+import CalendarModal from './CalendarModal';
 import { calculateCarbonFootprint } from '../utils/carbonCalculator';
 import { useStore } from '../store/useStore';
 
@@ -61,6 +62,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    currentUser,
    onToggleTask,
    onAddTask,
+   onDeleteTask,
    onOpenSettings,
    onOpenNotifications,
    onNavigate,
@@ -96,11 +98,14 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // Estado para o Modal de Energia
    const [isEnergyModalOpen, setIsEnergyModalOpen] = useState(false);
 
+   // Estado para o Modal de Calendário
+   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
    // Atualizar estado global de modal aberto (para esconder nav)
    React.useEffect(() => {
-      setChildModalOpen(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen || isEnergyModalOpen);
+      setChildModalOpen(isWeatherModalOpen || isMarketModalOpen || isWaterModalOpen || isBriefingModalOpen || isEnergyModalOpen || isCalendarOpen);
       return () => setChildModalOpen(false);
-   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, isEnergyModalOpen, setChildModalOpen]);
+   }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, isEnergyModalOpen, isCalendarOpen, setChildModalOpen]);
 
    // Handle scroll for top bar
    React.useEffect(() => {
@@ -202,6 +207,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
          return { hour: `${hour}:00`, production };
       });
    }, [currentWeather]);
+
+   // ── Tasks assigned to the current user that are still pending ─────────────
+   const myPendingTaskCount = useMemo(() =>
+      tasks.filter(t => t.assignedTo === currentUser?.id && !t.completed).length
+      , [tasks, currentUser]);
 
    const energyInsights = useMemo(() => {
       const insights = [];
@@ -489,12 +499,28 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   )}
                </button>
 
-               {/* Button 3: Contas (Emerald-Green Glow) */}
+               {/* Button 3: Calendário — pulses amber when worker has assigned tasks */}
                <button
-                  onClick={() => onNavigate('finance')}
-                  className="flex-1 py-4 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 text-white font-bold text-sm shadow-[0_10px_20px_rgba(52,211,153,0.4)] active:scale-95 transition-all duration-200"
+                  onClick={() => setIsCalendarOpen(true)}
+                  className={clsx(
+                     'relative flex-1 py-4 rounded-full text-white font-bold text-sm active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 overflow-hidden',
+                     myPendingTaskCount > 0
+                        ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_10px_24px_rgba(251,191,36,0.5)] animate-bounce'
+                        : 'bg-gradient-to-r from-emerald-400 to-green-500 shadow-[0_10px_20px_rgba(52,211,153,0.4)]'
+                  )}
                >
-                  Contas
+                  {/* Radial pulse overlay when alert */}
+                  {myPendingTaskCount > 0 && (
+                     <span className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
+                  )}
+                  <Calendar size={15} strokeWidth={2.5} className={myPendingTaskCount > 0 ? 'animate-bounce' : ''} />
+                  Calendário
+                  {/* Badge counter */}
+                  {myPendingTaskCount > 0 && (
+                     <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-600 border-2 border-white dark:border-neutral-900 rounded-full text-[10px] font-black flex items-center justify-center shadow-md">
+                        {myPendingTaskCount}
+                     </span>
+                  )}
                </button>
 
             </div>
@@ -1058,6 +1084,20 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                </div>
             </div>
          )}
+
+         {/* --- CALENDAR MODAL --- */}
+         <CalendarModal
+            isOpen={isCalendarOpen}
+            onClose={() => setIsCalendarOpen(false)}
+            tasks={tasks}
+            fields={fields}
+            animals={animals}
+            users={users}
+            currentUser={currentUser}
+            onNavigate={onNavigate}
+            onAddTask={onAddTask}
+            onDeleteTask={onDeleteTask}
+         />
 
          {/* --- MORNING BRIEFING MODAL --- */}
          <MorningBriefingModal
