@@ -2,11 +2,11 @@
 import React, { useState, useMemo } from 'react';
 import {
    Bell, Settings, Wind, Droplets,
-   Plus, Scan, Wallet, Tractor, Heart,
-   Check, Calendar, MapPin, Sun, Cloud,
+   Scan, Wallet, Tractor, Heart,
+   Calendar, MapPin, Sun, Cloud,
    CloudRain, CloudLightning, ArrowRight, Activity,
-   MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight, User,
-   ChevronDown, PawPrint, Leaf, Search, MessageSquare, Zap, Battery, Target, TrendingUp, Clock
+   MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight,
+   PawPrint, Leaf, Search, MessageSquare, Zap, Battery, Target, TrendingUp, Clock
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
@@ -32,7 +32,6 @@ interface DashboardHomeProps {
    users: UserProfile[];
    currentUser: UserProfile;
    animals: Animal[];
-   onToggleTask: (id: string) => void;
    onAddTask: (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number, assignedTo?: string) => void;
    onDeleteTask: (id: string) => void;
    onWeatherClick: () => void;
@@ -40,7 +39,6 @@ interface DashboardHomeProps {
    onOpenNotifications: () => void;
    onUpdateMachineHours: (id: string, hours: number) => void;
    onAddMachineLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
-   onTaskClick: (task: Task) => void;
    onNavigate: (tab: string) => void;
    feedItems: FeedItem[];
    hasUnreadFeed: boolean;
@@ -60,27 +58,19 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    animals = [],
    users = [],
    currentUser,
-   onToggleTask,
    onAddTask,
    onDeleteTask,
    onOpenSettings,
    onOpenNotifications,
    onNavigate,
    alertCount,
-   onTaskClick,
    feedItems = [],
    hasUnreadFeed = false,
    syncStatus = 'idle',
    lastSyncTime = null
 }) => {
    const { setChildModalOpen, openModal } = useStore();
-   const [isInlineInputOpen, setIsInlineInputOpen] = useState(false);
    const [scrolled, setScrolled] = useState(false); // New state for scroll
-
-   // New Task Form States
-   const [newTaskTitle, setNewTaskTitle] = useState('');
-   const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
-   const [newTaskAssignee, setNewTaskAssignee] = useState('');
 
    // Estado para o Modal de Tempo
    const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
@@ -279,24 +269,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       })).sort((a, b) => b.consumption - a.consumption);
    }, [fields]);
 
-   const handleQuickAddTask = () => {
-      if (newTaskTitle.trim()) {
-         onAddTask(
-            newTaskTitle,
-            'task',
-            newTaskDate,
-            undefined,
-            undefined,
-            undefined,
-            newTaskAssignee || currentUser.id
-         );
-         // Reset Form
-         setNewTaskTitle('');
-         setNewTaskDate(new Date().toISOString().split('T')[0]);
-         setNewTaskAssignee('');
-         setIsInlineInputOpen(false);
-      }
-   };
 
    const containerVariants = {
       hidden: { opacity: 0 },
@@ -599,144 +571,6 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             </div>
          </motion.div>
 
-         {/* 5. LISTA DE TAREFAS (MD3 Tasks - Atualizado) */}
-         <motion.div variants={itemVariants} className="px-2 mt-6">
-            <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
-
-               {/* Header */}
-               <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black italic text-gray-900 dark:text-white">Lista de Tarefas</h3>
-                  <button
-                     onClick={() => setIsInlineInputOpen(!isInlineInputOpen)}
-                     className={`w-10 h-10 rounded-full flex items-center justify-center transition-transform ${isInlineInputOpen ? 'bg-gray-100 text-gray-500 rotate-45' : 'bg-gray-900 dark:bg-white text-white dark:text-black active:scale-90'}`}
-                  >
-                     <Plus size={20} strokeWidth={3} />
-                  </button>
-               </div>
-
-               {/* Expanded Form */}
-               {isInlineInputOpen && (
-                  <div className="mb-6 p-4 bg-gray-50 dark:bg-neutral-800/50 rounded-3xl border border-gray-100 dark:border-neutral-800 animate-slide-down space-y-3">
-                     <div>
-                        <input
-                           autoFocus
-                           value={newTaskTitle}
-                           onChange={(e) => setNewTaskTitle(e.target.value)}
-                           onKeyDown={(e) => e.key === 'Enter' && handleQuickAddTask()}
-                           placeholder="Descrição da tarefa..."
-                           className="w-full bg-white dark:bg-neutral-800 rounded-xl px-4 py-3 font-bold text-sm outline-none focus:ring-2 focus:ring-agro-green dark:text-white border border-gray-100 dark:border-neutral-700"
-                        />
-                     </div>
-
-                     <div className="grid grid-cols-2 gap-3">
-                        <div className="relative">
-                           <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                           <input
-                              type="date"
-                              value={newTaskDate}
-                              onChange={(e) => setNewTaskDate(e.target.value)}
-                              className="w-full bg-white dark:bg-neutral-800 rounded-xl pl-10 pr-3 py-3 font-bold text-xs outline-none focus:ring-2 focus:ring-agro-green dark:text-white border border-gray-100 dark:border-neutral-700"
-                           />
-                        </div>
-                        <div className="relative">
-                           <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                           <select
-                              value={newTaskAssignee}
-                              onChange={(e) => setNewTaskAssignee(e.target.value)}
-                              className="w-full bg-white dark:bg-neutral-800 rounded-xl pl-10 pr-3 py-3 font-bold text-xs outline-none focus:ring-2 focus:ring-agro-green dark:text-white border border-gray-100 dark:border-neutral-700 appearance-none"
-                           >
-                              <option value="">Atribuir a...</option>
-                              {users.map(u => (
-                                 <option key={u.id} value={u.id}>{u.name}</option>
-                              ))}
-                           </select>
-                           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                        </div>
-                     </div>
-
-                     <button
-                        onClick={handleQuickAddTask}
-                        disabled={!newTaskTitle}
-                        className={`w-full py-3 rounded-xl flex items-center justify-center font-bold text-sm shadow-lg transition-all ${!newTaskTitle ? 'bg-gray-200 text-gray-400' : 'bg-agro-green text-white active:scale-95 shadow-agro-green/30'
-                           }`}
-                     >
-                        Adicionar Tarefa
-                     </button>
-                  </div>
-               )}
-
-               {/* List */}
-               <div className="space-y-3">
-                  {tasks.length === 0 ? (
-                     <div className="text-center py-8 opacity-40">
-                        <Check size={32} className="mx-auto mb-2" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Tudo Feito</p>
-                     </div>
-                  ) : (
-                     tasks.slice().reverse().slice(0, 5).map(task => {
-                        const assignee = users.find(u => u.id === task.assignedTo);
-                        // Avatar realista (Pravatar ou fallback)
-                        const avatarUrl = `https://i.pravatar.cc/150?u=${assignee?.id || 'default'}`;
-
-                        return (
-                           <div
-                              key={task.id}
-                              onClick={() => onTaskClick(task)}
-                              className="group flex items-center justify-between p-1 cursor-pointer"
-                           >
-                              <div className="flex items-center gap-4 flex-1">
-                                 {/* Circular Checkbox */}
-                                 <button
-                                    onClick={(e) => { e.stopPropagation(); onToggleTask(task.id); }}
-                                    className={`w-6 h-6 rounded-full border-[2.5px] flex items-center justify-center transition-all ${task.completed
-                                       ? 'bg-green-500 border-green-500 text-white'
-                                       : 'border-gray-300 dark:border-neutral-600 hover:border-green-500'
-                                       }`}
-                                 >
-                                    {task.completed && <Check size={12} strokeWidth={4} />}
-                                 </button>
-
-                                 {/* Text */}
-                                 <div className="flex-1">
-                                    <span className={`text-sm font-bold transition-all ${task.completed
-                                       ? 'text-gray-400 line-through decoration-2 decoration-gray-200'
-                                       : 'text-gray-900 dark:text-white'
-                                       }`}>
-                                       {task.title}
-                                    </span>
-                                    <div className="flex items-center gap-2 mt-0.5">
-                                       <span className="text-[9px] font-bold text-gray-400 uppercase flex items-center gap-1">
-                                          <Calendar size={10} /> {task.date}
-                                       </span>
-                                       {task.type === 'harvest' && (
-                                          <span className="text-[8px] font-black bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded uppercase">Colheita</span>
-                                       )}
-                                    </div>
-                                 </div>
-                              </div>
-
-                              {/* Avatar Realista */}
-                              <div className="pl-3">
-                                 <img
-                                    src={avatarUrl}
-                                    className={`w-9 h-9 rounded-full border-2 border-white dark:border-neutral-800 shadow-sm object-cover ${task.completed ? 'opacity-50 grayscale' : ''}`}
-                                    alt={assignee?.name || 'User'}
-                                 />
-                              </div>
-                           </div>
-                        );
-                     })
-                  )}
-               </div>
-
-               {/* Footer */}
-               {tasks.length > 5 && (
-                  <button onClick={() => onNavigate('tasks')} className="w-full mt-4 py-3 text-xs font-bold text-gray-400 uppercase tracking-widest hover:text-agro-green transition-colors">
-                     Ver Todas
-                  </button>
-               )}
-            </div>
-         </motion.div>
 
          {/* --- WEATHER MODAL --- */}
          {

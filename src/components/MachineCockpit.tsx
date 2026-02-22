@@ -58,7 +58,7 @@ const CircularGauge = ({
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 {Icon && <Icon size={size * 0.15} className="mb-1 opacity-40 text-white" />}
                 <p className="text-xl font-black font-mono leading-none text-white">
-                    {Math.round(value)}<span className="text-[10px] opacity-50 ml-0.5">{unit}</span>
+                    {Math.round(value || 0)}<span className="text-[10px] opacity-50 ml-0.5">{unit}</span>
                 </p>
                 <p className="text-[8px] font-bold uppercase tracking-widest text-gray-500 mt-1">{label}</p>
             </div>
@@ -124,28 +124,28 @@ const MachineCockpit: React.FC<MachineCockpitProps> = ({ data }) => {
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Velocidade</p>
                         <p className="text-3xl font-black font-mono text-white leading-none">
-                            {data.groundSpeed.toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">km/h</span>
+                            {(data.groundSpeed || 0).toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">km/h</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Carga Motor</p>
                         <p className="text-3xl font-black font-mono text-white leading-none">
-                            {data.engineLoad.toFixed(0)}<span className="text-xs ml-1 opacity-50 italic">%</span>
+                            {(data.engineLoad || 0).toFixed(0)}<span className="text-xs ml-1 opacity-50 italic">%</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Fuel Rate</p>
                         <p className="text-3xl font-black font-mono text-white leading-none">
-                            {data.fuelRate.toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">L/h</span>
+                            {(data.fuelRate || 0).toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">L/h</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
                         <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Pressão Hidr.</p>
                         <p className="text-3xl font-black font-mono text-white leading-none">
-                            {data.hydraulicPressure}<span className="text-xs ml-1 opacity-50 italic">Bar</span>
+                            {data.hydraulicPressure || 0}<span className="text-xs ml-1 opacity-50 italic">Bar</span>
                         </p>
                     </div>
                 </div>

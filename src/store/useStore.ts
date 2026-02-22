@@ -169,6 +169,10 @@ export const useStore = create<AppState>()((...a) => ({
         if (users.length === 0) {
             const { MOCK_STATE } = await import('../constants');
             await db.users.bulkAdd(MOCK_STATE.users);
+            // Sync all mock users to cloud to ensure FK constraints work
+            for (const u of MOCK_STATE.users) {
+                syncManager.addToQueue('ADD_USER', u);
+            }
             users = await db.users.toArray();
         } else {
             // [AUTO-PATCH] Ensure Jorge Marques (Master) is in the list
@@ -178,6 +182,7 @@ export const useStore = create<AppState>()((...a) => ({
                 const master = MOCK_STATE.users.find(u => u.username === 'jorge_marques');
                 if (master) {
                     await db.users.put(master);
+                    syncManager.addToQueue('ADD_USER', master);
                     users = await db.users.toArray();
                 }
             }

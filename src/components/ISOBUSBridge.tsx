@@ -17,10 +17,13 @@ interface ISOBUSBridgeProps {
 }
 
 const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
-    const [data, setData] = useState<ISOBUSData | null>(machine.isobusData || null);
+    // Basic existence check is not enough because Supabase defaults to {}
+    const hasValidData = machine.isobusData && Object.keys(machine.isobusData).length > 0 && machine.isobusData.engineRpm !== undefined;
+
+    const [data, setData] = useState<ISOBUSData | null>(hasValidData ? machine.isobusData! : null);
     const [isPairing, setIsPairing] = useState(false);
     const [pairingProgress, setPairingProgress] = useState(0);
-    const [logs, setLogs] = useState<string[]>(machine.isobusData ? [
+    const [logs, setLogs] = useState<string[]>(hasValidData ? [
         "[SISTEMA] Ligação ISO-11783 Reestabelecida",
         "[CAN-BUS] Transmissão ativa PGN:F004",
         "[CAN-BUS] Transmissão ativa PGN:F003"
@@ -29,8 +32,20 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
 
     // [FIX] Sync internal state if machine prop updates (e.g. from parent sync)
     useEffect(() => {
-        if (machine.isobusData) {
+        const isValid = machine.isobusData && Object.keys(machine.isobusData).length > 0 && (machine.isobusData as any).engineRpm !== undefined;
+
+        if (isValid) {
             setData(machine.isobusData);
+            if (logs.length === 0) {
+                setLogs([
+                    "[SISTEMA] Ligação ISO-11783 Reestabelecida",
+                    "[CAN-BUS] Transmissão ativa PGN:F004",
+                    "[CAN-BUS] Transmissão ativa PGN:F003"
+                ]);
+            }
+        } else {
+            setData(null);
+            setLogs([]);
         }
     }, [machine.isobusData]);
 
@@ -186,8 +201,8 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
         );
     }
 
-    const busData = data!;
-    if (!data) return null;
+    if (!data || !hasValidData) return null;
+    const busData = data;
 
     return (
         <div className="space-y-4">
@@ -278,14 +293,14 @@ const ISOBUSBridge: React.FC<ISOBUSBridgeProps> = ({ machine, onPair }) => {
             </div>
 
             {/* Warnings / DTC Panel */}
-            {busData.dtc.length > 0 && (
+            {(busData.dtc || []).length > 0 && (
                 <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 text-red-400 mb-2">
                         <AlertTriangle size={16} />
                         <span className="text-xs font-black uppercase">Códigos de Erro Ativos (DTC)</span>
                     </div>
                     <div className="space-y-1">
-                        {busData.dtc.map((code, i) => (
+                        {(busData.dtc || []).map((code, i) => (
                             <div key={i} className="text-[10px] font-bold text-red-300/80 bg-red-500/5 p-2 rounded-lg flex justify-between">
                                 <span>{code}</span>
                                 <span className="opacity-50 tracking-wider">CRÍTICO</span>

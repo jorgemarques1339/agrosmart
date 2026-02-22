@@ -160,7 +160,6 @@ const App = () => {
             syncStatus={syncStatus}
             lastSyncTime={lastSyncTime}
             alertCount={alertCount}
-            onToggleTask={(id) => updateTask(id, { completed: !tasks.find(t => t.id === id)?.completed })}
             onAddTask={handleAddTask}
             onDeleteTask={deleteTask}
             onWeatherClick={() => openModal('notifications')}
@@ -190,7 +189,6 @@ const App = () => {
                 });
               }
             }}
-            onTaskClick={(task) => openModal('taskProof', task)}
             onNavigate={(tab) => {
               if (tab === 'team') openModal('teamManager');
               else if (tab === 'feed') openModal('fieldFeed');

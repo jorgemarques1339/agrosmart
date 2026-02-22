@@ -106,8 +106,11 @@ const MachineManager: React.FC<MachineManagerProps> = ({
       if (updated && JSON.stringify(updated) !== JSON.stringify(detailMachine)) {
         setDetailMachine(updated);
       }
+    } else if (!detailMachine && activeDetailTab !== 'info') {
+      // Reset tab when modal closes
+      setActiveDetailTab('info');
     }
-  }, [machines, detailMachine]);
+  }, [machines, detailMachine, activeDetailTab]);
 
   const calculateHealth = (m: Machine) => {
     const risk = calculateMaintenanceRisk(m);
@@ -721,7 +724,14 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                   <input placeholder="Modelo" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, model: e.target.value })} />
                 </div>
                 <input placeholder="Matrícula" className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold outline-none" onChange={e => setNewMachineData({ ...newMachineData, plate: e.target.value })} />
-                <button onClick={() => { onAddMachine(newMachineData as any); setIsAddModalOpen(false); }} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg mt-4">Guardar</button>
+                <button onClick={() => {
+                  onAddMachine(newMachineData as any);
+                  setIsAddModalOpen(false);
+                  setNewMachineData({
+                    type: 'tractor', engineHours: 0, serviceInterval: 500, fuelLevel: 100, status: 'active',
+                    nextInspectionDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+                  });
+                }} className="w-full py-4 bg-agro-green text-white rounded-2xl font-bold text-lg shadow-lg mt-4">Guardar</button>
               </div>
             </div>
           </div>
