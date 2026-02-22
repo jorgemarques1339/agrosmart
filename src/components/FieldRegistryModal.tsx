@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     X, Save, Calendar, Sprout, Database,
-    ShieldCheck, AlertCircle, FileText,
-    Users, Clock, DollarSign, Leaf, Beaker, Droplets, Camera, Image as ImageIcon
+    ShieldCheck, FileText,
+    Users, Clock, DollarSign, Beaker, Droplets, Camera, Image as ImageIcon, Loader2
 } from 'lucide-react';
+import { uploadFieldLogPhotos } from '../services/photoUploadService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Field, StockItem, Employee } from '../types';
 
@@ -53,8 +54,11 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
     const [analysisType, setAnalysisType] = useState('Solo');
     const [resultSummary, setResultSummary] = useState('');
 
-    // Attachments
-    const [attachments, setAttachments] = useState<string[]>([]);
+    // Attachments (files for preview; uploaded to Supabase on submit)
+    const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+    const [photoPreviewUrls, setPhotoPreviewUrls] = useState<string[]>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const previewUrlsRef = useRef<string[]>([]);
 
     // Reset form on open/type change
     useEffect(() => {
@@ -71,7 +75,11 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
             setLabName('');
             setAnalysisType('Solo');
             setResultSummary('');
-            setAttachments([]);
+            // Revoke old preview URLs
+            previewUrlsRef.current.forEach(URL.revokeObjectURL);
+            setPhotoFiles([]);
+            setPhotoPreviewUrls([]);
+            previewUrlsRef.current = [];
             // Default Unit
             if (type === 'fertilization') setUnit('kg');
             if (type === 'treatment') setUnit('L');
@@ -101,12 +109,26 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
 
     // if (!isOpen) return null; // Handled by AnimatePresence
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
+        setIsUploading(true);
+        // Generate a temporary log ID for the storage path
+        const tempLogId = `log-${Date.now()}`;
+        let uploadedUrls: string[] = [];
+        if (photoFiles.length > 0) {
+            try {
+                uploadedUrls = await uploadFieldLogPhotos(photoFiles, field.id, tempLogId);
+            } catch (err) {
+                console.error('[FieldRegistryModal] Photo upload failed:', err);
+                // Continue without photos rather than blocking the log
+            }
+        }
+        setIsUploading(false);
+
         const baseData = {
             date,
             type,
             fieldId: field.id,
-            attachments
+            attachments: uploadedUrls
         };
 
         let specificData = {};
@@ -267,44 +289,73 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                                     </div>
                                 </div>
 
-                                {/* VISUAL EVIDENCE (New) */}
+                                {/* VISUAL EVIDENCE */}
                                 <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-2xl border border-gray-100 dark:border-white/5">
-                                    <label className="text-[10px] font-bold uppercase text-gray-400 ml-1 mb-2 block flex items-center gap-1">
-                                        <Camera size={12} /> Evidências Fotográficas
-                                    </label>
-                                    <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                                        <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-300 dark:border-neutral-700 flex flex-col items-center justify-center cursor-pointer hover:bg-white dark:hover:bg-neutral-700 transition-colors shrink-0">
-                                            <Camera size={20} className="text-gray-400 mb-1" />
-                                            <span className="text-[8px] font-bold text-gray-400 uppercase">Add</span>
-                                            <input
-                                                type="file"
-                                                accept="image/*"
-                                                multiple
-                                                className="hidden"
-                                                onChange={(e) => {
-                                                    if (e.target.files && e.target.files.length > 0) {
-                                                        Array.from(e.target.files).forEach(file => {
-                                                            const reader = new FileReader();
-                                                            reader.onloadend = () => {
-                                                                setAttachments(prev => [...prev, reader.result as string]);
-                                                            };
-                                                            reader.readAsDataURL(file);
-                                                        });
-                                                    }
-                                                }}
-                                            />
+                                    <div className="flex items-center justify-between mb-3">
+                                        <label className="text-[10px] font-bold uppercase text-gray-400 flex items-center gap-1.5">
+                                            <Camera size={12} className="text-agro-green" />
+                                            Evidências Fotográficas
+                                            {photoFiles.length > 0 && (
+                                                <span className="ml-1 bg-agro-green text-white text-[9px] font-bold px-2 py-0.5 rounded-full">{photoFiles.length}</span>
+                                            )}
                                         </label>
-                                        {attachments.map((img, idx) => (
-                                            <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-gray-200 dark:border-neutral-700 group">
-                                                <img src={img} className="w-full h-full object-cover" alt="evidence" />
+                                        {/* Pick from gallery (multiple) */}
+                                        <label className="flex items-center gap-1 px-3 py-1.5 bg-agro-green/10 text-agro-green rounded-xl text-[10px] font-bold cursor-pointer hover:bg-agro-green/20 transition-colors">
+                                            <ImageIcon size={12} />
+                                            Galeria
+                                            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => {
+                                                if (!e.target.files) return;
+                                                const newFiles = Array.from(e.target.files);
+                                                const newUrls = newFiles.map(f => URL.createObjectURL(f));
+                                                previewUrlsRef.current = [...previewUrlsRef.current, ...newUrls];
+                                                setPhotoFiles(prev => [...prev, ...newFiles]);
+                                                setPhotoPreviewUrls(prev => [...prev, ...newUrls]);
+                                                e.target.value = '';
+                                            }} />
+                                        </label>
+                                    </div>
+
+                                    {/* Camera capture button */}
+                                    <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide">
+                                        <label className="w-20 h-20 rounded-2xl border-2 border-dashed border-gray-300 dark:border-neutral-600 flex flex-col items-center justify-center cursor-pointer hover:bg-white dark:hover:bg-neutral-700 transition-colors shrink-0 group">
+                                            <Camera size={22} className="text-gray-400 mb-1 group-hover:text-agro-green transition-colors" />
+                                            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wide">Câmara</span>
+                                            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => {
+                                                if (!e.target.files || !e.target.files[0]) return;
+                                                const f = e.target.files[0];
+                                                const url = URL.createObjectURL(f);
+                                                previewUrlsRef.current = [...previewUrlsRef.current, url];
+                                                setPhotoFiles(prev => [...prev, f]);
+                                                setPhotoPreviewUrls(prev => [...prev, url]);
+                                                e.target.value = '';
+                                            }} />
+                                        </label>
+
+                                        {/* Thumbnails */}
+                                        {photoPreviewUrls.map((url, idx) => (
+                                            <div key={idx} className="relative w-20 h-20 rounded-2xl overflow-hidden shrink-0 border-2 border-gray-200 dark:border-neutral-700 group shadow-sm">
+                                                <img src={url} className="w-full h-full object-cover" alt={`foto ${idx + 1}`} />
                                                 <button
-                                                    onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                                                    className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        URL.revokeObjectURL(url);
+                                                        previewUrlsRef.current = previewUrlsRef.current.filter(u => u !== url);
+                                                        setPhotoFiles(prev => prev.filter((_, i) => i !== idx));
+                                                        setPhotoPreviewUrls(prev => prev.filter((_, i) => i !== idx));
+                                                    }}
+                                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
                                                 >
-                                                    <X size={16} className="text-white" />
+                                                    <X size={18} className="text-white" strokeWidth={3} />
                                                 </button>
+                                                <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[8px] font-bold px-1 rounded">{idx + 1}</div>
                                             </div>
                                         ))}
+
+                                        {photoFiles.length === 0 && (
+                                            <div className="flex items-center text-[10px] text-gray-400 italic pl-1">
+                                                Nenhuma foto adicionada
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -597,9 +648,14 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                             <div className="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-neutral-900/50 pb-8 md:pb-6">
                                 <button
                                     onClick={handleSubmit}
-                                    className="w-full py-4 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+                                    disabled={isUploading}
+                                    className="w-full py-4 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
-                                    <Save size={18} /> Confirmar Registo
+                                    {isUploading ? (
+                                        <><Loader2 size={18} className="animate-spin" /> A carregar fotos...</>
+                                    ) : (
+                                        <><Save size={18} /> Confirmar Registo</>
+                                    )}
                                 </button>
                             </div>
 

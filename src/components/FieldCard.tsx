@@ -219,6 +219,148 @@ const ActionMenu = ({
   );
 };
 
+// --- GALLERY TAB COMPONENT ---
+
+const LOG_TYPE_COLOR: Record<string, string> = {
+  treatment: 'bg-orange-500',
+  fertilization: 'bg-green-500',
+  observation: 'bg-blue-500',
+  irrigation: 'bg-cyan-500',
+  labor: 'bg-amber-500',
+  analysis: 'bg-purple-500',
+  harvest: 'bg-yellow-500',
+};
+
+const GalleryTab = ({ field, onAddPhoto }: { field: Field; onAddPhoto: () => void }) => {
+  const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
+
+  const allPhotos = React.useMemo(() =>
+    (field.logs || [])
+      .flatMap(log =>
+        (log.attachments || []).map(url => ({
+          url,
+          date: log.date,
+          type: log.type,
+          label: log.productName || log.description || log.type,
+        }))
+      )
+      .filter(p => p.url && (p.url.startsWith('http') || p.url.startsWith('data:'))),
+    [field.logs]
+  );
+
+  return (
+    <motion.div
+      key="gallery"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-4"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-agro-green/10 rounded-xl">
+            <ImageIcon size={16} className="text-agro-green" />
+          </div>
+          <div>
+            <h4 className="font-black text-sm text-gray-900 dark:text-white">Galeria de Evidências</h4>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+              {allPhotos.length} foto{allPhotos.length !== 1 ? 's' : ''} registada{allPhotos.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onAddPhoto}
+          className="flex items-center gap-1.5 px-3 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+        >
+          <Camera size={13} /> Adicionar
+        </button>
+      </div>
+
+      {allPhotos.length === 0 ? (
+        <div className="text-center py-20 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
+            <Camera size={36} className="text-gray-300" />
+          </div>
+          <div>
+            <p className="font-black text-gray-500 text-sm mb-1">Sem evidências fotográficas</p>
+            <p className="text-[11px] text-gray-400">Adiciona fotos ao criar um<br />Novo Registo no campo.</p>
+          </div>
+          <button
+            onClick={onAddPhoto}
+            className="px-5 py-2.5 bg-agro-green text-white rounded-2xl text-xs font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform flex items-center gap-2"
+          >
+            <Camera size={14} /> Criar primeiro registo com foto
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {allPhotos.map((photo, idx) => (
+            <button
+              key={idx}
+              onClick={() => setLightboxUrl(photo.url)}
+              className="relative group aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-neutral-800 border-2 border-transparent hover:border-agro-green/50 transition-all active:scale-[0.97] shadow-sm"
+            >
+              <img
+                src={photo.url}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                alt={photo.label}
+                loading="lazy"
+              />
+              <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[9px] font-bold text-white/70 uppercase tracking-wider">{photo.date}</p>
+                <p className="text-[11px] font-bold text-white truncate">{photo.label}</p>
+              </div>
+              <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full ${LOG_TYPE_COLOR[photo.type] || 'bg-gray-500'}`}>
+                <span className="text-[8px] font-black text-white uppercase tracking-wider">{photo.type}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightboxUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxUrl(null)}
+            className="fixed inset-0 z-[500] bg-black/95 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.85 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.85 }}
+              onClick={e => e.stopPropagation()}
+              className="relative max-w-2xl w-full"
+            >
+              <img src={lightboxUrl} className="w-full max-h-[80vh] object-contain rounded-2xl" alt="evidência" />
+              <button
+                onClick={() => setLightboxUrl(null)}
+                className="absolute top-3 right-3 w-10 h-10 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <a
+                href={lightboxUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-transform"
+                onClick={e => e.stopPropagation()}
+              >
+                <ImageIcon size={12} /> Descarregar
+              </a>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
 // --- MAIN COMPONENT ---
 
 const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarvest, onDelete, onAddLog, stocks = [] }) => {
@@ -980,36 +1122,7 @@ const FieldCard: React.FC<FieldCardProps> = ({ field, onToggleIrrigation, onHarv
 
 
                   {/* Gallery Tab */}
-                  {activeTab === 'gallery' && (
-                    <motion.div
-                      key="gallery"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      className="space-y-6"
-                    >
-                      {field.logs?.filter(l => l.attachments && l.attachments.length > 0).length === 0 ? (
-                        <div className="text-center py-20 flex flex-col items-center justify-center opacity-50">
-                          <ImageIcon size={48} className="mb-4 text-gray-300" />
-                          <p className="font-bold text-gray-500">Sem evidências fotográficas.</p>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {field.logs?.filter(l => l.attachments && l.attachments.length > 0).map(log => (
-                            log.attachments?.map((img, idx) => (
-                              <div key={`${log.id}-${idx}`} className="relative group aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700">
-                                <img src={img} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt="evidence" />
-                                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-                                  <p className="text-[10px] font-bold text-white/80 uppercase">{log.date}</p>
-                                  <p className="text-xs font-bold text-white truncate">{log.productName || log.description}</p>
-                                </div>
-                              </div>
-                            ))
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  )}
+                  {activeTab === 'gallery' && <GalleryTab field={field} onAddPhoto={() => { setIsOpen(false); setShowActionMenu(true); }} />}
 
                   {/* Journal Tab */}
                   {activeTab === 'journal' && (
