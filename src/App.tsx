@@ -161,6 +161,7 @@ const App = () => {
             lastSyncTime={lastSyncTime}
             alertCount={alertCount}
             onAddTask={handleAddTask}
+            onUpdateTask={updateTask}
             onDeleteTask={deleteTask}
             onWeatherClick={() => openModal('notifications')}
             onOpenSettings={() => openModal('settings')}

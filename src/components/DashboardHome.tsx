@@ -33,6 +33,7 @@ interface DashboardHomeProps {
    currentUser: UserProfile;
    animals: Animal[];
    onAddTask: (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number, assignedTo?: string) => void;
+   onUpdateTask: (id: string, updates: Partial<Task>) => void;
    onDeleteTask: (id: string) => void;
    onWeatherClick: () => void;
    onOpenSettings: () => void;
@@ -59,6 +60,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    users = [],
    currentUser,
    onAddTask,
+   onUpdateTask,
    onDeleteTask,
    onOpenSettings,
    onOpenNotifications,
@@ -201,6 +203,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
    // ── Tasks assigned to the current user that are still pending ─────────────
    const myPendingTaskCount = useMemo(() =>
       tasks.filter(t => t.assignedTo === currentUser?.id && !t.completed).length
+      , [tasks, currentUser]);
+
+   const tasksToReviewCount = useMemo(() =>
+      currentUser.role === 'admin' ? tasks.filter(t => t.status === 'review').length : 0
       , [tasks, currentUser]);
 
    const energyInsights = useMemo(() => {
@@ -471,26 +477,26 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   )}
                </button>
 
-               {/* Button 3: Calendário — pulses amber when worker has assigned tasks */}
+               {/* Button 3: Tarefas — pulses amber when worker has assigned tasks or admin has reviews */}
                <button
                   onClick={() => setIsCalendarOpen(true)}
                   className={clsx(
                      'relative flex-1 py-4 rounded-full text-white font-bold text-sm active:scale-95 transition-all duration-200 flex items-center justify-center gap-2 overflow-hidden',
-                     myPendingTaskCount > 0
+                     (myPendingTaskCount > 0 || tasksToReviewCount > 0)
                         ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_10px_24px_rgba(251,191,36,0.5)] animate-bounce'
                         : 'bg-gradient-to-r from-emerald-400 to-green-500 shadow-[0_10px_20px_rgba(52,211,153,0.4)]'
                   )}
                >
                   {/* Radial pulse overlay when alert */}
-                  {myPendingTaskCount > 0 && (
+                  {(myPendingTaskCount > 0 || tasksToReviewCount > 0) && (
                      <span className="absolute inset-0 bg-white/20 animate-pulse rounded-full" />
                   )}
-                  <Calendar size={15} strokeWidth={2.5} className={myPendingTaskCount > 0 ? 'animate-bounce' : ''} />
-                  Calendário
+                  <Calendar size={15} strokeWidth={2.5} className={(myPendingTaskCount > 0 || tasksToReviewCount > 0) ? 'animate-bounce' : ''} />
+                  Tarefas
                   {/* Badge counter */}
-                  {myPendingTaskCount > 0 && (
+                  {(myPendingTaskCount > 0 || tasksToReviewCount > 0) && (
                      <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-600 border-2 border-white dark:border-neutral-900 rounded-full text-[10px] font-black flex items-center justify-center shadow-md">
-                        {myPendingTaskCount}
+                        {myPendingTaskCount + tasksToReviewCount}
                      </span>
                   )}
                </button>
@@ -930,6 +936,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             currentUser={currentUser}
             onNavigate={onNavigate}
             onAddTask={onAddTask}
+            onUpdateTask={onUpdateTask}
             onDeleteTask={onDeleteTask}
          />
 
