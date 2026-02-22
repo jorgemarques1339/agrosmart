@@ -54,6 +54,9 @@ const MOCK_BATCHES: AnimalBatch[] = [
     history: [
       { id: 'h1', date: '2023-10-10', type: 'treatment', description: 'Vacinação em Massa: Febre Aftosa' }
     ],
+    medicalHistory: [
+      { id: 'm1', date: '2023-10-10', type: 'vaccine', description: 'Vacinação em Massa: Febre Aftosa', drugName: 'BioVax', dosage: '2ml', administeredBy: 'Dra. Sílvia' }
+    ],
     lastCheckup: '2023-10-15'
   }
 ];
@@ -64,25 +67,7 @@ export const MOCK_STATE: AppState = {
     { id: 'e1', name: 'João Silva', role: 'Ajudante Geral', hourlyRate: 7.50 },
     { id: 'e2', name: 'Maria Santos', role: 'Tratorista', hourlyRate: 9.00 }
   ],
-  tasks: [
-    {
-      id: '1',
-      title: 'Aplicar Fungicida Vinha A',
-      date: new Date().toISOString().split('T')[0],
-      type: 'task',
-      completed: false,
-      status: 'pending',
-      assignedTo: 'u2'
-    },
-    {
-      id: '2',
-      title: 'Colheita Milho Híbrido',
-      date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
-      type: 'harvest',
-      completed: false,
-      status: 'pending'
-    },
-  ],
+  tasks: [],
   animalBatches: MOCK_BATCHES,
   animals: [
     {
@@ -104,7 +89,8 @@ export const MOCK_STATE: AppState = {
       ],
       reproductionStatus: 'pregnant',
       conceptionDate: new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString(),
-      lineage: { motherName: 'Estrela', fatherName: 'Touro X200', notes: 'Gestante de: Touro X200' }
+      lineage: { motherName: 'Estrela', fatherName: 'Touro X200', notes: 'Gestante de: Touro X200' },
+      medicalHistory: []
     },
     {
       id: 'a2',
@@ -122,7 +108,11 @@ export const MOCK_STATE: AppState = {
         { date: '2023-10-22', value: 12, type: 'milk' },
       ],
       reproductionStatus: 'empty',
-      lineage: { fatherName: 'Touro Y100' }
+      lineage: { fatherName: 'Touro Y100' },
+      medicalHistory: [
+        { id: 'v1', date: '2023-10-24', type: 'treatment', description: 'Mastite clínica no quarto posterior esquerdo', drugName: 'MastiStop', dosage: '1 seringa', withdrawalDays: 5, withdrawalEndDate: '2023-10-29', administeredBy: 'Dra. Sílvia' }
+      ],
+      withdrawalEndDate: '2023-10-29'
     },
     {
       id: 'a3',
@@ -139,62 +129,11 @@ export const MOCK_STATE: AppState = {
         { date: '2023-10-01', value: 710, type: 'weight' },
       ],
       reproductionStatus: 'heat',
-      lineage: { motherName: 'Mimosa', fatherName: 'Touro Z50' }
+      lineage: { motherName: 'Mimosa', fatherName: 'Touro Z50' },
+      medicalHistory: []
     }
   ],
-  fields: [
-    {
-      id: 'f1',
-      name: 'Vinha do Monte',
-      emoji: '🍇',
-      crop: 'Uva Alvarinho',
-      areaHa: 4.5,
-      yieldPerHa: 8.5,
-      coordinates: [41.442, -8.723],
-      polygon: [[41.442, -8.723], [41.443, -8.721], [41.441, -8.720], [41.440, -8.724]],
-      irrigationStatus: false,
-      humidity: 45,
-      temp: 18,
-      healthScore: 92,
-      harvestWindow: 'Setembro 15-30',
-      history: [
-        { time: '08:00', humidity: 60, ndvi: 0.7 },
-        { time: '12:00', humidity: 45, ndvi: 0.72 },
-        { time: '16:00', humidity: 40, ndvi: 0.71 },
-        { time: '20:00', humidity: 55, ndvi: 0.7 }
-      ],
-      logs: [
-        { id: 'l1', date: '2023-10-01', type: 'observation', description: 'Início da maturação.' },
-        { id: 'l2', date: '2023-10-05', type: 'treatment', description: 'Aplicação preventiva de enxofre.' }
-      ],
-      slope: 12
-    },
-    {
-      id: 'f2',
-      name: 'Campo da Veiga',
-      emoji: '🌽',
-      crop: 'Milho Silagem',
-      areaHa: 12.0,
-      yieldPerHa: 45.0,
-      coordinates: [41.435, -8.710],
-      polygon: [[41.435, -8.710], [41.438, -8.705], [41.432, -8.705], [41.431, -8.712]],
-      irrigationStatus: true,
-      humidity: 68,
-      temp: 20,
-      healthScore: 75,
-      harvestWindow: 'Outubro 01-10',
-      history: [
-        { time: '08:00', humidity: 80, ndvi: 0.6 },
-        { time: '12:00', humidity: 65, ndvi: 0.62 },
-        { time: '16:00', humidity: 50, ndvi: 0.65 },
-        { time: '20:00', humidity: 70, ndvi: 0.6 }
-      ],
-      logs: [
-        { id: 'l1', date: '2023-09-15', type: 'observation', description: 'Detetada ligeira infestação de lagarta.' }
-      ],
-      slope: 2
-    }
-  ],
+  fields: [],
   stocks: [
     { id: 's1', name: 'NPK 10-10-10', category: 'Fertilizante', quantity: 1500, unit: 'kg', minStock: 500, pricePerUnit: 1.20, supplier: 'FertPlus S.A.', supplierEmail: 'vendas@fertplus.pt' },
     { id: 's2', name: 'Semente Milho Bayer', category: 'Semente', quantity: 8, unit: 'sacos', minStock: 10, pricePerUnit: 85.00 },

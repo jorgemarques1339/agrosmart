@@ -8,6 +8,8 @@ import IoTPairingWizard from './IoTPairingWizard';
 import RouteOptimizationModal from './RouteOptimizationModal';
 import { useStore } from '../store/useStore';
 
+import { motion } from 'framer-motion';
+
 interface CultivationViewProps {
     fields: Field[];
     stocks: StockItem[];
@@ -86,9 +88,31 @@ const CultivationView: React.FC<CultivationViewProps> = ({
         }
     };
 
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        show: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1 }
+        }
+    } as const;
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 20 },
+        show: {
+            opacity: 1,
+            y: 0,
+            transition: { type: 'spring', stiffness: 300, damping: 24 } as const
+        }
+    } as const;
+
     return (
-        <div className="space-y-6 animate-fade-in pt-4 pb-24">
-            <div className="flex justify-between items-start px-2 mb-4 md:mb-6">
+        <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            className="space-y-6 pt-4 pb-24"
+        >
+            <motion.div variants={itemVariants} className="flex justify-between items-start px-2 mb-4 md:mb-6">
                 <div className="flex gap-3">
                     <div>
                         <h1 className="text-xl md:text-3xl font-black italic text-gray-900 dark:text-white tracking-tight uppercase">Cultivos</h1>
@@ -129,9 +153,9 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                         <span className="text-[10px] font-bold text-agro-green dark:text-green-400 whitespace-nowrap">Novo</span>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
-            <div className="flex flex-col gap-4 md:gap-6">
+            <motion.div variants={itemVariants} className="flex flex-col gap-4 md:gap-6">
                 {fields.map(field => (
                     <FieldCard
                         key={field.id}
@@ -146,7 +170,7 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                         onDelete={onDeleteField}
                     />
                 ))}
-            </div>
+            </motion.div>
 
             {harvests && harvests.length > 0 && (
                 <button
@@ -360,7 +384,7 @@ const CultivationView: React.FC<CultivationViewProps> = ({
                     onPair={onRegisterSensor}
                 />
             )}
-        </div >
+        </motion.div>
     );
 };
 

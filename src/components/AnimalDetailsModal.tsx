@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   X, Baby, CalendarHeart, Dna, Timer, AlertCircle, AlertTriangle,
   HeartHandshake, ChevronRight, Activity, Calendar, Save,
-  ArrowRight, Edit2, CheckCircle2, Clock
+  ArrowRight, Edit2, CheckCircle2, Clock, Stethoscope,
+  Syringe, ClipboardList, ShieldAlert
 } from 'lucide-react';
 import { Animal } from '../types';
 
@@ -114,9 +115,10 @@ const AnimalDetailsModal: React.FC<AnimalDetailsModalProps> = ({
       age: '0 Dias',
       weight: parseFloat(birthData.weight) || 35,
       status: 'healthy',
-      lastCheckup: birthData.date,
+      lastCheckup: new Date().toISOString().split('T')[0],
       reproductionStatus: 'empty',
       productionHistory: [],
+      medicalHistory: [],
       lineage: {
         motherId: animal.id,
         motherName: animal.name,
@@ -425,6 +427,77 @@ const AnimalDetailsModal: React.FC<AnimalDetailsModalProps> = ({
                     <Baby size={28} />
                     <span className="text-base md:text-xs font-bold md:uppercase md:tracking-wide">Registar Nascimento</span>
                   </button>
+                </div>
+              </div>
+
+              {/* 4. DOSSIER VETERINÁRIO (Timeline) */}
+              <div className="bg-white dark:bg-neutral-900 p-6 md:p-8 rounded-[2.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-xs font-bold text-gray-900 dark:text-white flex items-center gap-2 uppercase tracking-wide">
+                    <Stethoscope size={16} className="text-orange-500" /> Dossier Veterinário
+                  </h4>
+                  {animal.withdrawalEndDate && new Date(animal.withdrawalEndDate) > new Date() && (
+                    <div className="bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-red-200 dark:border-red-900/30 animate-pulse">
+                      Carência Ativa
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-6">
+                  {animal.medicalHistory && animal.medicalHistory.length > 0 ? (
+                    <div className="relative pl-6 space-y-8 before:absolute before:left-0 before:top-2 before:bottom-2 before:w-[2px] before:bg-gray-100 dark:before:bg-neutral-800">
+                      {animal.medicalHistory.slice().reverse().map((record, idx) => (
+                        <div key={record.id} className="relative">
+                          {/* Timeline Dot */}
+                          <div className={`absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm ${record.type === 'vaccine' ? 'bg-blue-500' : record.type === 'treatment' ? 'bg-orange-500' : 'bg-gray-400'}`}></div>
+
+                          <div className="flex flex-col gap-1">
+                            <div className="flex justify-between items-start">
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{new Date(record.date).toLocaleDateString('pt-PT')}</span>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter ${record.type === 'vaccine' ? 'bg-blue-100 text-blue-600' : record.type === 'treatment' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                                {record.type === 'vaccine' ? 'Vacinação' : record.type === 'treatment' ? 'Tratamento' : record.type}
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{record.description}</p>
+
+                            {(record.drugName || record.dosage) && (
+                              <div className="mt-2 p-3 bg-gray-50 dark:bg-neutral-800/50 rounded-xl border border-gray-100 dark:border-neutral-800 flex flex-wrap gap-3">
+                                {record.drugName && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Syringe size={12} className="text-gray-400" />
+                                    <span className="text-[10px] font-bold dark:text-gray-300">{record.drugName}</span>
+                                  </div>
+                                )}
+                                {record.dosage && (
+                                  <div className="flex items-center gap-1.5">
+                                    <Activity size={12} className="text-gray-400" />
+                                    <span className="text-[10px] font-bold dark:text-gray-300">{record.dosage}</span>
+                                  </div>
+                                )}
+                                {record.withdrawalDays && record.withdrawalDays > 0 && (
+                                  <div className="flex items-center gap-1.5 text-red-500">
+                                    <Timer size={12} />
+                                    <span className="text-[10px] font-bold">{record.withdrawalDays} dias carência</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {record.administeredBy && (
+                              <p className="text-[9px] text-gray-400 font-medium mt-1 flex items-center gap-1">
+                                <CheckCircle2 size={10} className="text-green-500" /> Admin. por: {record.administeredBy}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
+                      <ClipboardList size={40} className="mb-3 text-gray-400" />
+                      <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Sem registos médicos</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

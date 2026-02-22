@@ -4,7 +4,7 @@ import {
   Heart, ShieldCheck, Activity, TrendingUp, History,
   Plus, X, Milk, Beef, Scan, Loader2, Minus, Coins, ArrowUpRight, ArrowDownRight,
   Signal, Smartphone, Tag, RefreshCw, Save, ClipboardList, Syringe, Calendar, Dna,
-  Wifi, Radio, ChevronRight
+  Wifi, Radio, ChevronRight, Timer, AlertCircle
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { Animal, AnimalBatch } from '../types';
@@ -13,6 +13,7 @@ import clsx from 'clsx';
 import { haptics } from '../utils/haptics';
 import { useStore } from '../store/useStore';
 import { nfcService } from '../utils/nfc';
+import { motion } from 'framer-motion';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({
@@ -38,6 +39,12 @@ const AnimalProfile = ({
   // Vet Modal State
   const [vetNote, setVetNote] = useState('');
   const [vaccineDate, setVaccineDate] = useState('');
+  const [vetType, setVetType] = useState<'vaccine' | 'treatment' | 'exam' | 'other'>('treatment');
+  const [drugName, setDrugName] = useState('');
+  const [drugBatch, setDrugBatch] = useState('');
+  const [dosage, setDosage] = useState('');
+  const [withdrawalDays, setWithdrawalDays] = useState<number>(0);
+  const [isEmergency, setIsEmergency] = useState(false);
 
   const [productionType, setProductionType] = useState<'milk' | 'weight'>('milk');
   const [productionValue, setProductionValue] = useState<number>(0);
@@ -107,8 +114,23 @@ const AnimalProfile = ({
     if (onUpdateAnimal) {
       onUpdateAnimal(animal.id, {
         notes: vetNote,
+        status: isEmergency ? 'attention' : animal.status
       });
     }
+
+    // 2. Registar no Dossier Veterinário (Medical History)
+    const { addMedicalRecord, users, currentUserId } = useStore.getState();
+    const currentUser = users.find(u => u.id === currentUserId);
+    addMedicalRecord(animal.id, {
+      date: new Date().toISOString().split('T')[0],
+      type: vetType,
+      description: vetNote,
+      drugName: drugName || undefined,
+      drugBatch: drugBatch || undefined,
+      dosage: dosage || undefined,
+      withdrawalDays: withdrawalDays || undefined,
+      administeredBy: currentUser?.name || 'Operador'
+    });
 
     // 2. Agendar Vacinação na Oriva-Agenda (Task)
     if (vaccineDate && onScheduleTask) {
@@ -118,6 +140,11 @@ const AnimalProfile = ({
     setShowVetModal(false);
     setVetNote('');
     setVaccineDate('');
+    setDrugName('');
+    setDrugBatch('');
+    setDosage('');
+    setWithdrawalDays(0);
+    setIsEmergency(false);
   };
 
   const handleNFCScan = async () => {
@@ -148,298 +175,391 @@ const AnimalProfile = ({
     ? { step: 0.5, max: 60, unit: 'L', label: 'Litros' }
     : { step: 1, max: 1200, unit: 'kg', label: 'Kg' };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.1 }
+    }
+  } as const;
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: { type: 'spring', stiffness: 300, damping: 24 } as const
+    }
+  } as const;
+
   return (
-    <div className="animate-slide-up relative pb-20 max-w-md mx-auto md:max-w-4xl">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="relative pb-20 max-w-md mx-auto md:max-w-4xl"
+    >
       <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-5 shadow-xl border border-gray-100 dark:border-neutral-800 relative overflow-hidden">
         <Heart className="absolute -top-6 -right-6 text-red-50 dark:text-red-900/10 w-48 h-48 opacity-50" fill="currentColor" />
 
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-2">
             <div>
-              <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-xs font-mono text-gray-400 font-bold tracking-wider">{animal.tagId}</p>
-                <button
-                  onClick={handleNFCScan}
-                  disabled={isScanningNFC}
-                  className={clsx(
-                    "p-1.5 rounded-lg border transition-all active:scale-95",
-                    isScanningNFC ? "bg-blue-500 text-white animate-pulse border-transparent" : "bg-gray-50 dark:bg-neutral-800 border-gray-100 dark:border-neutral-700 text-gray-400 hover:text-blue-500"
-                  )}
-                  title="Scan Earring (NFC)"
-                >
-                  {isScanningNFC ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
-                </button>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded-md">ID {animal.tagId}</span>
+                {animal.withdrawalEndDate && new Date(animal.withdrawalEndDate) > new Date() && (
+                  <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400 border border-red-200 dark:border-red-900/50 flex items-center gap-1 animate-pulse">
+                    <ShieldCheck size={10} /> Em Carência
+                  </span>
+                )}
               </div>
-              <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">{animal.name}</h2>
+              <button
+                onClick={handleNFCScan}
+                disabled={isScanningNFC}
+                className={clsx(
+                  "p-1.5 rounded-lg border transition-all active:scale-95",
+                  isScanningNFC ? "bg-blue-500 text-white animate-pulse border-transparent" : "bg-gray-50 dark:bg-neutral-800 border-gray-100 dark:border-neutral-700 text-gray-400 hover:text-blue-500"
+                )}
+                title="Scan Earring (NFC)"
+              >
+                {isScanningNFC ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
+              </button>
             </div>
-            <div className={`px-2 py-1 rounded-full text-[10px] font-bold border ${animal.status === 'healthy'
-              ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
-              : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
-              }`}>
-              {animal.status === 'healthy' ? 'Saudável' : 'Atenção Veterinária'}
+            <h2 className="text-3xl font-black italic text-gray-900 dark:text-white">{animal.name}</h2>
+          </div>
+          <div className={`px-2 py-1 rounded-full text-[10px] font-bold border ${animal.status === 'healthy'
+            ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+            : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+            }`}>
+            {animal.status === 'healthy' ? 'Saudável' : 'Atenção Veterinária'}
+          </div>
+        </div>
+
+        <p className="text-gray-500 dark:text-gray-400 text-xs mb-4 flex items-center gap-2">
+          <ShieldCheck size={12} className="text-agro-green" />
+          {animal.breed} • {animal.age}
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <motion.div variants={itemVariants} className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+            <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+              <Beef size={14} /> <span className="text-[10px] font-bold uppercase">Peso Atual</span>
             </div>
+            <p className="text-xl font-bold text-gray-800 dark:text-white">{animal.weight} <span className="text-xs font-normal text-gray-400">kg</span></p>
+          </motion.div>
+          <motion.div variants={itemVariants} className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
+            <div className="flex items-center gap-1.5 text-gray-400 mb-1">
+              <History size={14} /> <span className="text-[10px] font-bold uppercase">Checkup</span>
+            </div>
+            <p className="text-base font-bold text-gray-800 dark:text-white truncate">{animal.lastCheckup}</p>
+          </motion.div>
+        </div>
+
+        <motion.div variants={itemVariants} className="mb-4">
+          <div className="flex justify-between items-center mb-2">
+            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
+              <button
+                onClick={() => setChartMode('production')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'production' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+              >
+                Produção
+              </button>
+              <button
+                onClick={() => setChartMode('finance')}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'finance' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
+              >
+                Lucro (€)
+              </button>
+            </div>
+            <span className="text-[10px] text-gray-400 font-bold">{chartMode === 'production' ? '7 Dias' : 'Acumulado'}</span>
           </div>
 
-          <p className="text-gray-500 dark:text-gray-400 text-xs mb-4 flex items-center gap-2">
-            <ShieldCheck size={12} className="text-agro-green" />
-            {animal.breed} • {animal.age}
-          </p>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
-              <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                <Beef size={14} /> <span className="text-[10px] font-bold uppercase">Peso Atual</span>
+          {/* Reduzido para h-32 (128px) */}
+          <div className="h-32 w-full bg-gradient-to-b from-gray-50 to-white dark:from-neutral-800/50 dark:to-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 p-2 relative overflow-hidden">
+            {chartMode === 'production' ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3E6837" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#3E6837" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Tooltip
+                    contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
+                    itemStyle={{ color: '#3E6837', fontWeight: 'bold' }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3E6837"
+                    fillOpacity={1}
+                    fill="url(#colorProd)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex flex-col justify-center px-4 animate-fade-in">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase">Resultado Líquido</p>
+                    <h3 className={`text-2xl font-black ${animalFinance.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {animalFinance.profit >= 0 ? '+' : ''}{animalFinance.profit.toFixed(0)}€
+                    </h3>
+                  </div>
+                  <div className={`p-2 rounded-full ${animalFinance.profit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
+                    <Coins size={20} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={10} /> Receita</span>
+                    <span className="font-bold text-gray-900 dark:text-white">{animalFinance.totalRevenue.toFixed(0)}€</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-green-500 h-full rounded-full" style={{ width: '100%' }}></div>
+                  </div>
+                </div>
               </div>
-              <p className="text-xl font-bold text-gray-800 dark:text-white">{animal.weight} <span className="text-xs font-normal text-gray-400">kg</span></p>
-            </div>
-            <div className="bg-gray-50 dark:bg-neutral-800 p-3 rounded-2xl">
-              <div className="flex items-center gap-1.5 text-gray-400 mb-1">
-                <History size={14} /> <span className="text-[10px] font-bold uppercase">Checkup</span>
-              </div>
-              <p className="text-base font-bold text-gray-800 dark:text-white truncate">{animal.lastCheckup}</p>
-            </div>
+            )}
           </div>
+        </motion.div>
 
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
+        {animal.notes && (
+          <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-2xl border border-yellow-100 dark:border-yellow-900/30 mb-4">
+            <h4 className="text-[10px] font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1 flex items-center gap-2">
+              <ClipboardList size={12} /> Nota Veterinária
+            </h4>
+            <p className="text-xs text-yellow-800 dark:text-yellow-200/80 italic line-clamp-2">"{animal.notes}"</p>
+          </div>
+        )}
+
+        {/* Action Buttons Row - Vet & Reproduction */}
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
+          <button
+            onClick={() => {
+              setVetNote(animal.notes || '');
+              setShowVetModal(true);
+            }}
+            className="py-3 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-[1.5rem] font-bold shadow-sm border border-orange-200 dark:border-orange-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <ClipboardList size={18} /> Nota Vet.
+          </button>
+          <button
+            onClick={() => setShowReproductionModal(true)}
+            className="py-3 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-[1.5rem] font-bold shadow-sm border border-blue-200 dark:border-blue-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+          >
+            <Dna size={18} /> Ciclo & Genética
+          </button>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowProductionModal(true)}
+            className="flex-1 py-4 bg-agro-green hover:bg-green-700 text-white rounded-[2rem] font-bold shadow-lg shadow-agro-green/40 active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={20} />
+            Registar Produção
+          </button>
+
+          <button
+            onClick={onReset}
+            className="w-20 bg-gray-100 dark:bg-neutral-800 border-2 border-transparent hover:border-gray-200 dark:hover:border-neutral-700 text-gray-600 dark:text-gray-400 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center shadow-sm"
+            title="Nova Leitura"
+          >
+            <Scan size={24} />
+          </button>
+        </div>
+      </div>
+
+      {/* --- MODALS --- */}
+      <AnimalDetailsModal
+        isOpen={showReproductionModal}
+        onClose={() => setShowReproductionModal(false)}
+        animal={animal}
+        onUpdateAnimal={onUpdateAnimal}
+        onAddOffspring={onAddOffspring}
+      />
+
+      {/* Production Modal */}
+      {showProductionModal && (
+        <div className="fixed inset-0 z-[210] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-6" onClick={() => setShowProductionModal(false)}>
+          <div
+            className="bg-white dark:bg-neutral-900 w-full md:max-w-md p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t md:border border-white/20 pb-12 md:pb-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold dark:text-white">Novo Registo</h3>
+              <button onClick={() => setShowProductionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
+              <button
+                onClick={() => setProductionType('milk')}
+                className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${productionType === 'milk' ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'
+                  }`}
+              >
+                <Milk size={18} /> Leite
+              </button>
+              <button
+                onClick={() => setProductionType('weight')}
+                className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${productionType === 'weight' ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-gray-400'
+                  }`}
+              >
+                <Beef size={18} /> Peso
+              </button>
+            </div>
+
+            <div className="mb-8">
+              <div className="flex items-center justify-between gap-4 mb-4">
+                <button onClick={() => adjustValue(-config.step)} className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"><Minus size={32} strokeWidth={3} /></button>
+                <div className="flex-1 text-center">
+                  <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{productionValue}</div>
+                  <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
+                </div>
+                <button onClick={() => adjustValue(config.step)} className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"><Plus size={32} strokeWidth={3} /></button>
+              </div>
+              <div className="px-2">
+                <input type="range" min="0" max={config.max} step={config.step} value={productionValue} onChange={(e) => setProductionValue(parseFloat(e.target.value))} className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y" />
+              </div>
+            </div>
+
+            <button onClick={handleSaveProduction} className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform">Confirmar</button>
+          </div>
+        </div>
+      )}
+
+      {/* Vet Note Modal */}
+      {showVetModal && (
+        <div className="fixed inset-0 z-[210] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-6" onClick={() => setShowVetModal(false)}>
+          <div
+            className="bg-white dark:bg-neutral-900 w-full md:max-w-md p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t md:border border-white/20 pb-12 md:pb-8"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
+                <ClipboardList size={24} className="text-orange-500" /> Nota Veterinária
+              </h3>
+              <button onClick={() => setShowVetModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
+                <X size={20} className="dark:text-white" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* Record Type Selector */}
               <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-xl">
-                <button
-                  onClick={() => setChartMode('production')}
-                  className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'production' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
-                >
-                  Produção
-                </button>
-                <button
-                  onClick={() => setChartMode('finance')}
-                  className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${chartMode === 'finance' ? 'bg-white dark:bg-neutral-700 shadow text-agro-green' : 'text-gray-400'}`}
-                >
-                  Lucro (€)
-                </button>
+                {(['vaccine', 'treatment', 'exam', 'other'] as const).map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setVetType(type)}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${vetType === type ? 'bg-white dark:bg-neutral-700 shadow text-orange-600' : 'text-gray-400'}`}
+                  >
+                    {type === 'vaccine' ? 'Vacina' : type === 'treatment' ? 'Tratamento' : type === 'exam' ? 'Exame' : 'Outro'}
+                  </button>
+                ))}
               </div>
-              <span className="text-[10px] text-gray-400 font-bold">{chartMode === 'production' ? '7 Dias' : 'Acumulado'}</span>
-            </div>
 
-            {/* Reduzido para h-32 (128px) */}
-            <div className="h-32 w-full bg-gradient-to-b from-gray-50 to-white dark:from-neutral-800/50 dark:to-neutral-900 rounded-2xl border border-gray-100 dark:border-neutral-800 p-2 relative overflow-hidden">
-              {chartMode === 'production' ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorProd" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3E6837" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#3E6837" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <Tooltip
-                      contentStyle={{ borderRadius: '1rem', border: 'none', background: 'rgba(255,255,255,0.9)', fontSize: '12px' }}
-                      itemStyle={{ color: '#3E6837', fontWeight: 'bold' }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#3E6837"
-                      fillOpacity={1}
-                      fill="url(#colorProd)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex flex-col justify-center px-4 animate-fade-in">
-                  <div className="flex items-center justify-between mb-2">
+              <div>
+                <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Observações / Diagnóstico</label>
+                <textarea
+                  autoFocus
+                  value={vetNote}
+                  onChange={(e) => setVetNote(e.target.value)}
+                  className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px] resize-none"
+                  placeholder="Ex: Animal apresenta ligeira claudicação..."
+                />
+              </div>
+
+              {/* Drug Details (Only for Vaccine/Treatment) */}
+              {(vetType === 'vaccine' || vetType === 'treatment') && (
+                <div className="animate-slide-up space-y-4 bg-orange-50/50 dark:bg-orange-900/10 p-4 rounded-2xl border border-orange-100 dark:border-orange-900/30">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <p className="text-[10px] text-gray-400 font-bold uppercase">Resultado Líquido</p>
-                      <h3 className={`text-2xl font-black ${animalFinance.profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                        {animalFinance.profit >= 0 ? '+' : ''}{animalFinance.profit.toFixed(0)}€
-                      </h3>
+                      <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Fármaco</label>
+                      <input
+                        value={drugName}
+                        onChange={e => setDrugName(e.target.value)}
+                        className="w-full p-3 bg-white dark:bg-neutral-900 rounded-xl text-sm font-bold dark:text-white outline-none"
+                        placeholder="Ex: Penicilina"
+                      />
                     </div>
-                    <div className={`p-2 rounded-full ${animalFinance.profit >= 0 ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'}`}>
-                      <Coins size={20} />
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Lote</label>
+                      <input
+                        value={drugBatch}
+                        onChange={e => setDrugBatch(e.target.value)}
+                        className="w-full p-3 bg-white dark:bg-neutral-900 rounded-xl text-sm font-bold dark:text-white outline-none"
+                        placeholder="Ex: L2024"
+                      />
                     </div>
                   </div>
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px]">
-                      <span className="font-bold text-gray-500 flex items-center gap-1"><ArrowUpRight size={10} /> Receita</span>
-                      <span className="font-bold text-gray-900 dark:text-white">{animalFinance.totalRevenue.toFixed(0)}€</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-gray-400 ml-1">Dosagem</label>
+                      <input
+                        value={dosage}
+                        onChange={e => setDosage(e.target.value)}
+                        className="w-full p-3 bg-white dark:bg-neutral-900 rounded-xl text-sm font-bold dark:text-white outline-none"
+                        placeholder="Ex: 10ml"
+                      />
                     </div>
-                    <div className="w-full bg-gray-200 dark:bg-neutral-700 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-green-500 h-full rounded-full" style={{ width: '100%' }}></div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-red-500 ml-1 flex items-center gap-1">
+                        <Timer size={10} /> Carência (Dias)
+                      </label>
+                      <input
+                        type="number"
+                        value={withdrawalDays || ''}
+                        onChange={e => setWithdrawalDays(parseInt(e.target.value) || 0)}
+                        className="w-full p-3 bg-white dark:bg-neutral-900 rounded-xl text-sm font-bold dark:text-white outline-none text-red-600"
+                        placeholder="0"
+                      />
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {animal.notes && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/10 p-3 rounded-2xl border border-yellow-100 dark:border-yellow-900/30 mb-4">
-              <h4 className="text-[10px] font-bold uppercase text-yellow-700 dark:text-yellow-500 mb-1 flex items-center gap-2">
-                <ClipboardList size={12} /> Nota Veterinária
-              </h4>
-              <p className="text-xs text-yellow-800 dark:text-yellow-200/80 italic line-clamp-2">"{animal.notes}"</p>
-            </div>
-          )}
-
-          {/* Action Buttons Row - Vet & Reproduction */}
-          <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
-            <button
-              onClick={() => {
-                setVetNote(animal.notes || '');
-                setShowVetModal(true);
-              }}
-              className="py-3 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 rounded-[1.5rem] font-bold shadow-sm border border-orange-200 dark:border-orange-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <ClipboardList size={18} /> Nota Vet.
-            </button>
-            <button
-              onClick={() => setShowReproductionModal(true)}
-              className="py-3 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded-[1.5rem] font-bold shadow-sm border border-blue-200 dark:border-blue-800/30 flex items-center justify-center gap-2 active:scale-95 transition-transform"
-            >
-              <Dna size={18} /> Ciclo & Genética
-            </button>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowProductionModal(true)}
-              className="flex-1 py-4 bg-agro-green hover:bg-green-700 text-white rounded-[2rem] font-bold shadow-lg shadow-agro-green/40 active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Plus size={20} />
-              Registar Produção
-            </button>
-
-            <button
-              onClick={onReset}
-              className="w-20 bg-gray-100 dark:bg-neutral-800 border-2 border-transparent hover:border-gray-200 dark:hover:border-neutral-700 text-gray-600 dark:text-gray-400 rounded-[2rem] font-bold active:scale-95 transition-all flex items-center justify-center shadow-sm"
-              title="Nova Leitura"
-            >
-              <Scan size={24} />
-            </button>
-          </div>
-        </div>
-
-        {/* --- MODALS --- */}
-        <AnimalDetailsModal
-          isOpen={showReproductionModal}
-          onClose={() => setShowReproductionModal(false)}
-          animal={animal}
-          onUpdateAnimal={onUpdateAnimal}
-          onAddOffspring={onAddOffspring}
-        />
-
-        {/* Production Modal */}
-        {showProductionModal && (
-          <div className="fixed inset-0 z-[210] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-6" onClick={() => setShowProductionModal(false)}>
-            <div
-              className="bg-white dark:bg-neutral-900 w-full md:max-w-md p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t md:border border-white/20 pb-12 md:pb-8"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold dark:text-white">Novo Registo</h3>
-                <button onClick={() => setShowProductionModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                  <X size={20} className="dark:text-white" />
-                </button>
-              </div>
-
-              <div className="flex bg-gray-100 dark:bg-neutral-800 p-1.5 rounded-2xl mb-6">
-                <button
-                  onClick={() => setProductionType('milk')}
-                  className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${productionType === 'milk' ? 'bg-white dark:bg-neutral-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-gray-400'
-                    }`}
-                >
-                  <Milk size={18} /> Leite
-                </button>
-                <button
-                  onClick={() => setProductionType('weight')}
-                  className={`flex-1 py-3 rounded-xl flex items-center justify-center gap-2 font-bold transition-all ${productionType === 'weight' ? 'bg-white dark:bg-neutral-700 text-orange-600 dark:text-orange-400 shadow-sm' : 'text-gray-400'
-                    }`}
-                >
-                  <Beef size={18} /> Peso
-                </button>
-              </div>
-
-              <div className="mb-8">
-                <div className="flex items-center justify-between gap-4 mb-4">
-                  <button onClick={() => adjustValue(-config.step)} className="w-20 h-20 bg-gray-100 dark:bg-neutral-800 rounded-3xl flex items-center justify-center text-gray-500 active:scale-90 transition-all shadow-sm border border-gray-200 dark:border-neutral-700"><Minus size={32} strokeWidth={3} /></button>
-                  <div className="flex-1 text-center">
-                    <div className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{productionValue}</div>
-                    <span className="text-sm font-bold text-gray-400 uppercase tracking-widest">{config.label}</span>
-                  </div>
-                  <button onClick={() => adjustValue(config.step)} className="w-20 h-20 bg-agro-green rounded-3xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg shadow-agro-green/30"><Plus size={32} strokeWidth={3} /></button>
-                </div>
-                <div className="px-2">
-                  <input type="range" min="0" max={config.max} step={config.step} value={productionValue} onChange={(e) => setProductionValue(parseFloat(e.target.value))} className="w-full h-4 bg-gray-200 dark:bg-neutral-800 rounded-full appearance-none cursor-pointer accent-agro-green touch-pan-y" />
-                </div>
-              </div>
-
-              <button onClick={handleSaveProduction} className="w-full py-5 bg-agro-green text-white rounded-[1.5rem] font-bold text-xl shadow-xl active:scale-95 transition-transform">Confirmar</button>
-            </div>
-          </div>
-        )}
-
-        {/* Vet Note Modal */}
-        {showVetModal && (
-          <div className="fixed inset-0 z-[210] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-6" onClick={() => setShowVetModal(false)}>
-            <div
-              className="bg-white dark:bg-neutral-900 w-full md:max-w-md p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t md:border border-white/20 pb-12 md:pb-8"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold dark:text-white flex items-center gap-2">
-                  <ClipboardList size={24} className="text-orange-500" /> Nota Veterinária
-                </h3>
-                <button onClick={() => setShowVetModal(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                  <X size={20} className="dark:text-white" />
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Observações / Diagnóstico</label>
-                  <textarea
-                    autoFocus
-                    value={vetNote}
-                    onChange={(e) => setVetNote(e.target.value)}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-medium dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[100px] resize-none"
-                    placeholder="Ex: Animal apresenta ligeira claudicação..."
-                  />
-                </div>
-
-                <div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col">
                   <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block flex items-center gap-1">
-                    <Syringe size={14} /> Agendar Vacinação (Opcional)
+                    <Syringe size={14} /> Agendar Reforço
                   </label>
                   <div className="relative">
                     <input
                       type="date"
                       value={vaccineDate}
                       onChange={(e) => setVaccineDate(e.target.value)}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-orange-500 min-h-[3.5rem]"
+                      className="w-full p-3 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none text-xs"
                     />
-                    <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
                   </div>
-                  {vaccineDate && (
-                    <p className="text-[10px] text-orange-500 font-bold mt-2 ml-2 flex items-center gap-1">
-                      <Calendar size={10} /> Será adicionado à Agenda
-                    </p>
-                  )}
                 </div>
-
-                <button
-                  onClick={handleSaveVetNote}
-                  disabled={!vetNote}
-                  className={`w-full py-5 rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${!vetNote ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white'
-                    }`}
-                >
-                  <Save size={20} />
-                  Guardar Registo
-                </button>
+                <div className="flex flex-col pt-6">
+                  <button
+                    onClick={() => setIsEmergency(!isEmergency)}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-[10px] uppercase transition-all ${isEmergency ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 dark:bg-neutral-800 text-gray-400'}`}
+                  >
+                    <AlertCircle size={14} /> Emergência
+                  </button>
+                </div>
               </div>
+
+              <button
+                onClick={handleSaveVetNote}
+                disabled={!vetNote}
+                className={`w-full py-5 rounded-[1.5rem] font-bold text-lg shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${!vetNote ? 'bg-gray-300 dark:bg-neutral-800 text-gray-500 cursor-not-allowed' : 'bg-orange-500 text-white'
+                  }`}
+              >
+                <Save size={20} />
+                Guardar no Dossier
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </motion.div>
   );
 };
 
@@ -671,6 +791,7 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         lastCheckup: new Date().toISOString().split('T')[0],
         notes: tagForm.notes,
         productionHistory: [],
+        medicalHistory: [],
         reproductionStatus: 'empty', // Default
         lineage: {}
       });
@@ -705,6 +826,7 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         status: 'healthy',
         productionHistory: [],
         history: [],
+        medicalHistory: [],
         lastCheckup: new Date().toISOString().split('T')[0]
       });
       setBatchForm({ name: '', species: '', count: '0', weight: '0' });

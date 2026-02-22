@@ -382,8 +382,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <h3 className="text-sm font-medium text-indigo-500 dark:text-indigo-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
               <Activity size={14} /> Cloud Sync & Central Cloud
             </h3>
-
-            <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-900/30 space-y-4">
+            <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-3xl border border-indigo-100 dark:border-indigo-900/30 space-y-4 shadow-sm">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${syncStatus === 'syncing' ? 'bg-indigo-500 text-white animate-pulse' :
@@ -393,31 +392,33 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <Monitor size={18} />
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Backup em Nuvem</h4>
+                    <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-100">Estado da Nuvem</h4>
                     <p className="text-[10px] text-indigo-600 dark:text-indigo-400 mt-0.5">
                       {syncStatus === 'syncing' ? 'A transferir dados...' :
                         syncStatus === 'offline' ? 'Sem internet - Local Only' :
-                          `Último sync: ${lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Nunca'}`}
+                          `Ligação Estável: ${lastSyncTime ? new Date(lastSyncTime).toLocaleTimeString() : 'Nunca'}`}
                     </p>
                   </div>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 gap-2">
                 <button
                   onClick={async () => {
                     const { syncManager } = await import('../services/SyncManager');
-                    syncManager.sync();
+                    await syncManager.forceSync();
                   }}
                   disabled={syncStatus === 'syncing'}
-                  className="p-2 bg-white dark:bg-neutral-800 rounded-xl shadow-sm border border-indigo-100 dark:border-indigo-900/30 text-indigo-600 active:scale-90 transition-all disabled:opacity-50"
-                  title="Sincronizar Agora"
+                  className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  <Download size={18} className={syncStatus === 'syncing' ? 'animate-bounce' : ''} />
+                  <Download size={16} className={syncStatus === 'syncing' ? 'animate-bounce' : ''} />
+                  SINCRONIZAR AGORA
                 </button>
-              </div>
 
-              <p className="text-[10px] text-indigo-700/60 dark:text-indigo-300/60 italic">
-                O agricultor e o dono da quinta verão os seus posts do Feed e notas de cultivo em tempo real assim que houver ligação.
-              </p>
+                <p className="text-[9px] text-indigo-700/60 dark:text-indigo-300/60 italic text-center px-2">
+                  Isto irá descarregar todos os dados da Supabase e harmonizar com o seu dispositivo.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -450,6 +451,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </button>
               </div>
 
+              {/* Botão Remover Todos os Dados */}
+              <button
+                onClick={handleResetConfirm}
+                className="w-full mt-3 p-4 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 text-red-600 rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all hover:bg-red-100 dark:hover:bg-red-900/20"
+              >
+                <Trash2 size={20} />
+                Remover Todos os Dados
+              </button>
+
               {/* Hidden File Input */}
               <input
                 type="file"
@@ -459,6 +469,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="hidden"
               />
             </div>
+          </section>
+
+          {/* 7. Secção: Gestão de Equipa */}
+          <section className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3 ml-1 uppercase tracking-wider flex items-center gap-2">
+              <User size={14} /> Equipa e Acessos
+            </h3>
+            <button
+              onClick={() => {
+                onClose();
+                const { getState } = useStore;
+                getState().openModal('teamManager');
+              }}
+              className="w-full p-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 text-gray-900 dark:text-white rounded-3xl font-bold flex items-center justify-between shadow-sm active:scale-95 transition-all hover:border-agro-green"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <User size={20} />
+                </div>
+                <span>Gerir Equipa</span>
+              </div>
+              <span className="text-gray-400">&rarr;</span>
+            </button>
           </section>
 
           {/* Secção: Sistema */}

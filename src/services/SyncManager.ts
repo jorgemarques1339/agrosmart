@@ -230,7 +230,7 @@ export class SyncManager {
         }
     }
 
-    private async pullRemoteChanges() {
+    public async pullRemoteChanges() {
         console.log("[SyncManager] Pulling real remote changes from Supabase...");
 
         const tables = [
@@ -262,33 +262,71 @@ export class SyncManager {
                 if (data) {
                     console.log(`[SyncManager] Pulled ${data.length} items from ${meta.remote}`);
 
+                    // 1. Check for conflicts before updating
+                    const pendingOps = await db.syncQueue.toArray();
+                    const state = await this.getStore();
+                    const tableConflicts: any[] = [];
+                    const itemsToUpdate: any[] = [];
+
+                    for (const remoteItem of data) {
+                        const camelRemote = this.toCamelCase(remoteItem);
+                        const hasPendingLocalChange = pendingOps.some(op => {
+                            const opTable = this.mapOperationToTable(op.operation);
+                            const opId = op.data.id || op.data.updates?.id || op.data.fieldId || op.data.batchId;
+                            return opTable === meta.remote && opId === camelRemote.id;
+                        });
+
+                        if (hasPendingLocalChange) {
+                            console.warn(`[Sync] Conflict detected for ${meta.remote}:${camelRemote.id}`);
+                            const dexieTable = (db as any)[meta.remote];
+                            const localData = await dexieTable.get(camelRemote.id);
+
+                            if (localData && localData.updatedAt !== camelRemote.updatedAt) {
+                                state.addConflict({
+                                    id: camelRemote.id,
+                                    type: meta.remote,
+                                    localData,
+                                    remoteData: camelRemote,
+                                    timestamp: new Date().toISOString()
+                                });
+                                continue; // Skip updating this specific item automatically
+                            }
+                        }
+                        itemsToUpdate.push(camelRemote);
+                    }
+
                     // Special Case: Don't wipe users if cloud is empty but we have local ones
-                    // This protects the Admin profile during initial setup
                     if (meta.remote === 'users' && data.length === 0) {
                         console.warn('[SyncManager] Cloud users table is empty. Keeping local profiles.');
                         continue;
                     }
 
-                    const camelData = data.map((item: any) => this.toCamelCase(item));
-
-                    // 1. Update IndexDB
+                    // 1. Update IndexDB (only non-conflicting items)
                     const dexieTable = (db as any)[meta.remote];
-                    if (dexieTable) {
-                        await dexieTable.bulkPut(camelData);
-                        console.log(`[SyncManager] Updated IndexedDB for ${meta.remote}`);
+                    if (dexieTable && itemsToUpdate.length > 0) {
+                        await dexieTable.bulkPut(itemsToUpdate);
+                        console.log(`[SyncManager] Updated IndexedDB for ${meta.remote} (${itemsToUpdate.length} items)`);
                     }
 
                     // 2. Update Store
-                    const state = await this.getStore();
                     const storeAction = (state as any)[meta.store];
                     if (typeof storeAction === 'function') {
-                        storeAction(camelData);
-                        console.log(`[SyncManager] Updated Store via ${meta.store}`);
-                    } else {
-                        const key = this.mapRemoteToStoreKey(meta.remote);
-                        const { useStore } = await import('../store/useStore');
-                        useStore.setState({ [key]: camelData } as any);
-                        console.log(`[SyncManager] Updated Store via Fallback key: ${key}`);
+                        // For the store, we might want to keep the local conflicting version for now or show both.
+                        // For simplicity, we update the store with remote data except for items in active conflict.
+                        const currentStoreItems = (state as any)[this.mapRemoteToStoreKey(meta.remote)] || [];
+                        const mergedItems = currentStoreItems.map((local: any) => {
+                            const remote = itemsToUpdate.find(r => r.id === local.id);
+                            return remote || local;
+                        });
+                        // Add new remote items that aren't in store
+                        itemsToUpdate.forEach(remote => {
+                            if (!mergedItems.find((m: any) => m.id === remote.id)) {
+                                mergedItems.push(remote);
+                            }
+                        });
+
+                        storeAction(mergedItems);
+                        console.log(`[SyncManager] Merged Store via ${meta.store}`);
                     }
                 }
             } catch (err) {
@@ -408,6 +446,22 @@ export class SyncManager {
             timestamp: new Date().toISOString(),
             read: false
         });
+    }
+
+    public async forceSync() {
+        console.log('[SyncManager] Forcing full cloud sync...');
+        const state = await this.getStore();
+        (state as any).setSyncStatus('syncing');
+        try {
+            await this.pullRemoteChanges();
+            (state as any).setSyncStatus('idle');
+            haptics.success();
+            console.log('[SyncManager] Force sync completed successfully.');
+        } catch (error) {
+            console.error('[SyncManager] Force sync failed:', error);
+            (state as any).setSyncStatus('error');
+            haptics.error();
+        }
     }
 
     public startAutoSync(ms: number = 30000) {

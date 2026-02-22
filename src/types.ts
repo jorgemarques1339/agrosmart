@@ -28,6 +28,7 @@ export interface FeedItem {
   location: [number, number];
   timestamp: string;
   fieldId?: string;
+  updatedAt?: string;
 }
 
 export interface UserProfile {
@@ -44,6 +45,7 @@ export interface UserProfile {
     location?: [number, number];
     batteryLevel?: number;
   };
+  updatedAt?: string;
 }
 
 export interface Task {
@@ -63,12 +65,28 @@ export interface Task {
   status?: 'pending' | 'review' | 'done'; // Workflow status
   proofImage?: string; // Base64 proof
   feedback?: string; // Admin feedback
+  updatedAt?: string;
 }
 
 export interface ProductionRecord {
   date: string;
   value: number;
   type: 'milk' | 'weight'; // Distinguish between milk liters and weight kg
+}
+
+export interface MedicalRecord {
+  id: string;
+  date: string;
+  type: 'vaccine' | 'treatment' | 'surgery' | 'exam' | 'other';
+  description: string;
+  drugName?: string;
+  drugBatch?: string;
+  dosage?: string;
+  withdrawalDays?: number; // Período de carência em dias
+  withdrawalEndDate?: string; // ISO Date calculated
+  administeredBy?: string; // Nome do veterinário ou operador
+  attachments?: string[];
+  cost?: number;
 }
 
 export interface AnimalEvent {
@@ -87,7 +105,10 @@ export interface AnimalBatch {
   status: 'healthy' | 'sick' | 'attention';
   productionHistory: ProductionRecord[]; // For batch average weight tracking etc
   history: FieldLog[]; // Mass actions history
+  medicalHistory: MedicalRecord[]; // Historical medical records
+  withdrawalEndDate?: string; // Most restrictive withdrawal among all animals in batch
   lastCheckup: string;
+  updatedAt?: string;
 }
 
 export interface Animal {
@@ -111,10 +132,13 @@ export interface Animal {
     notes?: string;
   };
   events?: AnimalEvent[];
+  medicalHistory: MedicalRecord[];
+  withdrawalEndDate?: string; // Active withdrawal status
 
   productionHistory: ProductionRecord[];
   lastCheckup: string;
   notes?: string;
+  updatedAt?: string;
 }
 
 export interface Employee {
@@ -194,6 +218,7 @@ export interface Field {
   sensors?: Sensor[]; // Connected IoT Devices
   missions?: Mission[]; // Autonomous Missions (Drones/Robots)
   slope?: number; // Average terrain slope in degrees
+  updatedAt?: string;
 }
 
 export interface Mission {
@@ -221,6 +246,7 @@ export interface StockItem {
   supplier?: string;
   supplierEmail?: string; // Auto-order target
   dailyUsage?: number; // Automatic consumption estimation
+  updatedAt?: string;
 }
 
 export interface Transaction {
@@ -230,6 +256,7 @@ export interface Transaction {
   amount: number;
   description: string;
   category: string;
+  updatedAt?: string;
 }
 
 export interface MaintenanceLog {
@@ -290,6 +317,7 @@ export interface Machine {
   };
   logs: MaintenanceLog[];
   isobusData?: ISOBUSData; // Conceptual ISOBUS Bridge data
+  updatedAt?: string;
 }
 
 // --- Mercados & Cotações ---
@@ -345,6 +373,7 @@ export interface ProductBatch {
   };
   farmerName: string;
   imageUrl?: string;
+  updatedAt?: string;
 }
 
 export interface AppState {
@@ -371,4 +400,5 @@ export interface Notification {
   read: boolean;
   actionLink?: string;
   relatedId?: string;
+  updatedAt?: string;
 }

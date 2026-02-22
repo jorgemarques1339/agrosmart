@@ -13,6 +13,7 @@ import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
    StockItem, UserProfile, MaintenanceLog, Animal, MarketPrice, FeedItem
 } from '../types';
+import { motion } from 'framer-motion';
 import MarketPrices from './MarketPrices';
 import FarmCopilot from './FarmCopilot';
 import MorningBriefingModal from './MorningBriefingModal';
@@ -287,12 +288,34 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       }
    };
 
+   const containerVariants = {
+      hidden: { opacity: 0 },
+      show: {
+         opacity: 1,
+         transition: { staggerChildren: 0.1 }
+      }
+   } as const;
+
+   const itemVariants = {
+      hidden: { opacity: 0, y: 20 },
+      show: {
+         opacity: 1,
+         y: 0,
+         transition: { type: 'spring', stiffness: 300, damping: 24 } as const
+      }
+   } as const;
+
    return (
-      <div className="space-y-6 sm:space-y-8 animate-fade-in pb-28 pt-16 sm:pt-24">
+      <motion.div
+         variants={containerVariants}
+         initial="hidden"
+         animate="show"
+         className="space-y-6 sm:space-y-8 pb-28 pt-16 sm:pt-24"
+      >
 
          {/* 1. HEADER: ORIVA SMART REDESIGN */}
          {/* TOP BAR */}
-         <div className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 dark:bg-black/80 backdrop-blur-md shadow-sm py-2' : 'bg-transparent py-4'}`}>
+         <motion.div variants={itemVariants} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 dark:bg-black/80 backdrop-blur-md shadow-sm py-2' : 'bg-transparent py-4'}`}>
             <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 flex justify-between items-center">
                <div
                   className="flex items-center gap-3 cursor-pointer group"
@@ -374,11 +397,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   </button>
                </div>
             </div>
-         </div>
+         </motion.div>
 
          {/* 2. WEATHER HERO (Compact Version) */}
          {currentWeather && (
-            <div
+            <motion.div
+               variants={itemVariants}
                onClick={() => setIsWeatherModalOpen(true)}
                className="relative h-32 sm:h-48 mx-2 rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden shadow-2xl group transition-all hover:scale-[1.01] cursor-pointer"
             >
@@ -431,11 +455,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                      </div>
                   </div>
                </div>
-            </div>
+            </motion.div>
          )}
 
          {/* 3. QUICK ACTIONS (Glow Pill Style) */}
-         <div className="px-2">
+         <motion.div variants={itemVariants} className="px-2">
             <div className="flex flex-row gap-3 px-1 pb-4">
 
                {/* Button 1: Cotações (Red-Orange Glow) */}
@@ -474,7 +498,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                </button>
 
             </div>
-         </div>
+         </motion.div>
 
          {/* --- FARM COPILOT (AI INSIGHTS) --- */}
          <FarmCopilot
@@ -491,7 +515,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             onOpenBriefing={() => setIsBriefingModalOpen(true)}
          />
 
-         <div className="px-2">
+         <motion.div variants={itemVariants} className="px-2">
             <h3 className="text-lg font-black italic text-gray-900 dark:text-white mb-2 ml-2">Estado da Quinta</h3>
 
             <div className="bg-white dark:bg-neutral-900 rounded-[2rem] p-4 shadow-sm border border-gray-100 dark:border-neutral-800 grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800">
@@ -547,10 +571,10 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                </div>
 
             </div>
-         </div>
+         </motion.div>
 
          {/* 5. LISTA DE TAREFAS (MD3 Tasks - Atualizado) */}
-         <div className="px-2 mt-6">
+         <motion.div variants={itemVariants} className="px-2 mt-6">
             <div className="bg-white dark:bg-neutral-900 rounded-[2.5rem] p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
 
                {/* Header */}
@@ -1045,7 +1069,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             users={users}
             onNavigate={onNavigate}
          />
-      </div >
+      </motion.div>
    );
 };
 
