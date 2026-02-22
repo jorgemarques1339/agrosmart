@@ -61,6 +61,15 @@ const MOCK_BATCHES: AnimalBatch[] = [
   }
 ];
 
+const MOCK_TRANSACTIONS: Transaction[] = [
+  { id: 'tx1', date: '2023-10-01', type: 'income', amount: 15000, description: 'Venda: Milho Silagem (40 Ton)', category: 'Vendas', relatedCrop: 'Milho Silagem' },
+  { id: 'tx2', date: '2023-10-05', type: 'expense', amount: 450, description: 'Reparação: Trator Principal', category: 'Manutenção' },
+  { id: 'tx3', date: '2023-10-10', type: 'income', amount: 8500, description: 'Venda: Uva Alvarinho (12 Ton)', category: 'Vendas', relatedCrop: 'Uva Alvarinho' },
+  { id: 'tx4', date: '2023-10-12', type: 'expense', amount: 1200, description: 'Stock: Fertilizante NPK', category: 'Stock' },
+  { id: 'tx5', date: '2023-10-15', type: 'expense', amount: 350, description: 'Stock: Ração Gado', category: 'Stock' },
+  { id: 'tx6', date: '2023-10-20', type: 'income', amount: 2000, description: 'Venda: Novilho PT-45921', category: 'Vendas', relatedCrop: 'Pecuária' }
+];
+
 export const MOCK_STATE: AppState = {
   users: MOCK_USERS,
   employees: [
@@ -133,17 +142,54 @@ export const MOCK_STATE: AppState = {
       medicalHistory: []
     }
   ],
-  fields: [],
+  fields: [
+    {
+      id: 'f1',
+      name: 'Parcela Norte',
+      emoji: '🌽',
+      crop: 'Milho Silagem',
+      areaHa: 12.5,
+      yieldPerHa: 45,
+      coordinates: [41.442, -8.723],
+      polygon: [],
+      irrigationStatus: true,
+      humidity: 48,
+      temp: 18,
+      healthScore: 92,
+      harvestWindow: '15 dias',
+      history: [],
+      logs: [
+        { id: 'log1', date: '2023-09-15', type: 'fertilization', description: 'Aplicação NPK', cost: 850 },
+        { id: 'log2', date: '2023-10-01', type: 'labor', description: 'Trabalhos de sementeira', cost: 320 }
+      ]
+    },
+    {
+      id: 'f2',
+      name: 'Vinha Velha',
+      emoji: '🍇',
+      crop: 'Uva Alvarinho',
+      areaHa: 5.2,
+      yieldPerHa: 8,
+      coordinates: [41.445, -8.725],
+      polygon: [],
+      irrigationStatus: false,
+      humidity: 35,
+      temp: 20,
+      healthScore: 88,
+      harvestWindow: 'Concluída',
+      history: [],
+      logs: [
+        { id: 'log3', date: '2023-09-10', type: 'treatment', description: 'Tratamento anti-míldio', cost: 420 }
+      ]
+    }
+  ],
   stocks: [
     { id: 's1', name: 'NPK 10-10-10', category: 'Fertilizante', quantity: 1500, unit: 'kg', minStock: 500, pricePerUnit: 1.20, supplier: 'FertPlus S.A.', supplierEmail: 'vendas@fertplus.pt' },
     { id: 's2', name: 'Semente Milho Bayer', category: 'Semente', quantity: 8, unit: 'sacos', minStock: 10, pricePerUnit: 85.00 },
     { id: 's3', name: 'Gasóleo Agrícola', category: 'Combustível', quantity: 240, unit: 'L', minStock: 100, pricePerUnit: 1.15, supplier: 'AgroComb, Lda', dailyUsage: 50 },
     { id: 's4', name: 'Ração Engorda Bovinos', category: 'Ração', quantity: 120, unit: 'kg', minStock: 100, pricePerUnit: 0.45, supplier: 'Raçōes do Norte, S.A.', supplierEmail: 'encomendas@racoesdonorte.pt', dailyUsage: 35 },
   ],
-  transactions: [
-    { id: 't1', date: '2023-10-01', type: 'expense', amount: 450, category: 'Manutenção', description: 'Reparação Trator' },
-    { id: 't2', date: '2023-10-15', type: 'income', amount: 3200, category: 'Vendas', description: 'Venda Leitão' },
-  ],
+  transactions: MOCK_TRANSACTIONS,
   machines: [
     {
       id: 'm1',

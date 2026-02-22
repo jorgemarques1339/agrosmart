@@ -27,13 +27,16 @@ export const useFarmOperations = (userName: string) => {
     };
 
     const handleRegisterSale = (data: any) => {
+        const field = fields.find(f => f.id === data.fieldId);
         const tx: Transaction = {
             id: Date.now().toString(),
             date: data.date,
             type: 'income',
             amount: data.quantity * data.pricePerUnit,
             category: 'Vendas',
-            description: `Venda: ${data.clientName}`
+            description: `Venda: ${data.clientName}`,
+            relatedCrop: data.crop || field?.crop,
+            relatedId: data.fieldId
         };
         registerSale({
             stockId: data.stockId,

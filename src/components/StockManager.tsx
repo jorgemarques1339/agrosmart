@@ -491,7 +491,8 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
   const [newItem, setNewItem] = useState({
-    name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: ''
+    name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: '',
+    supplier: '', supplierEmail: ''
   });
 
   const lowStockItems = stocks.filter(s => {
@@ -526,10 +527,12 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
         quantity: Number(newItem.quantity),
         unit: newItem.unit,
         minStock: Number(newItem.minStock) || 0,
-        pricePerUnit: Number(newItem.pricePerUnit)
+        pricePerUnit: Number(newItem.pricePerUnit),
+        supplier: newItem.supplier || undefined,
+        supplierEmail: newItem.supplierEmail || undefined
       });
       setIsAddModalOpen(false);
-      setNewItem({ name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: '' });
+      setNewItem({ name: '', category: 'Fertilizante', quantity: '', unit: 'kg', minStock: '', pricePerUnit: '', supplier: '', supplierEmail: '' });
     }
   };
 
@@ -701,6 +704,36 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
                       onChange={(e) => setNewItem({ ...newItem, pricePerUnit: e.target.value })}
                       className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
                       placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* Optional Supplier Section */}
+                <div className="border-t border-gray-100 dark:border-neutral-800 pt-4 space-y-3">
+                  <p className="text-[10px] font-bold uppercase text-gray-400 tracking-wider flex items-center gap-2">
+                    <Truck size={12} className="text-gray-400" />
+                    Fornecedor <span className="font-normal text-gray-300 normal-case tracking-normal">(opcional — necessário para encomendas)</span>
+                  </p>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Fornecedor</label>
+                    <div className="relative">
+                      <Package size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={newItem.supplier}
+                        onChange={(e) => setNewItem({ ...newItem, supplier: e.target.value })}
+                        className="w-full pl-10 pr-4 py-3.5 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green text-sm"
+                        placeholder="Ex: FertPlus S.A."
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Email (para auto-encomenda)</label>
+                    <input
+                      type="email"
+                      value={newItem.supplierEmail}
+                      onChange={(e) => setNewItem({ ...newItem, supplierEmail: e.target.value })}
+                      className="w-full px-4 py-3.5 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green text-sm"
+                      placeholder="vendas@fornecedor.pt"
                     />
                   </div>
                 </div>

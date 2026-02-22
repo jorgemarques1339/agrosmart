@@ -256,6 +256,8 @@ export interface Transaction {
   amount: number;
   description: string;
   category: string;
+  relatedCrop?: string;
+  relatedId?: string;
   updatedAt?: string;
 }
 

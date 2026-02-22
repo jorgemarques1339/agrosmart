@@ -479,8 +479,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             <button
               onClick={() => {
                 onClose();
-                const { getState } = useStore;
-                getState().openModal('teamManager');
+                useStore.getState().openModal('teamManager');
               }}
               className="w-full p-4 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 text-gray-900 dark:text-white rounded-3xl font-bold flex items-center justify-between shadow-sm active:scale-95 transition-all hover:border-agro-green"
             >

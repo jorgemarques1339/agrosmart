@@ -8,7 +8,8 @@ import {
   Package, Sprout, Beef, Loader2, FileText
 } from 'lucide-react';
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell, CartesianGrid,
+  PieChart, Pie, Legend
 } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -68,6 +69,84 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
     return { income, expense, netProfit, margin, stockAssetsValue };
   }, [transactions, stocks]);
+
+  // --- Lógica de Negócio: Rentabilidade por Cultura ---
+  const cropProfitability = useMemo(() => {
+    const cropsData: Record<string, { name: string, income: number, expense: number }> = {};
+
+    // 1. Receitas por Cultura (das Vendas)
+    transactions.filter(t => t.type === 'income' && t.category === 'Vendas' && t.relatedCrop).forEach(t => {
+      const crop = t.relatedCrop!;
+      if (!cropsData[crop]) cropsData[crop] = { name: crop, income: 0, expense: 0 };
+      cropsData[crop].income += t.amount;
+    });
+
+    // 2. Custos Diretos (Campo/Fertilizantes/Mão de Obra das logs dos campos)
+    fields.forEach(f => {
+      const crop = f.crop;
+      if (!cropsData[crop]) cropsData[crop] = { name: crop, income: 0, expense: 0 };
+      const fieldCosts = f.logs?.reduce((acc, log) => acc + (log.cost || 0), 0) || 0;
+      cropsData[crop].expense += fieldCosts;
+    });
+
+    // 3. Custos Indiretos (Manutenção de Máquinas e Combustível)
+    // Alocação Proporcional por Área Total
+    const machineMaintenance = transactions
+      .filter(t => t.type === 'expense' && (t.category === 'Manutenção' || t.category === 'Combustível'))
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const totalArea = fields.reduce((acc, f) => acc + f.areaHa, 0) || 1;
+
+    fields.forEach(f => {
+      const crop = f.crop;
+      const proportion = (f.areaHa / totalArea);
+      const allocatedMachineCost = machineMaintenance * proportion;
+      cropsData[crop].expense += allocatedMachineCost;
+    });
+
+    // 4. Custos de Pecuária (Ração e Medicamentos)
+    const animalCosts = transactions
+      .filter(t => t.type === 'expense' && (t.category === 'Stock' && (t.description.includes('Ração') || t.description.includes('Medicamento'))))
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    if (animalCosts > 0) {
+      if (!cropsData['Pecuária']) cropsData['Pecuária'] = { name: 'Pecuária', income: 0, expense: 0 };
+      // Somar receitas de animais se existirem (ex: venda de leite/carne)
+      const animalIncome = transactions
+        .filter(t => t.type === 'income' && t.description.includes('Animal'))
+        .reduce((acc, t) => acc + t.amount, 0);
+      cropsData['Pecuária'].income += animalIncome;
+      cropsData['Pecuária'].expense += animalCosts;
+    }
+
+    return Object.values(cropsData).map(c => ({
+      ...c,
+      profit: c.income - c.expense
+    })).sort((a, b) => b.profit - a.profit);
+  }, [transactions, fields]);
+
+  // --- Dados para Gráfico de Distribuição de Custos ---
+  const costDistributionData = useMemo(() => {
+    const categories: Record<string, number> = {};
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+      categories[t.category] = (categories[t.category] || 0) + t.amount;
+    });
+
+    const colors: Record<string, string> = {
+      'Stock': '#3B82F6',
+      'Manutenção': '#F59E0B',
+      'Combustível': '#EF4444',
+      'Campo': '#10B981',
+      'Salários': '#6366F1',
+      'Outro': '#9CA3AF'
+    };
+
+    return Object.entries(categories).map(([name, value]) => ({
+      name,
+      value,
+      color: colors[name] || '#CBD5E1'
+    }));
+  }, [transactions]);
 
   // --- Dados para Gráficos ---
   const chartData = useMemo(() => {
@@ -169,18 +248,18 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
   };
 
   return (
-    <div className="animate-fade-in pb-24 pt-4 px-2">
+    <div className="animate-fade-in pb-24 pt-2 px-2">
 
       {/* 1. Header do Dashboard */}
-      <div className="flex justify-between items-start mb-6 px-2 md:px-4">
+      <div className="flex justify-between items-center mb-4 px-1">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-full text-yellow-600 dark:text-yellow-400">
-              <Coins size={20} />
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="p-1.5 bg-yellow-100 dark:bg-yellow-900/20 rounded-full text-yellow-600 dark:text-yellow-400">
+              <Coins size={16} />
             </div>
-            <h2 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white">Gestão Financeira</h2>
+            <h2 className="text-xl md:text-3xl font-black text-gray-900 dark:text-white">Gestão Financeira</h2>
           </div>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide ml-1">Balanço & Lucros</p>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide ml-1">Balanço & Lucros</p>
         </div>
 
         <div className="flex gap-2">
@@ -188,28 +267,28 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
           <button
             onClick={generateReport}
             disabled={isGeneratingPdf || transactions.length === 0}
-            className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm transition-all active:scale-95 ${transactions.length === 0 ? 'bg-gray-100 text-gray-300' : 'bg-white dark:bg-neutral-800 text-gray-600 dark:text-white hover:text-blue-600'
+            className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm transition-all active:scale-95 ${transactions.length === 0 ? 'bg-gray-100 text-gray-300' : 'bg-white dark:bg-neutral-800 text-gray-600 dark:text-white hover:text-blue-600'
               }`}
             title="Exportar Relatório"
           >
-            {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
+            {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
           </button>
 
           {/* Botão Nova Transação */}
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-10 h-10 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+            className="w-9 h-9 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
           >
-            <Plus size={24} />
+            <Plus size={20} />
           </button>
         </div>
       </div>
 
       {/* 2. Tabs Navegação */}
-      <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-[1.5rem] mb-6">
+      <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-[1.5rem] mb-4">
         <button
           onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-3 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'dashboard'
+          className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'dashboard'
             ? 'bg-white dark:bg-neutral-800 shadow-md text-agro-green dark:text-white scale-[1.02]'
             : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             }`}
@@ -218,7 +297,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex-1 py-3 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'history'
+          className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'history'
             ? 'bg-white dark:bg-neutral-800 shadow-md text-agro-green dark:text-white scale-[1.02]'
             : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             }`}
@@ -232,82 +311,186 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
         <div className="space-y-4 animate-slide-up">
 
           {/* Card Lucro Líquido (Destaque) */}
-          <div className={`relative overflow-hidden rounded-[2.5rem] p-6 text-white shadow-xl transition-all ${metrics.netProfit >= 0
+          <div className={`relative overflow-hidden rounded-[2rem] px-5 py-4 text-white shadow-xl transition-all ${metrics.netProfit >= 0
             ? 'bg-gradient-to-br from-[#3E6837] to-[#2A4825] shadow-green-900/20'
             : 'bg-gradient-to-br from-red-600 to-red-800 shadow-red-900/20'
             }`}>
-            <div className="relative z-10">
-              <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Resultado Líquido</p>
-              <h3 className="text-4xl font-black tracking-tight mb-2">
-                {formatCurrency(metrics.netProfit)}
-              </h3>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/20 backdrop-blur-md rounded-xl text-[10px] font-bold">
-                {metrics.netProfit >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                Margem: {metrics.margin.toFixed(1)}%
+            <div className="relative z-10 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest opacity-70 mb-0.5">Resultado Líquido</p>
+                <h3 className="text-3xl font-black tracking-tight">
+                  {formatCurrency(metrics.netProfit)}
+                </h3>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="inline-flex items-center gap-1 px-2.5 py-1 bg-white/20 backdrop-blur-md rounded-xl text-[10px] font-bold">
+                  {metrics.netProfit >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                  {metrics.margin.toFixed(1)}%
+                </div>
+                <span className="text-[9px] opacity-60 uppercase font-bold tracking-wider">margem</span>
               </div>
             </div>
-            <Wallet className="absolute -right-6 -bottom-6 text-white/10 w-32 h-32 rotate-12" />
+            <Wallet className="absolute -right-4 -bottom-4 text-white/10 w-24 h-24 rotate-12" />
           </div>
 
-          {/* Grelha Balanço (In/Out/Assets) */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-            <div className="bg-white dark:bg-neutral-900 p-5 rounded-[2.2rem] shadow-sm border border-gray-100 dark:border-neutral-800 flex flex-col justify-between">
-              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center text-green-600 mb-3">
-                <ArrowDownRight size={20} />
+          {/* Grelha Balanço (In/Out/Assets) - 3 columns on mobile too */}
+          <div className="grid grid-cols-3 gap-2 md:gap-4">
+            <div className="bg-white dark:bg-neutral-900 p-3 md:p-5 rounded-[1.5rem] md:rounded-[2.2rem] shadow-sm border border-gray-100 dark:border-neutral-800 flex flex-col justify-between">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center text-green-600 mb-2">
+                <ArrowDownRight size={16} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-gray-400">Receitas</p>
-                <p className="text-xl md:text-2xl font-black text-gray-900 dark:text-white">{formatCurrency(metrics.income)}</p>
+                <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-400">Receitas</p>
+                <p className="text-sm md:text-xl font-black text-gray-900 dark:text-white leading-tight">{formatCurrency(metrics.income)}</p>
               </div>
             </div>
-            <div className="bg-white dark:bg-neutral-900 p-5 rounded-[2.2rem] shadow-sm border border-gray-100 dark:border-neutral-800 flex flex-col justify-between">
-              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center text-red-600 mb-3">
-                <ArrowUpRight size={20} />
+            <div className="bg-white dark:bg-neutral-900 p-3 md:p-5 rounded-[1.5rem] md:rounded-[2.2rem] shadow-sm border border-gray-100 dark:border-neutral-800 flex flex-col justify-between">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center text-red-600 mb-2">
+                <ArrowUpRight size={16} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-gray-400">Despesas</p>
-                <p className="text-xl md:text-2xl font-black text-gray-900 dark:text-white">{formatCurrency(metrics.expense)}</p>
+                <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-400">Despesas</p>
+                <p className="text-sm md:text-xl font-black text-gray-900 dark:text-white leading-tight">{formatCurrency(metrics.expense)}</p>
               </div>
             </div>
 
-            {/* Card Valor em Stock (Ativos) - Integrado na grid em Desktop */}
-            <div className="col-span-2 md:col-span-1 bg-gray-100 dark:bg-neutral-800 p-5 rounded-[2.2rem] border border-gray-200 dark:border-neutral-700 flex flex-col justify-between">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center text-blue-600 mb-3">
-                <Package size={20} />
+            {/* Card Valor em Stock */}
+            <div className="bg-gray-100 dark:bg-neutral-800 p-3 md:p-5 rounded-[1.5rem] md:rounded-[2.2rem] border border-gray-200 dark:border-neutral-700 flex flex-col justify-between">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center text-blue-600 mb-2">
+                <Package size={16} />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase text-gray-500 mb-1 flex items-center gap-1">
-                  Valor em Stock
-                </p>
-                <p className="text-xl md:text-2xl font-black text-gray-800 dark:text-white">{formatCurrency(metrics.stockAssetsValue)}</p>
+                <p className="text-[9px] md:text-[10px] font-bold uppercase text-gray-500 mb-0.5">Stock</p>
+                <p className="text-sm md:text-xl font-black text-gray-800 dark:text-white leading-tight">{formatCurrency(metrics.stockAssetsValue)}</p>
               </div>
             </div>
           </div>
 
 
 
-          {/* Gráfico Comparativo */}
-          <div className="bg-white dark:bg-neutral-900 p-6 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-neutral-800">
-            <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-              <BarChartIcon size={16} className="text-gray-400" /> Análise Financeira
-            </h4>
-            <div className="h-48 md:h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barSize={40}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.1} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 'bold', fill: '#9ca3af' }} />
-                  <YAxis hide />
-                  <Tooltip
-                    cursor={{ fill: 'transparent' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Bar dataKey="value" radius={[10, 10, 10, 10]}>
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+          {/* Gráfico de Rentabilidade por Cultura */}
+          <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-neutral-800">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Sprout size={14} className="text-emerald-500" />
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white">Rentabilidade por Cultura</h4>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">Receita</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-[9px] font-bold text-gray-400 uppercase">Custo</span>
+                </div>
+              </div>
+            </div>
+            {cropProfitability.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 opacity-40">
+                <Sprout size={32} className="text-gray-300 mb-2" />
+                <p className="text-xs font-bold text-gray-400">Registe vendas por cultura para ver a rentabilidade</p>
+              </div>
+            ) : (
+              <div className="h-48 md:h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={cropProfitability}
+                    layout="vertical"
+                    margin={{ left: 4, right: 20, top: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} opacity={0.06} />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      axisLine={false}
+                      tickLine={false}
+                      width={72}
+                      tick={{ fontSize: 9, fontWeight: 700, fill: '#9ca3af' }}
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: '11px', padding: '8px 12px' }}
+                      formatter={(value: any) => [formatCurrency(value)]}
+                    />
+                    <Bar dataKey="income" name="Receita" fill="#10B981" radius={[0, 6, 6, 0]} barSize={10} />
+                    <Bar dataKey="expense" name="Custo" fill="#EF4444" radius={[0, 6, 6, 0]} barSize={10} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Gráfico Comparativo Geral */}
+            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-neutral-800">
+              <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-1.5">
+                <BarChartIcon size={13} className="text-gray-400" /> Análise Global
+              </h4>
+              <div className="h-36 md:h-52 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} barSize={32} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.08} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#9ca3af' }} />
+                    <YAxis hide />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(0,0,0,0.03)' }}
+                      contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: '11px', padding: '6px 10px' }}
+                      formatter={(value: any) => [formatCurrency(value)]}
+                    />
+                    <Bar dataKey="value" radius={[8, 8, 8, 8]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Gráfico de Distribuição de Custos */}
+            <div className="bg-white dark:bg-neutral-900 p-4 md:p-6 rounded-[2rem] md:rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-neutral-800">
+              <h4 className="text-xs font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-1.5">
+                <PieChartIcon size={13} className="text-gray-400" /> Distribuição de Custos
+              </h4>
+              {costDistributionData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-36 opacity-40">
+                  <PieChartIcon size={28} className="text-gray-300 mb-2" />
+                  <p className="text-xs font-bold text-gray-400 text-center">Sem despesas registadas</p>
+                </div>
+              ) : (
+                <div className="h-44 md:h-52 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                      <Pie
+                        data={costDistributionData}
+                        cx="50%"
+                        cy="42%"
+                        innerRadius={40}
+                        outerRadius={60}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {costDistributionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: any) => [formatCurrency(value)]}
+                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', fontSize: '11px', padding: '6px 10px' }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        align="center"
+                        iconType="circle"
+                        iconSize={7}
+                        wrapperStyle={{ fontSize: '9px', paddingTop: '4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -315,38 +498,57 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
       {/* --- TAB: HISTÓRICO --- */}
       {activeTab === 'history' && (
-        <div className="space-y-4 animate-slide-up">
+        <div className="space-y-3 animate-slide-up">
+          {/* Summary mini-bar */}
+          <div className="flex gap-2 mb-1">
+            <div className="flex-1 bg-green-50 dark:bg-green-900/10 rounded-2xl px-3 py-2 flex items-center gap-2">
+              <ArrowDownRight size={14} className="text-green-500 shrink-0" />
+              <div>
+                <p className="text-[9px] font-bold uppercase text-green-600/70">Total Receitas</p>
+                <p className="text-xs font-black text-green-700 dark:text-green-400">{formatCurrency(metrics.income)}</p>
+              </div>
+            </div>
+            <div className="flex-1 bg-red-50 dark:bg-red-900/10 rounded-2xl px-3 py-2 flex items-center gap-2">
+              <ArrowUpRight size={14} className="text-red-500 shrink-0" />
+              <div>
+                <p className="text-[9px] font-bold uppercase text-red-600/70">Total Despesas</p>
+                <p className="text-xs font-black text-red-700 dark:text-red-400">{formatCurrency(metrics.expense)}</p>
+              </div>
+            </div>
+          </div>
+
           {transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 opacity-50 text-center">
-              <List size={48} className="text-gray-300 mb-4" />
+              <List size={40} className="text-gray-300 mb-3" />
               <p className="text-sm font-bold text-gray-400">Sem movimentos registados.</p>
             </div>
           ) : (
             <>
-              {/* Mobile/Tablet List View (Hidden on large screens) */}
-              <div className="md:hidden space-y-3">
+              {/* Mobile/Tablet List View */}
+              <div className="md:hidden space-y-2">
                 {[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
-                  <div key={tx.id} className="bg-white dark:bg-neutral-900 p-4 rounded-[2rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center gap-4 active:scale-[0.98] transition-transform">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${tx.type === 'income'
+                  <div key={tx.id} className="bg-white dark:bg-neutral-900 px-3 py-3 rounded-[1.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center gap-3 active:scale-[0.98] transition-transform">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'income'
                       ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
                       : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                       }`}>
-                      {tx.type === 'income' ? <ArrowDownRight size={20} /> : <ArrowUpRight size={20} />}
+                      {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{tx.description}</h4>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-2 py-0.5 rounded-md">
+                      <h4 className="font-bold text-gray-900 dark:text-white text-xs truncate">{tx.description}</h4>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[9px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-md">
                           {tx.category}
                         </span>
-                        <span className="text-[10px] text-gray-400 flex items-center gap-1 font-mono">
-                          {tx.date}
-                        </span>
+                        <span className="text-[9px] text-gray-400 font-mono">{tx.date}</span>
+                        {tx.relatedCrop && (
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-md">🌱 {tx.relatedCrop}</span>
+                        )}
                       </div>
                     </div>
 
-                    <div className={`text-right font-black text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                    <div className={`text-right font-black text-xs shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-gray-800 dark:text-white'}`}>
                       {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                     </div>
                   </div>
