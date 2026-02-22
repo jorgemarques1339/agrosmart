@@ -710,7 +710,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   </button>
                )}
             </div>
-         </div>
+         </motion.div>
 
          {/* --- WEATHER MODAL --- */}
          {

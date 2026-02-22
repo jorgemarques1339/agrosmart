@@ -196,7 +196,6 @@ const MorningBriefingModal: React.FC<MorningBriefingModalProps> = ({
                         Entendido, Continuar
                     </button>
                 </div>
-
             </div>
         </div>
     );
