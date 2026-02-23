@@ -513,6 +513,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             users={users}
             machines={machines}
             fields={fields}
+            stocks={stocks}
             alertCount={alertCount}
             onNavigate={onNavigate}
             onOpenWeather={() => setIsWeatherModalOpen(true)}

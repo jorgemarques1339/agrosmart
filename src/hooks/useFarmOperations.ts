@@ -67,16 +67,20 @@ export const useFarmOperations = (userName: string) => {
             minStock: 0,
             pricePerUnit: 0
         };
+        const field = fields.find(f => f.id === fieldId);
         const harvest: ProductBatch = {
             batchId: data.batchId,
-            crop: fields.find(f => f.id === fieldId)?.crop || 'Desconhecido',
+            crop: field?.crop || 'Desconhecido',
             quantity: data.quantity,
             unit: data.unit,
             harvestDate: data.date,
             origin: 'Quinta do Oriva, Laundos',
-            coordinates: fields.find(f => f.id === fieldId)?.coordinates || [41.442, -8.723],
+            coordinates: field?.coordinates || [41.442, -8.723],
             stats: { sunDays: 0, harvestMethod: 'Manual' },
-            farmerName: userName
+            farmerName: userName,
+            relatedFieldId: fieldId,
+            fieldLogs: field?.logs || [],
+            fieldMetadata: field ? { name: field.name, areaHa: field.areaHa } : undefined
         };
         harvestField(fieldId, stockItem, harvest);
     };

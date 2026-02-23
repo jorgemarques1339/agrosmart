@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, Plus, FileCheck, X, QrCode, Package, Calendar, ArrowRight, Save, MapPin, Navigation, Sparkles } from 'lucide-react';
+import { Wifi, Plus, FileCheck, X, QrCode, Package, Calendar, ArrowRight, Save, MapPin, Navigation, Sparkles, FileText } from 'lucide-react';
 import { Field, StockItem, Employee, ProductBatch, FieldLog, Sensor } from '../types';
 import { CROP_TYPES } from '../constants';
 import FieldCard from './FieldCard';
@@ -7,7 +7,8 @@ import FieldNotebook from './FieldNotebook';
 import IoTPairingWizard from './IoTPairingWizard';
 import RouteOptimizationModal from './RouteOptimizationModal';
 import { useStore } from '../store/useStore';
-
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { motion } from 'framer-motion';
 
 interface CultivationViewProps {
@@ -63,6 +64,68 @@ const CultivationView: React.FC<CultivationViewProps> = ({
         setChildModalOpen(isModalOpen || isNotebookOpen || showIoTWizard || anyFieldOpen || showHistoryModal || showRouteOptimizer);
         return () => setChildModalOpen(false);
     }, [isModalOpen, isNotebookOpen, showIoTWizard, anyFieldOpen, showHistoryModal, showRouteOptimizer, setChildModalOpen]);
+
+    const generateHarvestJournalPDF = (batch: ProductBatch) => {
+        const doc = new jsPDF();
+
+        // Header
+        doc.setFontSize(22);
+        doc.setTextColor(62, 104, 55);
+        doc.text("DIÁRIO DE CULTIVO", 105, 20, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Lote: ${batch.batchId}`, 105, 26, { align: 'center' });
+        doc.line(14, 30, 196, 30);
+
+        // Batch Info
+        doc.setFontSize(12);
+        doc.setTextColor(0);
+        doc.setFont("helvetica", "bold");
+        doc.text("Informação do Lote:", 14, 40);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Cultura: ${batch.crop}`, 14, 48);
+        doc.text(`Quantidade: ${batch.quantity} ${batch.unit}`, 14, 54);
+        doc.text(`Data de Colheita: ${new Date(batch.harvestDate).toLocaleDateString()}`, 14, 60);
+        doc.text(`Origem: ${batch.origin}`, 14, 66);
+
+        if (batch.fieldMetadata) {
+            doc.text(`Parcela Original: ${batch.fieldMetadata.name}`, 110, 48);
+            doc.text(`Área: ${batch.fieldMetadata.areaHa} ha`, 110, 54);
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.text("REGISTOS DE CAMPO (CADERNO DE CAMPO)", 14, 80);
+
+        // Table of Logs
+        const logs = batch.fieldLogs || [];
+        const tableRows = logs.map(log => [
+            new Date(log.date).toLocaleDateString(),
+            log.type.toUpperCase(),
+            log.description,
+            log.operator || 'N/A',
+            log.productName || '-'
+        ]);
+
+        autoTable(doc, {
+            startY: 85,
+            head: [['Data', 'Tipo', 'Descrição', 'Operador', 'Produto']],
+            body: tableRows,
+            theme: 'grid',
+            headStyles: { fillColor: [62, 104, 55] },
+            styles: { fontSize: 8 }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 15;
+        doc.setFontSize(8);
+        doc.setTextColor(150);
+        doc.text("Documento gerado automaticamente pelo Sistema OrivaSmart Traceability.", 14, finalY);
+        doc.text("Assinatura do Responsável Técnico: ___________________________", 14, finalY + 10);
+
+        doc.save(`Diario_Cultivo_${batch.batchId}.pdf`);
+    };
 
     const handleSubmit = () => {
         if (newName && newArea) {
@@ -202,31 +265,45 @@ const CultivationView: React.FC<CultivationViewProps> = ({
 
                         <div className="space-y-4">
                             {harvests.slice().reverse().map((batch) => (
-                                <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-center gap-4">
-                                    <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm">
+                                <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-start gap-4">
+                                    <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm shrink-0">
                                         <QrCode size={24} />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
-                                        <p className="text-[10px] text-gray-400 font-mono mb-1">{batch.batchId}</p>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded flex items-center gap-1">
-                                                <Package size={10} /> {batch.quantity} {batch.unit}
+                                        <div className="flex justify-between items-start gap-2 mb-2">
+                                            <div className="min-w-0">
+                                                <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
+                                                <p className="text-[10px] text-gray-400 font-mono italic truncate">{batch.batchId}</p>
+                                            </div>
+                                            <div className="flex gap-2 shrink-0">
+                                                <button
+                                                    onClick={() => {
+                                                        setShowHistoryModal(false);
+                                                        onViewTraceability(batch);
+                                                    }}
+                                                    className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
+                                                    title="Passaporte"
+                                                >
+                                                    <QrCode size={18} />
+                                                </button>
+                                                <button
+                                                    onClick={() => generateHarvestJournalPDF(batch)}
+                                                    className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-blue-500 shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
+                                                    title="Histórico PDF"
+                                                >
+                                                    <FileText size={18} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            <span className="text-[10px] font-bold bg-green-100/50 text-green-700 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200/50 dark:border-green-800/20 flex items-center gap-1.5 leading-none h-6">
+                                                <Package size={12} /> {batch.quantity} {batch.unit}
                                             </span>
-                                            <span className="text-[10px] font-bold bg-gray-200 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded flex items-center gap-1">
-                                                <Calendar size={10} /> {new Date(batch.harvestDate).toLocaleDateString()}
+                                            <span className="text-[10px] font-bold bg-gray-200/50 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-lg border border-gray-300/30 dark:border-white/10 flex items-center gap-1.5 leading-none h-6">
+                                                <Calendar size={12} /> {new Date(batch.harvestDate).toLocaleDateString()}
                                             </span>
                                         </div>
                                     </div>
-                                    <button
-                                        onClick={() => {
-                                            setShowHistoryModal(false);
-                                            onViewTraceability(batch);
-                                        }}
-                                        className="p-3 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600"
-                                    >
-                                        <ArrowRight size={20} />
-                                    </button>
                                 </div>
                             ))}
                         </div>

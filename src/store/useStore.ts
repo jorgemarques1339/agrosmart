@@ -158,6 +158,20 @@ export const useStore = create<AppState>()((...a) => ({
             await db.machines.update(demoMachine.id, { isobusData: demoIsoData });
         }
 
+        // [AUTO-PATCH] Ensure Oliva exists in stock with "Colheita" category for demo
+        const olivaStock = stocks.find(s => s.name.toLowerCase().includes('oliva') || s.name.toLowerCase().includes('azeitona'));
+        if (!olivaStock) {
+            const mockOliva = {
+                id: 's-mock-oliva', name: 'Oliva (Azeitona)', category: 'Colheita' as any,
+                quantity: 5000, unit: 'kg', minStock: 0, pricePerUnit: 3.84, updatedAt: new Date().toISOString()
+            };
+            await db.stocks.add(mockOliva);
+            stocks.push(mockOliva);
+        } else if (olivaStock.category.toLowerCase() !== 'colheita') {
+            olivaStock.category = 'Colheita' as any;
+            await db.stocks.update(olivaStock.id, { category: 'Colheita' });
+        }
+
         // [AUTO-PATCH] Ensure Carrinha da Quinta (m2) is UNCONFIGURED for demo purposes
         const exampleMachine = machines.find(m => m.id === 'm2' || m.name === 'Carrinha da Quinta');
         if (exampleMachine && exampleMachine.isobusData) {

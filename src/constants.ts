@@ -188,6 +188,7 @@ export const MOCK_STATE: AppState = {
     { id: 's2', name: 'Semente Milho Bayer', category: 'Semente', quantity: 8, unit: 'sacos', minStock: 10, pricePerUnit: 85.00 },
     { id: 's3', name: 'Gasóleo Agrícola', category: 'Combustível', quantity: 240, unit: 'L', minStock: 100, pricePerUnit: 1.15, supplier: 'AgroComb, Lda', dailyUsage: 50 },
     { id: 's4', name: 'Ração Engorda Bovinos', category: 'Ração', quantity: 120, unit: 'kg', minStock: 100, pricePerUnit: 0.45, supplier: 'Raçōes do Norte, S.A.', supplierEmail: 'encomendas@racoesdonorte.pt', dailyUsage: 35 },
+    { id: 's5', name: 'Oliva (Azeitona)', category: 'Colheita', quantity: 5000, unit: 'kg', minStock: 0, pricePerUnit: 3.84 },
   ],
   transactions: MOCK_TRANSACTIONS,
   machines: [

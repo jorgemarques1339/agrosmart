@@ -1,11 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Minus, AlertTriangle, TrendingUp, Zap, Droplets, Leaf, Info, X, Save, Package, Warehouse, Truck } from 'lucide-react';
 import clsx from 'clsx';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { StockItem } from '../types';
 import { useStore } from '../store/useStore';
+import { MOCK_MARKET_DATA } from './MarketPrices';
 
 interface StockManagerProps {
   stocks: StockItem[];
@@ -137,10 +138,33 @@ const EliteSilo = ({ item, onUpdate }: { item: StockItem; onUpdate: (delta: numb
           </motion.div>
         </div>
 
-        <div className="absolute bottom-2 left-0 w-full text-center z-30">
+        <div className="absolute bottom-2 left-0 w-full text-center z-30 flex flex-col items-center">
           <span className="text-sm md:text-xl font-black text-white drop-shadow-md tracking-tighter">
             {Math.round(fillPercentage)}<span className="text-[10px] md:text-xs align-top">%</span>
           </span>
+          {/* Valuation in Silo */}
+          {(() => {
+            const marketMatch = MOCK_MARKET_DATA.find(m => {
+              const itemName = item.name.toLowerCase();
+              const marketName = m.name.toLowerCase();
+              const marketFirstWord = marketName.split(' ')[0];
+              const itemFirstWord = itemName.split(' ')[0];
+
+              return itemName.includes(marketFirstWord) ||
+                marketName.includes(itemFirstWord) ||
+                (itemName.includes('oliva') && marketName.includes('azeitona')) ||
+                (itemName.includes('azeitona') && marketName.includes('oliva'));
+            });
+            if (marketMatch && item.category.toLowerCase() === 'colheita') {
+              const val = (item.quantity / 1000) * marketMatch.price;
+              return (
+                <span className="text-[7px] md:text-[9px] font-black text-emerald-300 drop-shadow-md bg-black/20 px-1 rounded mt-0.5">
+                  {val.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                </span>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 
@@ -231,6 +255,28 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
             </button>
             <div className="text-center">
               <span className="text-3xl font-black text-gray-900 dark:text-white block leading-none">{item.quantity}</span>
+              {(() => {
+                const marketMatch = MOCK_MARKET_DATA.find(m => {
+                  const itemName = item.name.toLowerCase();
+                  const marketName = m.name.toLowerCase();
+                  const marketFirstWord = marketName.split(' ')[0];
+                  const itemFirstWord = itemName.split(' ')[0];
+
+                  return itemName.includes(marketFirstWord) ||
+                    marketName.includes(itemFirstWord) ||
+                    (itemName.includes('oliva') && marketName.includes('azeitona')) ||
+                    (itemName.includes('azeitona') && marketName.includes('oliva'));
+                });
+                if (marketMatch && item.category.toLowerCase() === 'colheita') {
+                  const val = (item.quantity / 1000) * marketMatch.price;
+                  return (
+                    <span className="text-[10px] font-bold text-emerald-500 block mt-1">
+                      Valor Total: {val.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <button
               onClick={() => onUpdate(10)}
@@ -341,9 +387,28 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
   );
 };
 
-// --- COMPACT VISUAL ROW (NAME + CATEGORY ONLY) ---
-// User request: "fique somente o nome do produto e a categoria"
 const InventoryRow = ({ item, onClick }: { item: StockItem; onClick: () => void }) => {
+  const marketMatch = MOCK_MARKET_DATA.find(m => {
+    const itemName = item.name.toLowerCase();
+    const marketName = m.name.toLowerCase();
+    const marketFirstWord = marketName.split(' ')[0];
+    const itemFirstWord = itemName.split(' ')[0];
+
+    return itemName.includes(marketFirstWord) ||
+      marketName.includes(itemFirstWord) ||
+      (itemName.includes('oliva') && marketName.includes('azeitona')) ||
+      (itemName.includes('azeitona') && marketName.includes('oliva'));
+  });
+
+  const valuation = useMemo(() => {
+    // Robust category check (case-insensitive)
+    if (marketMatch && item.category.toLowerCase() === 'colheita') {
+      // Assuming market price in €/ton and quantity in kg (ton = 1000kg)
+      return (item.quantity / 1000) * marketMatch.price;
+    }
+    return null;
+  }, [item, marketMatch]);
+
   return (
     <div
       onClick={onClick}
@@ -356,7 +421,14 @@ const InventoryRow = ({ item, onClick }: { item: StockItem; onClick: () => void 
               <Leaf size={20} />}
         </div>
         <div>
-          <h4 className="font-bold text-gray-900 dark:text-white text-sm md:text-lg leading-tight group-hover:text-agro-green transition-colors">{item.name}</h4>
+          <h4 className="font-bold text-gray-900 dark:text-white text-sm md:text-lg leading-tight group-hover:text-agro-green transition-colors flex items-center gap-2">
+            {item.name}
+            {valuation !== null && (
+              <span className="text-[10px] md:text-xs font-black text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                {valuation.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+              </span>
+            )}
+          </h4>
           <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wide">{item.category}</p>
         </div>
       </div>

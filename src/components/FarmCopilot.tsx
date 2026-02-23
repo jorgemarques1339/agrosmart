@@ -1,9 +1,11 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import {
     Sparkles, ShieldAlert, CloudRain, Wind,
-    Thermometer, CheckCircle, TrendingUp, ChevronRight, Activity, Tractor, Droplets, Sun
+    Thermometer, CheckCircle, TrendingUp, ChevronRight, Activity, Tractor, Droplets, Sun,
+    SprayCan, Zap, Leaf, Wallet
 } from 'lucide-react';
-import { WeatherForecast, DetailedForecast, Task, UserProfile, Machine, Field } from '../types';
+import { WeatherForecast, DetailedForecast, Task, UserProfile, Machine, Field, StockItem } from '../types';
+import { MOCK_MARKET_DATA } from './MarketPrices';
 
 interface FarmCopilotProps {
     userName: string;
@@ -13,6 +15,7 @@ interface FarmCopilotProps {
     users: UserProfile[];
     machines: Machine[];
     fields: Field[];
+    stocks: StockItem[];
     alertCount: number;
     onNavigate: (tab: string) => void;
     onOpenWeather: () => void;
@@ -37,6 +40,7 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
     users,
     machines,
     fields,
+    stocks,
     alertCount,
     onNavigate,
     onOpenWeather,
@@ -62,7 +66,29 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
             action: onOpenBriefing
         });
 
-        // 1. Safety Alerts (Urgent)
+        // 1. Market Opportunities (High Value Dynamic)
+        stocks.forEach(s => {
+            if (s.category === 'Colheita' && s.quantity > 0) {
+                const marketMatch = MOCK_MARKET_DATA.find(m =>
+                    s.name.toLowerCase().includes(m.name.toLowerCase().split(' ')[0]) ||
+                    m.name.toLowerCase().includes(s.name.toLowerCase().split(' ')[0])
+                );
+
+                if (marketMatch && marketMatch.change > 1.5) {
+                    generatedInsights.push({
+                        id: `market-opp-${s.id}`,
+                        type: 'success',
+                        title: 'Oportunidade de Venda',
+                        description: `O preço de ${s.name} subiu ${marketMatch.change}% no mercado. Altura ideal para vender stock.`,
+                        icon: <TrendingUp size={20} className="text-emerald-500" />,
+                        actionLabel: 'Ver Mercados',
+                        action: () => onNavigate('dashboard') // Markets modal is on dashboard
+                    });
+                }
+            }
+        });
+
+        // 2. Safety Alerts (Urgent)
         const emergencyUsers = users.filter(u => u.safetyStatus?.status === 'emergency');
         if (emergencyUsers.length > 0) {
             generatedInsights.push({
@@ -75,6 +101,7 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
                 action: () => onNavigate('team')
             });
         }
+        // ... rest of file (kept simple for tool call)
 
         // 2. Proactive Maintenance (Machine Data)
         machines.forEach(m => {
@@ -134,7 +161,51 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
             });
         }
 
-        // 5. Task Management
+        // 5. Agronomist Advisor (Custom Specialized Logic)
+        const currentMonth = new Date().getMonth(); // 0-11 (Jan is 0)
+
+        fields.forEach(f => {
+            // Rule 1: Olive Grove Pest Risk (Sept-Oct)
+            if (f.crop === 'Olival' && (currentMonth === 8 || currentMonth === 9)) {
+                generatedInsights.push({
+                    id: `agronomic-pest-${f.id}`,
+                    type: 'suggestion',
+                    title: 'Conselho de Agrónomo: Olival',
+                    description: `Risco elevado de Mosca da Oliveira na parcela ${f.name}. Use armadilhas biológicas ou iscos amarelados.`,
+                    icon: <SprayCan size={20} className="text-emerald-500" />,
+                    actionLabel: 'Ver Detalhes',
+                    action: () => onNavigate('dashboard')
+                });
+            }
+
+            // Rule 2: NDVI Vigor Investigation
+            if (f.currentNdvi !== undefined && f.currentNdvi < 0.45) {
+                generatedInsights.push({
+                    id: `agronomic-ndvi-${f.id}`,
+                    type: 'warning',
+                    title: 'Conselho: Quebra de Vigor',
+                    description: `NDVI crítico (${f.currentNdvi}) na parcela ${f.name}. Verifique possíveis ataques de pragas ou stress radicular.`,
+                    icon: <Zap size={20} className="text-amber-500" />,
+                    actionLabel: 'Investigar',
+                    action: () => onNavigate('dashboard')
+                });
+            }
+
+            // Rule 3: Post-Harvest Vigor (Vineyard)
+            if (f.crop === 'Vinha' && currentMonth >= 9 && currentMonth <= 11) {
+                generatedInsights.push({
+                    id: `agronomic-vine-${f.id}`,
+                    type: 'suggestion',
+                    title: 'Conselho: Pós-Vindima',
+                    description: `Momento ideal para adubação de fundo na ${f.name}. Garanta reservas para o próximo ciclo.`,
+                    icon: <Leaf size={20} className="text-agro-green" />,
+                    actionLabel: 'Planear',
+                    action: () => onNavigate('tasks')
+                });
+            }
+        });
+
+        // 6. Task Management
         const pendingTasks = tasks.filter(t => !t.completed);
         if (pendingTasks.length > 0) {
             generatedInsights.push({

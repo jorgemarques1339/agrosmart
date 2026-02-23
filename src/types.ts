@@ -218,6 +218,8 @@ export interface Field {
   sensors?: Sensor[]; // Connected IoT Devices
   missions?: Mission[]; // Autonomous Missions (Drones/Robots)
   slope?: number; // Average terrain slope in degrees
+  currentNdvi?: number; // 0.0 - 1.0 from Sentinel-2
+  ndviHistory?: { date: string; value: number }[]; // Satellite vigor history
   updatedAt?: string;
 }
 
@@ -375,6 +377,9 @@ export interface ProductBatch {
   };
   farmerName: string;
   imageUrl?: string;
+  relatedFieldId?: string; // New: Link to field for traceability
+  fieldLogs?: FieldLog[]; // New: Archive of field logs
+  fieldMetadata?: { name: string, areaHa: number }; // New: Archive of field metadata
   updatedAt?: string;
 }
 

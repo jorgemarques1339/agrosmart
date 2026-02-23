@@ -98,7 +98,7 @@ const App = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const batchId = params.get('batch');
+    const batchId = params.get('batchId');
     if (batchId) {
       setViewMode('public');
       setPublicBatchId(batchId);
@@ -116,7 +116,7 @@ const App = () => {
 
   // Render Public Page if requested
   if (viewMode === 'public' && publicBatchId) {
-    return <PublicProductPage batchId={publicBatchId} />;
+    return <PublicProductPage batchId={publicBatchId} harvests={harvests} fields={fields} />;
   }
 
   // Render Auth if not logged in

@@ -17,7 +17,7 @@ interface MarketPricesProps {
 }
 
 // Mock Data representing real-time API response from Euronext/SIMA
-const MOCK_MARKET_DATA: MarketPrice[] = [
+export const MOCK_MARKET_DATA: MarketPrice[] = [
     {
         id: '1',
         name: 'Trigo Panificável (Euronext)',
@@ -67,6 +67,23 @@ const MOCK_MARKET_DATA: MarketPrice[] = [
             { date: '15 Fev', price: 188.2 },
             { date: '16 Fev', price: 187.8 },
             { date: '17 Fev', price: 188 },
+        ]
+    },
+    {
+        id: '4',
+        name: 'Oliva / Azeitona (Euronext)',
+        price: 3000.00,
+        change: 2.15,
+        unit: '€/ton',
+        market: 'Euronext',
+        lastUpdate: new Date().toISOString(),
+        history: [
+            { date: '12 Fev', price: 2900 },
+            { date: '13 Fev', price: 2950 },
+            { date: '14 Fev', price: 2920 },
+            { date: '15 Fev', price: 2980 },
+            { date: '16 Fev', price: 2990 },
+            { date: '17 Fev', price: 3000.00 },
         ]
     }
 ];
