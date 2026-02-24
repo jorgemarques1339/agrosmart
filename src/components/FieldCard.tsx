@@ -217,6 +217,40 @@ const LOG_TYPE_COLOR: Record<string, string> = {
   harvest: 'bg-yellow-500',
 };
 
+const SensorItem = ({ sensor }: { sensor: Sensor }) => {
+  const Icon = sensor.type === 'moisture' ? Droplets : sensor.type === 'weather' ? CloudSun : sensor.type === 'valve' ? Radio : Camera;
+  const statusColor = sensor.status === 'online' ? 'text-green-500' : sensor.status === 'offline' ? 'text-gray-400' : 'text-blue-500';
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm group hover:border-agro-green/30 transition-all">
+      <div className={clsx("p-3 rounded-xl bg-gray-50 dark:bg-neutral-700", statusColor)}>
+        <Icon size={20} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-center mb-0.5">
+          <h5 className="font-bold text-sm text-gray-900 dark:text-white truncate">{sensor.name}</h5>
+          <span className={clsx("text-[9px] font-black uppercase tracking-widest", statusColor)}>
+            {sensor.status}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase">
+            <Battery size={10} className={sensor.batteryLevel < 20 ? 'text-red-500' : 'text-gray-400'} />
+            {sensor.batteryLevel}%
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase">
+            <Signal size={10} className="text-blue-500" />
+            {sensor.signalStrength}%
+          </div>
+          <span className="text-[9px] text-gray-300 dark:text-neutral-600 font-mono italic truncate">
+            {sensor.id}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const GalleryTab = ({ field, onAddPhoto }: { field: Field; onAddPhoto: () => void }) => {
   const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
 
@@ -743,22 +777,70 @@ const FieldCard: React.FC<FieldCardProps> = ({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white dark:bg-neutral-900 p-5 rounded-[1.5rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between min-h-[140px]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Vigor Card */}
+                        <div className="bg-white dark:bg-neutral-900 p-4 sm:p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between shadow-sm">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2"><Leaf className="text-green-500" size={18} /><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vigor (NDVI)</span></div>
-                            <button onClick={() => setShowNDVILayer(!showNDVILayer)} className={clsx("px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all", showNDVILayer ? "bg-green-600 text-white" : "bg-gray-100 dark:bg-white/5 text-gray-500")}>NDVI</button>
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-xl">
+                                <Leaf className="text-green-500" size={16} />
+                              </div>
+                              <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Vigor (NDVI)</span>
+                            </div>
+                            <button
+                              onClick={() => setShowNDVILayer(!showNDVILayer)}
+                              className={clsx(
+                                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase transition-all shadow-sm border",
+                                showNDVILayer
+                                  ? "bg-agro-green text-white border-transparent"
+                                  : "bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-100 dark:border-white/5"
+                              )}
+                            >
+                              Satelital
+                            </button>
                           </div>
-                          <div className="flex items-baseline gap-2 mt-4">
-                            <span className="text-5xl font-black text-gray-900 dark:text-white">0.86</span>
-                            <span className="text-xs font-bold text-emerald-500 uppercase">Ótimo</span>
+                          <div className="flex items-baseline gap-2 sm:gap-3 mt-4 sm:mt-6">
+                            <span className="text-4xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tighter">0.86</span>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] sm:text-xs font-black text-emerald-500 uppercase italic">Excelente</span>
+                              <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase mt-0.5">Sem Stress</span>
+                            </div>
                           </div>
                         </div>
-                        <div className="bg-white dark:bg-neutral-900 p-5 rounded-[1.5rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between">
-                          <div className="flex items-center gap-2"><Droplets className="text-blue-500" size={18} /><span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Humidade Solo</span></div>
-                          <div className="flex items-baseline gap-2 mt-4">
-                            <span className="text-5xl font-black text-gray-900 dark:text-white">{field.humidity}%</span>
-                            <span className="text-xs font-bold text-blue-500 uppercase">Ideal</span>
+
+                        {/* IoT Devices Card */}
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between px-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                                <Radio size={14} className="text-blue-500" />
+                              </div>
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispositivos IoT</h4>
+                            </div>
+                            <button
+                              onClick={() => setShowAutomationHub(true)}
+                              className="text-[10px] font-black text-agro-green uppercase hover:underline"
+                            >
+                              Automação
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {(!field.sensors || field.sensors.length === 0) ? (
+                              <div className="bg-white dark:bg-neutral-900 p-8 rounded-3xl border border-dashed border-gray-200 dark:border-white/10 flex flex-col items-center text-center gap-3 shadow-sm">
+                                <div className="p-3 bg-gray-50 dark:bg-neutral-800 rounded-2xl text-gray-300">
+                                  <Signal size={24} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Nenhum sensor ligado</p>
+                                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tight">Instale hardware para telemetria local</p>
+                                </div>
+                              </div>
+                            ) : (
+                              field.sensors.map(sensor => (
+                                <SensorItem key={sensor.id} sensor={sensor} />
+                              ))
+                            )}
                           </div>
                         </div>
                       </div>
