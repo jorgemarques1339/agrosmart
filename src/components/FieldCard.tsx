@@ -19,6 +19,7 @@ import clsx from 'clsx';
 import { Field, FieldLog, StockItem, Sensor } from '../types';
 import PestDetection from './PestDetection';
 import SoilScanner from './SoilScanner';
+import ARFieldScouting from './ARFieldScouting';
 import AutomationHub from './AutomationHub';
 import HarvestModal from './HarvestModal';
 import FieldRegistryModal, { RegistryType } from './FieldRegistryModal';
@@ -392,7 +393,7 @@ const FieldCard: React.FC<FieldCardProps> = ({
   const { setChildModalOpen } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions' | 'twin'>('sensors');
-  const [aiMode, setAiMode] = useState<'pests' | 'soil'>('pests');
+  const [aiMode, setAiMode] = useState<'pests' | 'soil' | 'ar'>('pests');
   const [isLoadingIoT, setIsLoadingIoT] = useState(false);
   const [showAutomationHub, setShowAutomationHub] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
@@ -872,6 +873,7 @@ const FieldCard: React.FC<FieldCardProps> = ({
                         <div className="bg-gray-100 dark:bg-neutral-900 p-1 rounded-2xl inline-flex gap-1">
                           <button onClick={() => setAiMode('pests')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'pests' ? "bg-white dark:bg-neutral-800 text-agro-green" : "text-gray-400")}>Pragas</button>
                           <button onClick={() => setAiMode('soil')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'soil' ? "bg-white dark:bg-neutral-800 text-blue-500" : "text-gray-400")}>Solo</button>
+                          <button onClick={() => setAiMode('ar')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'ar' ? "bg-white dark:bg-neutral-800 text-purple-500" : "text-gray-400")}>AR</button>
                         </div>
                       </div>
                       <AnimatePresence mode="wait">
@@ -879,9 +881,13 @@ const FieldCard: React.FC<FieldCardProps> = ({
                           <motion.div key="pests" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                             <PestDetection diseaseRisk={diseaseRisk} onSaveDiagnostic={(d) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `AI Scan: ${d.disease?.name}`, operator: 'AI', target: d.disease?.name, attachments: [] })} />
                           </motion.div>
-                        ) : (
+                        ) : aiMode === 'soil' ? (
                           <motion.div key="soil" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                             <SoilScanner onSaveAnalysis={(r) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `Solo: N:${r.npk.n}`, operator: 'AI', target: 'Nutrientes', attachments: [] })} />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="ar" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                            <ARFieldScouting field={field} onSaveCapture={(img) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `AR Scouting Capture`, operator: 'AR', target: 'Telemetria Campo', attachments: [img] })} />
                           </motion.div>
                         )}
                       </AnimatePresence>
