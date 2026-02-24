@@ -808,19 +808,60 @@ const FieldCard: React.FC<FieldCardProps> = ({
 
                   {activeTab === 'journal' && (
                     <motion.div key="journal" className="space-y-4">
-                      {field.logs.slice().reverse().map(log => (
-                        <div key={log.id} className="bg-white dark:bg-neutral-900 p-6 rounded-3xl border border-gray-100 dark:border-white/5 flex gap-4">
-                          <div className={`w-1 h-full rounded-full ${LOG_TYPE_COLOR[log.type] || 'bg-gray-400'}`} />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.date}</span>
-                              <span className="text-[10px] font-black uppercase bg-gray-50 dark:bg-white/5 px-2 py-0.5 rounded">{log.type}</span>
-                            </div>
-                            <h4 className="font-bold text-gray-900 dark:text-white mb-1">{log.productName || log.description}</h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{log.description}</p>
+                      {/* Journal Header with Export */}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-blue-500/10 rounded-xl">
+                            <FileText size={16} className="text-blue-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-gray-900 dark:text-white">Diário de Operações</h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                              {field.logs?.length || 0} registo{(field.logs?.length || 0) !== 1 ? 's' : ''} efetuado{(field.logs?.length || 0) !== 1 ? 's' : ''}
+                            </p>
                           </div>
                         </div>
-                      ))}
+                        <button
+                          onClick={handleExportDGAV}
+                          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-neutral-800 border border-gray-100 dark:border-white/5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-neutral-700 transition-all active:scale-95"
+                        >
+                          <Download size={14} /> <span className="hidden sm:inline">Exportar DGAV</span>
+                        </button>
+                      </div>
+
+                      {(!field.logs || field.logs.length === 0) ? (
+                        <div className="text-center py-20 flex flex-col items-center gap-4 bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-white/5">
+                          <div className="w-20 h-20 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center">
+                            <FileText size={36} className="text-gray-300 dark:text-neutral-700" />
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-500 text-sm mb-1">Sem registos no diário</p>
+                            <p className="text-[11px] text-gray-400">Adicione uma operação para<br />ver o histórico aqui.</p>
+                          </div>
+                          <button
+                            onClick={() => setShowActionMenu(true)}
+                            className="px-6 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-green/20"
+                          >
+                            Novo Registo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {field.logs.slice().reverse().map(log => (
+                            <div key={log.id} className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-gray-100 dark:border-white/5 flex gap-4 items-stretch group hover:border-agro-green/30 transition-colors">
+                              <div className={`w-1.5 rounded-full ${LOG_TYPE_COLOR[log.type] || 'bg-gray-400'} shadow-sm`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.date}</span>
+                                  <span className="text-[9px] font-black uppercase bg-gray-50 dark:bg-white/5 px-2 py-0.5 rounded text-gray-500 dark:text-gray-400">{log.type}</span>
+                                </div>
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate">{log.productName || log.description}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{log.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   )}
 
