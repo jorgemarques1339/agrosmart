@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { Field, DetailedForecast } from '../types';
 import { calculateIrrigationNeed } from '../utils/irrigationModel';
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { haptics } from '../utils/haptics';
 
 interface IrrigationTwinProps {
     field: Field;
@@ -16,6 +17,9 @@ interface IrrigationTwinProps {
 
 const IrrigationTwin: React.FC<IrrigationTwinProps> = ({ field, forecast, onApplyIrrigation }) => {
     const recommendation = useMemo(() => calculateIrrigationNeed(field, forecast), [field, forecast]);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+    const x = useMotionValue(0);
+    const background = useTransform(x, [0, 200], ['rgba(255,255,255,0.05)', 'rgba(59,130,246,0.5)']);
 
     const getStressColor = (stress: number) => {
         if (stress < 30) return 'bg-emerald-500';
@@ -91,20 +95,39 @@ const IrrigationTwin: React.FC<IrrigationTwinProps> = ({ field, forecast, onAppl
                     </div>
                 </div>
 
-                <button
-                    onClick={() => onApplyIrrigation(recommendation.minutes)}
-                    disabled={recommendation.minutes <= 0}
-                    className={`w-full mt-3 md:mt-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9px] md:text-sm shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${recommendation.minutes > 0
-                        ? 'bg-white text-blue-600 hover:bg-blue-50'
-                        : 'bg-white/10 text-white/50 cursor-not-allowed border border-white/10'
-                        }`}
-                >
-                    {recommendation.minutes > 0 ? (
-                        <>Executar Rega <Clock size={16} /></>
-                    ) : (
-                        <>Hidratação Ideal <CheckCircle2 size={16} /></>
-                    )}
-                </button>
+                {recommendation.minutes > 0 ? (
+                    <motion.div
+                        ref={containerRef}
+                        style={{ background }}
+                        className="w-full mt-3 md:mt-6 h-12 md:h-14 rounded-xl md:rounded-2xl relative overflow-hidden flex items-center border border-white/20 shadow-inner"
+                    >
+                        <div className="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs font-black uppercase tracking-widest text-white/70 pointer-events-none drop-shadow-md">
+                            Deslizar para Regar &raquo;
+                        </div>
+                        <motion.div
+                            drag="x"
+                            dragConstraints={{ left: 0, right: 0 }}
+                            dragElastic={{ left: 0, right: 1 }}
+                            style={{ x }}
+                            onDragEnd={(_e, info) => {
+                                const containerWidth = containerRef.current?.offsetWidth || 300;
+                                if (info.offset.x > containerWidth * 0.6) {
+                                    haptics.success();
+                                    onApplyIrrigation(recommendation.minutes);
+                                }
+                            }}
+                            className="h-full w-16 md:w-20 bg-white rounded-xl md:rounded-2xl flex items-center justify-center shadow-2xl cursor-grab active:cursor-grabbing relative z-10 hover:scale-[1.02] transition-transform"
+                        >
+                            <Droplets className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
+                        </motion.div>
+                    </motion.div>
+                ) : (
+                    <div
+                        className="w-full mt-3 md:mt-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9px] md:text-sm bg-white/10 text-white/50 cursor-not-allowed border border-white/10 flex items-center justify-center gap-2"
+                    >
+                        Hidratação Ideal <CheckCircle2 size={16} />
+                    </div>
+                )}
             </div>
 
             {/* 2. SATELLITE MONITORING & STRESS DASHBOARD */}

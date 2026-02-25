@@ -110,7 +110,7 @@ export const useStore = create<AppState>()((...a) => ({
             }
         }
 
-        let [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems] = await Promise.all([
+        let [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = await Promise.all([
             db.fields.toArray(),
             db.stocks.toArray(),
             db.animals.toArray(),
@@ -122,6 +122,7 @@ export const useStore = create<AppState>()((...a) => ({
             db.harvests.toArray(),
             db.animalBatches.toArray(),
             db.feed.toArray(),
+            db.sessions.toArray(),
         ]);
 
         // [AUTO-PATCH] Ensure Trator Principal (m1) has ISO-BUS data for demo
@@ -238,8 +239,7 @@ export const useStore = create<AppState>()((...a) => ({
                 ]);
             }
 
-            // Re-fetch arrays
-            [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems] = await Promise.all([
+            [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = await Promise.all([
                 db.fields.toArray(),
                 db.stocks.toArray(),
                 db.animals.toArray(),
@@ -251,6 +251,7 @@ export const useStore = create<AppState>()((...a) => ({
                 db.harvests.toArray(),
                 db.animalBatches.toArray(),
                 db.feed.toArray(),
+                db.sessions.toArray(),
             ]);
 
             // Ensure master user exists
@@ -278,6 +279,7 @@ export const useStore = create<AppState>()((...a) => ({
 
         set({
             fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems,
+            activeSession: activeSessions.length > 0 ? activeSessions[0] : null,
             isHydrated: true
         });
     },

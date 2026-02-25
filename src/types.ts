@@ -46,6 +46,17 @@ export interface UserProfile {
     batteryLevel?: number;
   };
   updatedAt?: string;
+  hourlyRate?: number; // Custo por hora em € para este utilizador específico
+}
+
+export interface WorkSession {
+  id: string;
+  userId: string;
+  fieldId: string;
+  startTime: string; // ISO Timestamp
+  pausedTimes?: { start: string, end?: string }[];
+  status: 'active' | 'paused' | 'completed';
+  manualCheckIn: boolean; // True if started by button, false if by geofence
 }
 
 export interface Task {

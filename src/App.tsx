@@ -38,6 +38,8 @@ import { ConflictDiscoveryModal } from './components/ConflictDiscoveryModal';
 import { haptics } from './utils/haptics';
 import { Login } from './components/Login';
 import AppSkeleton from './components/AppSkeleton';
+import GeofencingService from './components/GeofencingService';
+import CheckInModal from './components/CheckInModal';
 
 /**
  * Internal helper component for restricted access sections.
@@ -70,7 +72,8 @@ const App = () => {
     toggleIrrigation, addLogToField,
     animalBatches, feedItems, hasUnreadFeed,
     ui, openModal, closeModal, markNotificationRead, addFeedItem,
-    syncStatus, lastSyncTime, resetAllData
+    syncStatus, lastSyncTime, resetAllData,
+    activeSession, startSession, endSession
   } = useStore();
 
   const isAnyModalOpenValue = useStore(isAnyModalOpen);
@@ -160,6 +163,9 @@ const App = () => {
             syncStatus={syncStatus}
             lastSyncTime={lastSyncTime}
             alertCount={alertCount}
+            activeSession={activeSession}
+            onStartSession={startSession}
+            onEndSession={endSession}
             onAddTask={handleAddTask}
             onUpdateTask={updateTask}
             onDeleteTask={deleteTask}
@@ -520,6 +526,7 @@ const App = () => {
 
       <InstallPrompt />
       <LoneWorkerMonitor />
+      <GeofencingService />
       <ConflictDiscoveryModal />
     </div>
   );

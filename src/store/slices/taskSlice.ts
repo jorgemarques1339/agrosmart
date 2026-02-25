@@ -3,6 +3,8 @@ import { AppState } from '../useStore';
 import { db } from '../../services/db';
 import { syncManager } from '../../services/SyncManager';
 import { Task } from '../../types';
+import { haptics } from '../../utils/haptics';
+import { triggerSuccessConfetti } from '../../utils/confetti';
 
 export interface TaskSlice {
     tasks: Task[];
@@ -27,6 +29,12 @@ export const createTaskSlice: StateCreator<AppState, [], [], TaskSlice> = (set, 
         await db.tasks.update(id, updates);
         const fullTask = await db.tasks.get(id);
         if (fullTask) {
+            // Trigger feedback if status changed to 'completed'
+            if (updates.status === 'completed') {
+                haptics.success();
+                triggerSuccessConfetti();
+            }
+
             syncManager.addToQueue('UPDATE_TASK', fullTask);
             set(state => ({
                 tasks: state.tasks.map(t => t.id === id ? fullTask : t)

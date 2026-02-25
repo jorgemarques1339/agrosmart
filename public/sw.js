@@ -146,27 +146,83 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification Clicked:', event.notification.tag);
+  console.log('[SW] Notification Clicked:', event.notification.tag, event.action);
 
   event.notification.close();
 
-  if (event.action === 'close') return;
+  const notifData = event.notification.data || {};
 
-  const urlToOpen = event.notification.data.url || '/';
+  // ── Geofence Check-in Action ──────────────────────────────────────────────
+  if (event.action === 'checkin' && notifData.fieldId) {
+    event.waitUntil(
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+        // Post message to all open app tabs to trigger auto check-in
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'GEOFENCE_CHECKIN',
+            fieldId: notifData.fieldId
+          });
+        });
+
+        // If app is closed / backgrounded, open it
+        if (clients.length === 0 && self.clients.openWindow) {
+          return self.clients.openWindow('/?checkin=' + notifData.fieldId);
+        }
+      })
+    );
+    return;
+  }
+
+  // ── Generic Notification Click ────────────────────────────────────────────
+  if (event.action === 'dismiss') return;
+
+  const urlToOpen = notifData.url || '/';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // Check if there is already a window/tab open with the target URL
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url === urlToOpen && 'focus' in client) {
           return client.focus();
         }
       }
-      // If no window/tab is open, open a new one
       if (self.clients.openWindow) {
         return self.clients.openWindow(urlToOpen);
       }
     })
+  );
+});
+
+// ── Local Geofence Notification (triggered by page postMessage) ──────────────
+self.addEventListener('message', (event) => {
+  if (!event.data || event.data.type !== 'GEOFENCE_ENTRY') return;
+
+  const { field } = event.data;
+  if (!field) return;
+
+  console.log('[SW] Geofence entry detected for field:', field.name);
+
+  const options = {
+    body: `Bem-vindo a ${field.name}. Quer iniciar o check-in agora?`,
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    image: field.image || undefined,
+    tag: 'geofence-checkin-' + field.id,
+    renotify: false,
+    requireInteraction: true,        // stays on screen — critical for lock screen / Apple Watch
+    silent: false,
+    vibrate: [100, 50, 200, 50, 100],
+    data: {
+      fieldId: field.id,
+      url: '/'
+    },
+    actions: [
+      { action: 'checkin', title: '✅ Iniciar Check-in' },
+      { action: 'dismiss', title: '✕ Ignorar' }
+    ]
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(`📍 ${field.name}`, options)
   );
 });

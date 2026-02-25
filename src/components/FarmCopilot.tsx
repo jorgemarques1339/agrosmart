@@ -20,6 +20,7 @@ interface FarmCopilotProps {
     onNavigate: (tab: string) => void;
     onOpenWeather: () => void;
     onOpenBriefing: () => void;
+    activeTheme?: 'sunny' | 'rain' | 'night' | 'default';
 }
 
 interface Insight {
@@ -44,7 +45,8 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
     alertCount,
     onNavigate,
     onOpenWeather,
-    onOpenBriefing
+    onOpenBriefing,
+    activeTheme = 'default'
 }) => {
 
     const insights = useMemo(() => {
@@ -61,7 +63,7 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
             type: 'suggestion',
             title: `${greeting}, ${userName.split(' ')[0]}!`,
             description: 'Aqui está o resumo proativo para a tua exploração hoje.',
-            icon: <Sun size={20} className="text-yellow-500" />,
+            icon: <Sun size={20} className={activeTheme === 'sunny' ? "text-amber-500" : activeTheme === 'night' ? "text-violet-400" : "text-yellow-500"} />,
             actionLabel: 'Ver Resumo',
             action: onOpenBriefing
         });
@@ -250,18 +252,18 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
     }, []);
 
     return (
-        <div className="px-2 mb-6 animate-fade-in-up">
-            <div className="flex items-center gap-2 px-1 mb-2.5">
-                <Sparkles size={14} className="text-indigo-400 animate-pulse" />
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Farm Copilot</h3>
-                <div className="h-[1px] flex-1 bg-gradient-to-r from-indigo-500/20 to-transparent ml-2"></div>
+        <div className="px-2 mb-2 animate-fade-in-up">
+            <div className="flex items-center gap-2 px-1 mb-1.5">
+                <Sparkles size={12} className="text-indigo-400 animate-pulse" />
+                <h3 className="text-[9px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Farm Copilot</h3>
+                <div className="h-[1px] flex-1 bg-gradient-to-r from-indigo-500/10 to-transparent ml-2"></div>
             </div>
 
-            <div ref={scrollRef} className="flex overflow-x-auto gap-3 pb-2 px-1 custom-scrollbar snap-x scroll-smooth">
+            <div ref={scrollRef} className="flex overflow-x-auto gap-2 pb-1 px-1 custom-scrollbar snap-x scroll-smooth">
                 {insights.map((insight) => (
                     <div
                         key={insight.id}
-                        className="group relative min-w-[280px] sm:min-w-[320px] rounded-2xl p-[1px] snap-center overflow-hidden transition-all hover:scale-[1.02] cursor-pointer"
+                        className="group relative min-w-[260px] sm:min-w-[320px] rounded-xl p-[1px] snap-center overflow-hidden transition-all hover:scale-[1.02] cursor-pointer"
                         onClick={insight.action}
                     >
                         {/* Animated Border Gradient */}
@@ -272,7 +274,7 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
                             }`}></div>
 
                         {/* Inner Content (Glass) */}
-                        <div className={`relative h-full flex gap-3 p-3 rounded-2xl backdrop-blur-xl ${insight.type === 'urgent' ? 'bg-white/90 dark:bg-[#1A0B0B]/90' :
+                        <div className={`relative h-full flex gap-2 p-2 rounded-xl backdrop-blur-xl ${insight.type === 'urgent' ? 'bg-white/90 dark:bg-[#1A0B0B]/90' :
                             insight.type === 'warning' ? 'bg-white/90 dark:bg-[#1A140B]/90' :
                                 insight.type === 'success' ? 'bg-white/90 dark:bg-[#0B1A12]/90' :
                                     'bg-white/90 dark:bg-[#0B0D1A]/90'

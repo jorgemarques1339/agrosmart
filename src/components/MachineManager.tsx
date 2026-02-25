@@ -3,7 +3,9 @@ import {
   Tractor, Wrench, Fuel, Calendar, Clock, AlertTriangle,
   CheckCircle2, Plus, X, Gauge, Truck, Activity, Droplets, Save,
   MoreHorizontal, ChevronRight, GaugeCircle, Filter, FileText, History,
-  ArrowRight, Search, Brain, LayoutGrid, List as ListIcon, Smartphone, Cpu, Terminal
+  ArrowRight, Search, Brain, LayoutGrid, List as ListIcon, Smartphone, Cpu, Terminal,
+  Sparkles, CheckCircle, TrendingUp,
+  Zap, ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
@@ -55,6 +57,133 @@ const TelemetryCapsule = ({ icon: Icon, label, value, unit, alert = false }: { i
     </div>
   </div>
 );
+
+// --- MACHINE COPILOT COMPONENT ---
+const MachineCopilot = ({ machines, onSelect }: { machines: Machine[], onSelect: (m: Machine) => void }) => {
+  const insights = useMemo(() => {
+    const generated: any[] = [];
+
+    machines.forEach(m => {
+      const hoursSinceService = m.engineHours - m.lastServiceHours;
+      const hoursRemaining = m.serviceInterval - hoursSinceService;
+      const isOverdue = hoursSinceService > m.serviceInterval;
+      const isApproaching = hoursRemaining > 0 && hoursRemaining <= 50;
+
+      if (isOverdue) {
+        generated.push({
+          id: `overdue-${m.id}`,
+          type: 'urgent',
+          title: 'Manutenção Excedida',
+          description: `${m.name} excedeu o intervalo em ${Math.abs(hoursRemaining)}h. Risco elevado de avaria.`,
+          icon: <AlertTriangle size={20} className="text-red-500" />,
+          machine: m
+        });
+      }
+
+      if (m.stressLevel > 45 && hoursRemaining < 100 && !isOverdue) {
+        generated.push({
+          id: `predictive-stress-${m.id}`,
+          type: 'warning',
+          title: 'Manutenção Preditiva AI',
+          description: `Trabalho pesado detetado. Antecipe a revisão do ${m.name} em 50h devido ao stress (${m.stressLevel}%).`,
+          icon: <Brain size={20} className="text-purple-500" />,
+          machine: m
+        });
+      }
+
+      if (m.stressLevel > 80) {
+        generated.push({
+          id: `critical-stress-${m.id}`,
+          type: 'urgent',
+          title: 'Stress Mecânico Crítico',
+          description: `${m.name} sob stress extremo (${m.stressLevel}%). Recomenda-se paragem e inspeção imediata.`,
+          icon: <ShieldAlert size={20} className="text-rose-500" />,
+          machine: m
+        });
+      }
+
+      if (isApproaching && !generated.some(g => g.id === `predictive-stress-${m.id}`)) {
+        generated.push({
+          id: `approaching-${m.id}`,
+          type: 'suggestion',
+          title: 'Manutenção Próxima',
+          description: `${m.name} atingirá o limite em ${Math.round(hoursRemaining)}h. Agende a revisão.`,
+          icon: <Wrench size={20} className="text-blue-500" />,
+          machine: m
+        });
+      }
+    });
+
+    if (generated.length === 0) {
+      generated.push({
+        id: 'fleet-perfect',
+        type: 'success',
+        title: 'Estado da Frota: Perfeito',
+        description: 'Todas as máquinas estão operacionais e sem stress mecânico detetado.',
+        icon: <CheckCircle2 size={20} className="text-emerald-500" />
+      });
+    }
+
+    const priority = { urgent: 0, warning: 1, suggestion: 2, success: 3 };
+    return generated.sort((a, b) => priority[a.type as keyof typeof priority] - priority[b.type as keyof typeof priority]);
+  }, [machines]);
+
+  return (
+    <div className="px-2 md:px-6 mb-8 animate-fade-in-up">
+      <div className="flex items-center gap-2 px-1 mb-3">
+        <Sparkles size={14} className="text-purple-400 animate-pulse" />
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Machine Maintenance Copilot</h3>
+        <div className="h-[1px] flex-1 bg-gradient-to-r from-purple-500/20 to-transparent ml-2"></div>
+      </div>
+
+      <div className="flex overflow-x-auto gap-3 pb-4 px-1 custom-scrollbar snap-x scroll-smooth no-scrollbar">
+        {insights.map((insight) => (
+          <div
+            key={insight.id}
+            className="group relative min-w-[280px] sm:min-w-[340px] rounded-2xl p-[1px] snap-center overflow-hidden transition-all hover:scale-[1.02] cursor-pointer shadow-lg"
+            onClick={() => insight.machine ? onSelect(insight.machine) : null}
+          >
+            <div className={`absolute inset-0 opacity-40 group-hover:opacity-100 transition-opacity duration-500 ${insight.type === 'urgent' ? 'bg-gradient-to-r from-red-500 via-rose-500 to-red-500' :
+              insight.type === 'warning' ? 'bg-gradient-to-r from-purple-400 via-indigo-500 to-purple-400' :
+                'bg-gradient-to-r from-blue-400 via-indigo-500 to-blue-400'
+              }`}></div>
+
+            <div className={`relative h-full flex gap-3 p-4 rounded-2xl backdrop-blur-xl ${insight.type === 'urgent' ? 'bg-white/95 dark:bg-[#1A0B0B]/95' :
+              insight.type === 'warning' ? 'bg-white/95 dark:bg-[#130B1A]/95' :
+                'bg-white/95 dark:bg-[#0B0F1A]/95'
+              }`}>
+
+              <div className="shrink-0 flex items-center justify-center relative">
+                <div className={`absolute inset-0 blur-md opacity-30 ${insight.type === 'urgent' ? 'bg-red-500' :
+                  insight.type === 'warning' ? 'bg-purple-500' :
+                    'bg-blue-500'
+                  }`}></div>
+                <div className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 dark:bg-white/5 border border-white/20">
+                  {insight.icon}
+                </div>
+              </div>
+
+              <div className="flex-1 flex flex-col justify-center min-w-0 pr-2">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <h4 className={`text-xs font-black truncate tracking-wide ${insight.type === 'urgent' ? 'text-red-600 dark:text-red-400' :
+                    insight.type === 'warning' ? 'text-purple-600 dark:text-purple-400' :
+                      'text-blue-600 dark:text-blue-400'
+                    }`}>
+                    {insight.title}
+                  </h4>
+                  <ChevronRight size={14} className="text-gray-400 shrink-0 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                </div>
+                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                  {insight.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const MachineManager: React.FC<MachineManagerProps> = ({
   machines,
@@ -294,6 +423,9 @@ const MachineManager: React.FC<MachineManagerProps> = ({
         </div>
       </div>
 
+      {/* Machine AI Copilot Insights */}
+      <MachineCopilot machines={machines} onSelect={(m) => setDetailMachine(m)} />
+
       {/* 2. FLEET GRID */}
       <div className="px-2 md:px-6 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6">
         {filteredMachines.map(machine => {
@@ -351,25 +483,6 @@ const MachineManager: React.FC<MachineManagerProps> = ({
                     unit="h"
                     alert={health.isOverdue || health.isApproaching}
                   />
-                </div>
-
-                {/* AI Predictive Stress Gauge */}
-                <div className="mb-4 bg-white/40 dark:bg-white/5 p-3 rounded-2xl border border-white/20 dark:border-white/5">
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest flex items-center gap-1.5">
-                      <Brain size={12} className="text-purple-500" /> Stress Mecânico AI
-                    </span>
-                    <span className={clsx("text-xs font-black", machine.stressLevel > 70 ? "text-red-500" : machine.stressLevel > 40 ? "text-orange-500" : "text-emerald-500")}>
-                      {machine.stressLevel || 0}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-gray-200 dark:bg-neutral-800 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${machine.stressLevel || 0}%` }}
-                      className={clsx("h-full rounded-full", machine.stressLevel > 70 ? "bg-red-500" : machine.stressLevel > 40 ? "bg-orange-500" : "bg-emerald-500")}
-                    />
-                  </div>
                 </div>
 
                 {/* Action Dock */}

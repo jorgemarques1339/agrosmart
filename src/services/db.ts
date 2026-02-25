@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Field, StockItem, Animal, Machine, Transaction, Task, UserProfile, Notification, ProductBatch, AnimalBatch, FeedItem } from '../types';
+import { Field, StockItem, Animal, Machine, Transaction, Task, UserProfile, Notification, ProductBatch, AnimalBatch, FeedItem, WorkSession } from '../types';
 
 export class OrivaDatabase extends Dexie {
     fields!: Table<Field>;
@@ -13,6 +13,7 @@ export class OrivaDatabase extends Dexie {
     animalBatches!: Table<AnimalBatch>;
     harvests!: Table<ProductBatch>;
     feed!: Table<FeedItem>;
+    sessions!: Table<WorkSession>;
     tiles!: Table<{
         id: string; // The tile URL
         data: Blob;
@@ -28,7 +29,7 @@ export class OrivaDatabase extends Dexie {
 
     constructor() {
         super('OrivaSmartDB');
-        this.version(3).stores({
+        this.version(4).stores({
             fields: 'id, name, crop',
             stocks: 'id, name, category',
             animals: 'id, tagId, name',
@@ -40,6 +41,7 @@ export class OrivaDatabase extends Dexie {
             animalBatches: 'id, name, species',
             harvests: 'batchId, crop, harvestDate',
             feed: 'id, userId, timestamp, fieldId',
+            sessions: 'id, userId, fieldId, status',
             tiles: 'id',
             syncQueue: '++id, operation, timestamp, status'
         });

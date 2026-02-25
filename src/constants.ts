@@ -11,11 +11,11 @@ export const INITIAL_WEATHER: WeatherForecast[] = [
 
 const MOCK_USERS: UserProfile[] = [
   {
-    id: 'u1', name: 'Carlos (Admin)', role: 'admin', avatar: 'CD', specialty: 'Administrador',
+    id: 'u1', name: 'Carlos (Admin)', role: 'admin', avatar: 'CD', specialty: 'Administrador', hourlyRate: 25.0,
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 85 }
   },
   {
-    id: 'u2', name: 'João Tratorista', role: 'mechanic', avatar: 'JT', specialty: 'Mecânico',
+    id: 'u2', name: 'João Tratorista', role: 'mechanic', avatar: 'JT', specialty: 'Mecânico', hourlyRate: 15.0,
     safetyStatus: {
       status: 'warning',
       lastMovement: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
@@ -24,17 +24,18 @@ const MOCK_USERS: UserProfile[] = [
     }
   },
   {
-    id: 'u3', name: 'Sílvia Vet', role: 'vet', avatar: 'SV', specialty: 'Veterinária',
+    id: 'u3', name: 'Sílvia Vet', role: 'vet', avatar: 'SV', specialty: 'Veterinária', hourlyRate: 18.5,
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 92 }
   },
   {
-    id: 'u4', name: 'Ricardo Horta', role: 'farmer', avatar: 'RH', specialty: 'Agricultor',
+    id: 'u4', name: 'Ricardo Horta', role: 'farmer', avatar: 'RH', specialty: 'Agricultor', hourlyRate: 14.0,
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 78 }
   },
   {
     id: 'u5', name: 'Jorge Marques (Master)', role: 'admin', avatar: 'JM', specialty: 'Administrador Geral',
     username: 'jorge_marques',
     password: 'Cax1nasCity',
+    hourlyRate: 35.0,
     safetyStatus: { status: 'safe', lastMovement: new Date().toISOString(), batteryLevel: 100 }
   },
 ];

@@ -1,4 +1,6 @@
 
+import { Field } from '../types';
+
 export class PushNotificationManager {
     static async requestPermission(): Promise<boolean> {
         if (!('Notification' in window)) {
@@ -31,10 +33,6 @@ export class PushNotificationManager {
 
         const registration = await navigator.serviceWorker.ready;
 
-        // We use a trick here: in a real environment, the SW receives a 'push' event.
-        // For local testing/demo without a backend, we can show a local notification 
-        // from the SW registration which is almost identical in behavior.
-
         if (Notification.permission === 'granted') {
             registration.showNotification(title, {
                 body,
@@ -60,4 +58,56 @@ export class PushNotificationManager {
             this.triggerTestPush(title, body);
         }, delayMs);
     }
+}
+
+// ── Geofence-specific helpers (used by GeofencingService.tsx) ─────────────────
+
+/**
+ * Request OS notification permission if not already granted.
+ * Returns true if granted.
+ */
+export async function requestNotificationPermission(): Promise<boolean> {
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'granted') return true;
+    if (Notification.permission === 'denied') return false;
+    const result = await Notification.requestPermission();
+    return result === 'granted';
+}
+
+export function getNotificationPermission(): NotificationPermission | 'unsupported' {
+    if (!('Notification' in window)) return 'unsupported';
+    return Notification.permission;
+}
+
+/**
+ * Fire a native OS notification for a geofence field entry.
+ * Posts a GEOFENCE_ENTRY message to the SW which calls showNotification().
+ * Works on iOS 16.4+ lock screen, Apple Watch, Android, Desktop.
+ */
+export async function sendGeofenceNotification(field: Field): Promise<boolean> {
+    if (!('serviceWorker' in navigator)) return false;
+    const granted = await requestNotificationPermission();
+    if (!granted) return false;
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration?.active) return false;
+
+    registration.active.postMessage({
+        type: 'GEOFENCE_ENTRY',
+        field: { id: field.id, name: field.name }
+    });
+
+    return true;
+}
+
+/**
+ * Dismiss all pending geofence notifications for a specific fieldId.
+ */
+export async function dismissGeofenceNotification(fieldId: string): Promise<void> {
+    if (!('serviceWorker' in navigator)) return;
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration) return;
+    const notifications = await registration.getNotifications({
+        tag: 'geofence-checkin-' + fieldId
+    });
+    notifications.forEach(n => n.close());
 }
