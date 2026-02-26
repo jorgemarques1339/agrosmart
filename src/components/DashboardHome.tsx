@@ -234,6 +234,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
 
    // Parallax Hook for Spatial Design
    const { rotateX, rotateY, onMouseMove, onMouseLeave } = useParallax3D({ intensity: 15 });
+   const glareX = useTransform(rotateY, [-15, 15], ['-10%', '10%']);
+   const glareY = useTransform(rotateX, [-15, 15], ['-10%', '10%']);
 
    const getWeatherIcon = (condition: string, size: number = 24) => {
       switch (condition) {
@@ -394,7 +396,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
       return Object.entries(breakdown).map(([crop, data]) => ({
          crop,
          area: data.area,
-         consumption: Number(data.consumption.toFixed(1)),
+         consumption: Number((Number(data.consumption) || 0).toFixed(1)),
          isExample: false
       })).sort((a, b) => b.consumption - a.consumption);
    }, [fields]);
@@ -554,8 +556,8 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                   <motion.div
                      className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 dark:from-white/0 dark:via-white/5 dark:to-white/0 pointer-events-none"
                      style={{
-                        x: useTransform(rotateY, [-15, 15], ['-10%', '10%']),
-                        y: useTransform(rotateX, [-15, 15], ['-10%', '10%'])
+                        x: glareX,
+                        y: glareY
                      }}
                   />
 

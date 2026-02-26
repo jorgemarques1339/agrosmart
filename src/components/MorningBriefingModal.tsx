@@ -22,7 +22,8 @@ const MorningBriefingModal: React.FC<MorningBriefingModalProps> = ({
     users,
     onNavigate
 }) => {
-    if (!isOpen) return null;
+    // Removed early return to comply with Rules of Hooks
+    // if (!isOpen) return null;
 
     const urgentMachines = machines.filter(m => {
         const hoursUntilService = (m.lastServiceHours + m.serviceInterval) - m.engineHours;
@@ -38,6 +39,8 @@ const MorningBriefingModal: React.FC<MorningBriefingModalProps> = ({
         if (hour >= 20 || hour < 6) return 'Boa noite';
         return 'Bom dia';
     })();
+
+    if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 animate-fade-in">

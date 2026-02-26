@@ -524,6 +524,9 @@ const CalendarModal: React.FC<CalendarModalProps> = ({
 
     const closeSheets = () => { setSheetMode('none'); setSelectedDate(null); };
 
+    // Removed early return to comply with Rules of Hooks
+    // if (!isOpen) return null;
+
     if (!isOpen) return null;
 
     const selectedEvents = selectedDate ? (eventsByDate[selectedDate] || []) : [];

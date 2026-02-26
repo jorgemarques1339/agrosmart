@@ -57,6 +57,9 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         onEndSession();
     };
 
+    // Removed early return to comply with Rules of Hooks
+    // if (!isOpen) return null;
+
     if (!isOpen) return null;
 
     return (

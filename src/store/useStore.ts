@@ -175,7 +175,7 @@ export const useStore = create<AppState>()((...a) => ({
         }
 
         // [AUTO-PATCH] Ensure Oliva exists in stock with "Colheita" category for demo
-        const olivaStock = stocks.find(s => s.name.toLowerCase().includes('oliva') || s.name.toLowerCase().includes('azeitona'));
+        const olivaStock = stocks.find(s => (s?.name || '').toLowerCase().includes('oliva') || (s?.name || '').toLowerCase().includes('azeitona'));
         if (!olivaStock) {
             const mockOliva = {
                 id: 's-mock-oliva', name: 'Oliva (Azeitona)', category: 'Colheita' as any,
@@ -183,7 +183,7 @@ export const useStore = create<AppState>()((...a) => ({
             };
             await db.stocks.add(mockOliva);
             stocks.push(mockOliva);
-        } else if (olivaStock.category.toLowerCase() !== 'colheita') {
+        } else if ((olivaStock.category || '').toLowerCase() !== 'colheita') {
             olivaStock.category = 'Colheita' as any;
             await db.stocks.update(olivaStock.id, { category: 'Colheita' });
         }
@@ -203,10 +203,10 @@ export const useStore = create<AppState>()((...a) => ({
             for (const u of MOCK_STATE.users) {
                 syncManager.addToQueue('ADD_USER', u);
             }
-            users = await db.users.toArray();
+            users = (await db.users.toArray()).filter(Boolean);
         } else {
             // [AUTO-PATCH] Ensure Jorge Marques (Master) is in the list
-            const masterExists = users.some(u => u.username === 'jorge_marques');
+            const masterExists = users.some(u => (u?.username || '').toLowerCase() === 'jorge_marques');
             if (!masterExists) {
                 const { MOCK_STATE } = await import('../constants');
                 const master = MOCK_STATE.users.find(u => u.username === 'jorge_marques');
@@ -285,7 +285,7 @@ export const useStore = create<AppState>()((...a) => ({
             ];
 
             // Ensure master user exists
-            const masterExists = users.some(u => u.username === 'jorge_marques');
+            const masterExists = users.some(u => (u?.username || '').toLowerCase() === 'jorge_marques');
             if (!masterExists && !avoidMock) {
                 const { MOCK_STATE } = await import('../constants');
                 const master = MOCK_STATE.users.find(u => u.username === 'jorge_marques');

@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Sprout, PawPrint, Package,
   Tractor, Wallet, Bell, X,
   FileCheck, Loader2,
-  Truck, Users, Lock
+  Truck, Users, Lock, Shield
 } from 'lucide-react';
 import { useStore, isAnyModalOpen } from './store/useStore';
 import { useWeatherSync } from './hooks/useWeatherSync';
@@ -55,6 +55,52 @@ const AccessDenied = ({ title }: { title: string }) => (
     </p>
   </div>
 );
+
+
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error("[ErrorBoundary] Caught error:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-black">
+          <div className="w-20 h-20 bg-red-100 dark:bg-red-900/20 rounded-3xl flex items-center justify-center mb-6">
+            <Shield size={40} className="text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black dark:text-white mb-2">Ops! Algo correu mal.</h2>
+          <p className="text-gray-500 dark:text-neutral-400 text-sm max-w-xs mb-8">
+            Ocorreu um erro ao carregar esta secção. Tente atualizar a página ou limpar os dados locais.
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-gray-900 dark:bg-white text-white dark:text-black rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all"
+            >
+              Recarregar Aplicação
+            </button>
+            <button
+              onClick={async () => {
+                const { db } = await import('./services/db');
+                await db.delete();
+                localStorage.clear();
+                window.location.reload();
+              }}
+              className="w-full py-4 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 rounded-2xl font-black text-sm uppercase tracking-widest active:scale-95 transition-all"
+            >
+              Limpar Tudo e Reiniciar
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const App = () => {
   const {
@@ -147,63 +193,65 @@ const App = () => {
 
       {/* Main Content Area */}
       <main className={`flex-1 overflow-y-auto scrollbar-hide w-full max-w-md md:max-w-5xl mx-auto relative px-4 md:px-8 pb-32 ${syncQueueCount > 0 ? 'pt-10' : 'pt-4'} transition-all duration-300`}>
-        {activeTab === 'dashboard' && (
-          <DashboardHome
-            userName={currentUser.name}
-            weather={weatherData}
-            hourlyForecast={detailedForecast}
-            tasks={tasks}
-            fields={fields}
-            machines={machines}
-            stocks={stocks}
-            users={users}
-            currentUser={currentUser}
-            animals={animals}
-            feedItems={feedItems}
-            hasUnreadFeed={hasUnreadFeed}
-            syncStatus={syncStatus}
-            lastSyncTime={lastSyncTime}
-            alertCount={alertCount}
-            activeSession={activeSession}
-            onStartSession={startSession}
-            onEndSession={endSession}
-            onAddTask={handleAddTask}
-            onUpdateTask={updateTask}
-            onDeleteTask={deleteTask}
-            onWeatherClick={() => openModal('notifications')}
-            onOpenSettings={() => openModal('settings')}
-            onOpenNotifications={() => openModal('notificationCenter')}
-            onUpdateMachineHours={(id, hours) => updateMachine(id, { engineHours: hours })}
-            onAddMachineLog={(id, log) => {
-              const machine = machines.find(m => m.id === id);
-              if (!machine) return;
-              const stressIncrease = log.workIntensity === 'heavy' ? 15 : log.workIntensity === 'standard' ? 5 : 0;
-              const newStress = Math.min((machine.stressLevel || 0) + stressIncrease, 100);
-              const logId = Date.now().toString();
+        <ErrorBoundary>
+          {activeTab === 'dashboard' && (
+            <DashboardHome
+              userName={currentUser.name}
+              weather={weatherData}
+              hourlyForecast={detailedForecast}
+              tasks={tasks}
+              fields={fields}
+              machines={machines}
+              stocks={stocks}
+              users={users}
+              currentUser={currentUser}
+              animals={animals}
+              feedItems={feedItems}
+              hasUnreadFeed={hasUnreadFeed}
+              syncStatus={syncStatus}
+              lastSyncTime={lastSyncTime}
+              alertCount={alertCount}
+              activeSession={activeSession}
+              onStartSession={startSession}
+              onEndSession={endSession}
+              onAddTask={handleAddTask}
+              onUpdateTask={updateTask}
+              onDeleteTask={deleteTask}
+              onWeatherClick={() => openModal('notifications')}
+              onOpenSettings={() => openModal('settings')}
+              onOpenNotifications={() => openModal('notificationCenter')}
+              onUpdateMachineHours={(id, hours) => updateMachine(id, { engineHours: hours })}
+              onAddMachineLog={(id, log) => {
+                const machine = machines.find(m => m.id === id);
+                if (!machine) return;
+                const stressIncrease = log.workIntensity === 'heavy' ? 15 : log.workIntensity === 'standard' ? 5 : 0;
+                const newStress = Math.min((machine.stressLevel || 0) + stressIncrease, 100);
+                const logId = Date.now().toString();
 
-              updateMachine(id, {
-                logs: [...(machine.logs || []), { ...log, id: logId }],
-                stressLevel: newStress
-              });
-
-              if (log.cost > 0) {
-                addTransaction({
-                  id: `tx-maint-${logId}`,
-                  date: log.date,
-                  type: 'expense',
-                  amount: log.cost,
-                  category: 'Manutenção',
-                  description: `Manutenção: ${machine.name} - ${log.description}`
+                updateMachine(id, {
+                  logs: [...(machine.logs || []), { ...log, id: logId }],
+                  stressLevel: newStress
                 });
-              }
-            }}
-            onNavigate={(tab) => {
-              if (tab === 'team') openModal('teamManager');
-              else if (tab === 'feed') openModal('fieldFeed');
-              else setActiveTab(tab as any);
-            }}
-          />
-        )}
+
+                if (log.cost > 0) {
+                  addTransaction({
+                    id: `tx-maint-${logId}`,
+                    date: log.date,
+                    type: 'expense',
+                    amount: log.cost,
+                    category: 'Manutenção',
+                    description: `Manutenção: ${machine.name} - ${log.description}`
+                  });
+                }
+              }}
+              onNavigate={(tab) => {
+                if (tab === 'team') openModal('teamManager');
+                else if (tab === 'feed') openModal('fieldFeed');
+                else setActiveTab(tab as any);
+              }}
+            />
+          )}
+        </ErrorBoundary>
 
         {activeTab === 'animal' && (
           <AnimalCard
