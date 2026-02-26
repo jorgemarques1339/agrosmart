@@ -110,7 +110,7 @@ export const useStore = create<AppState>()((...a) => ({
             }
         }
 
-        let [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = await Promise.all([
+        const dbResults = await Promise.all([
             db.fields.toArray(),
             db.stocks.toArray(),
             db.animals.toArray(),
@@ -124,6 +124,21 @@ export const useStore = create<AppState>()((...a) => ({
             db.feed.toArray(),
             db.sessions.toArray(),
         ]);
+
+        let [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = [
+            dbResults[0].filter(Boolean) as Field[],
+            dbResults[1].filter(Boolean) as StockItem[],
+            dbResults[2].filter(Boolean) as Animal[],
+            dbResults[3].filter(Boolean) as Machine[],
+            dbResults[4].filter(Boolean) as Transaction[],
+            dbResults[5].filter(Boolean) as Task[],
+            dbResults[6].filter(Boolean) as Notification[],
+            dbResults[7].filter(Boolean) as UserProfile[],
+            dbResults[8].filter(Boolean) as any[],
+            dbResults[9].filter(Boolean) as AnimalBatch[],
+            dbResults[10].filter(Boolean) as FeedItem[],
+            dbResults[11].filter(Boolean) as any[],
+        ];
 
         // [AUTO-PATCH] Ensure Trator Principal (m1) has ISO-BUS data for demo
         const demoMachine = machines.find(m => m.id === 'm1' || m.name === 'Trator Principal');
@@ -198,7 +213,7 @@ export const useStore = create<AppState>()((...a) => ({
                 if (master) {
                     await db.users.put(master);
                     syncManager.addToQueue('ADD_USER', master);
-                    users = await db.users.toArray();
+                    users = (await db.users.toArray()).filter(Boolean);
                 }
             }
         }
@@ -215,8 +230,8 @@ export const useStore = create<AppState>()((...a) => ({
                 try {
                     await syncManager.pullRemoteChanges();
                     // Re-check after pull
-                    const cloudFields = await db.fields.toArray();
-                    const cloudStocks = await db.stocks.toArray();
+                    const cloudFields = (await db.fields.toArray()).filter(Boolean);
+                    const cloudStocks = (await db.stocks.toArray()).filter(Boolean);
                     if (cloudFields.length > 0 || cloudStocks.length > 0) {
                         populatedFromCloud = true;
                         console.log('[Store] Cloud data found. Skipping mock seeding.');
@@ -239,7 +254,7 @@ export const useStore = create<AppState>()((...a) => ({
                 ]);
             }
 
-            [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = await Promise.all([
+            const secondResults = await Promise.all([
                 db.fields.toArray(),
                 db.stocks.toArray(),
                 db.animals.toArray(),
@@ -253,6 +268,21 @@ export const useStore = create<AppState>()((...a) => ({
                 db.feed.toArray(),
                 db.sessions.toArray(),
             ]);
+
+            [fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests, animalBatches, feedItems, activeSessions] = [
+                secondResults[0].filter(Boolean) as Field[],
+                secondResults[1].filter(Boolean) as StockItem[],
+                secondResults[2].filter(Boolean) as Animal[],
+                secondResults[3].filter(Boolean) as Machine[],
+                secondResults[4].filter(Boolean) as Transaction[],
+                secondResults[5].filter(Boolean) as Task[],
+                secondResults[6].filter(Boolean) as Notification[],
+                secondResults[7].filter(Boolean) as UserProfile[],
+                secondResults[8].filter(Boolean) as any[],
+                secondResults[9].filter(Boolean) as AnimalBatch[],
+                secondResults[10].filter(Boolean) as FeedItem[],
+                secondResults[11].filter(Boolean) as any[],
+            ];
 
             // Ensure master user exists
             const masterExists = users.some(u => u.username === 'jorge_marques');

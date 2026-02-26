@@ -304,8 +304,11 @@ export class SyncManager {
                     // 1. Update IndexDB (only non-conflicting items)
                     const dexieTable = (db as any)[meta.remote];
                     if (dexieTable && itemsToUpdate.length > 0) {
-                        await dexieTable.bulkPut(itemsToUpdate);
-                        console.log(`[SyncManager] Updated IndexedDB for ${meta.remote} (${itemsToUpdate.length} items)`);
+                        const validItems = itemsToUpdate.filter(Boolean);
+                        if (validItems.length > 0) {
+                            await dexieTable.bulkPut(validItems);
+                        }
+                        console.log(`[SyncManager] Updated IndexedDB for ${meta.remote} (${validItems.length} items)`);
                     }
 
                     // 2. Update Store
