@@ -447,332 +447,300 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             initial="hidden"
             animate="show"
             style={{ y: pullY }}
-            className="space-y-3 sm:space-y-8 pb-24 pt-24 sm:pt-36"
+            className="flex flex-col gap-2 pt-[68px] pb-20 sm:pt-28 sm:pb-28 sm:gap-3"
          >
 
-            {/* 1. HEADER: ORIVA SMART REDESIGN */}
-            {/* TOP BAR */}
-            <motion.div variants={itemVariants} className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/80 dark:bg-black/80 backdrop-blur-md shadow-sm py-2' : 'bg-transparent py-4'}`}>
-               <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 flex justify-between items-center">
-                  <div
-                     className="flex items-center gap-3 cursor-pointer group"
-                     onClick={onOpenSettings}
-                  >
-                     <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-agro-green to-agro-yellow p-[2px] shadow-lg group-hover:scale-105 transition-transform">
-                           <div className="w-full h-full rounded-full border-2 border-white dark:border-neutral-900 overflow-hidden">
+            {/* 1. HEADER: 2026 FLOATING PILL NAVBAR */}
+            <motion.div variants={itemVariants} className="fixed top-0 left-0 right-0 z-50 px-3 pt-3 sm:px-6 sm:pt-4">
+               <div className={`w-full max-w-7xl mx-auto flex justify-between items-center px-3 py-2.5 sm:px-4 sm:py-3 rounded-[2rem] transition-all duration-500 ${scrolled
+                  ? 'bg-white/90 dark:bg-black/80 backdrop-blur-xl border border-gray-200 dark:border-white/10 shadow-2xl shadow-black/10 dark:shadow-black/30'
+                  : 'bg-white/60 dark:bg-white/5 backdrop-blur-lg border border-gray-200/80 dark:border-white/20 shadow-xl shadow-black/5'
+                  }`}>
+                  {/* Left: Avatar + Name */}
+                  <div className="flex items-center gap-3 cursor-pointer group" onClick={onOpenSettings}>
+                     <div className="relative flex-shrink-0">
+                        <div className="w-9 h-9 rounded-full p-[2px] shadow-lg group-hover:scale-105 transition-transform" style={{ background: 'linear-gradient(135deg, #22c55e, #15803d, #ca8a04)' }}>
+                           <div className="w-full h-full rounded-full overflow-hidden border border-black/10">
                               <img src={`https://i.pravatar.cc/150?u=${currentUser.id}`} alt={userName} className="w-full h-full object-cover" />
                            </div>
                         </div>
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white dark:border-neutral-900 flex items-center justify-center">
-                           <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white dark:border-black shadow-sm" />
                      </div>
                      <div className="flex flex-col">
-                        <h2 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white leading-none">
-                           {userName}
-                        </h2>
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">{currentUser.role === 'admin' ? 'Administrador' : 'Operador'}</span>
+                        <span className="text-sm font-black tracking-tight text-gray-900 dark:text-white leading-none">{userName}</span>
+                        <span className="text-[9px] font-bold text-gray-500 dark:text-white/40 uppercase tracking-widest">{currentUser.role === 'admin' ? 'Admin' : 'Operador'}</span>
                      </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                     <button
-                        onClick={() => openModal('omniSearch')}
-                        className={`p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
-                     >
-                        <Search size={18} strokeWidth={2.5} className="sm:w-5 sm:h-5" />
-                        <span className={`text-[10px] font-black tracking-wider uppercase hidden sm:block ${scrolled ? 'text-gray-500' : 'text-gray-900 dark:text-white/80'}`}>Procurar</span>
+                  {/* Right: Action Buttons */}
+                  <div className="flex items-center gap-1.5">
+                     <button onClick={() => openModal('omniSearch')} className="p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all" title="Pesquisar">
+                        <Search size={16} strokeWidth={2.5} />
                      </button>
-
-                     <button
-                        onClick={onOpenSettings}
-                        className={`relative p-1.5 sm:p-3 rounded-full transition-all flex items-center gap-2
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
-                        title={`Sincronização: ${syncStatus}`}
-                     >
-                        <div className="relative">
-                           <Cloud size={18} strokeWidth={2.5} className={clsx("sm:w-[22px] sm:h-[22px]", syncStatus === 'syncing' && "animate-pulse text-indigo-500")} />
-                           {syncStatus === 'syncing' && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                 <div className="w-full h-full rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-                              </div>
-                           )}
-                           {syncStatus === 'offline' && (
-                              <div className="absolute -top-1 -right-1 bg-gray-500 text-white rounded-full p-0.5 border border-white dark:border-neutral-900">
-                                 <X size={6} />
-                              </div>
-                           )}
-                        </div>
-                        {syncStatus === 'syncing' && (
-                           <span className="text-[8px] font-black uppercase tracking-tighter hidden lg:block animate-pulse">A Sincronizar...</span>
-                        )}
+                     <button onClick={onOpenSettings} className="relative p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 transition-all" title={`Sync: ${syncStatus}`}>
+                        <Cloud size={16} className={clsx(syncStatus === 'syncing' && 'text-indigo-500 animate-pulse')} />
+                        {syncStatus === 'offline' && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-gray-400" />}
                      </button>
-
-                     <button
-                        onClick={onOpenNotifications}
-                        className={`relative p-1.5 sm:p-3 rounded-full transition-all
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
-                        title="Alertas"
-                     >
-                        <Bell size={18} strokeWidth={2.5} className="sm:w-6 sm:h-6" />
-                        {alertCount > 0 && (
-                           <span className={`absolute top-0 right-0 w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full border-2 border-white dark:border-neutral-900 ${alertCount > 0 ? 'bg-red-500 animate-pulse' : 'bg-red-500'}`} />
-                        )}
+                     <button onClick={onOpenNotifications} className="relative p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all" title="Alertas">
+                        <Bell size={16} strokeWidth={2.5} />
+                        {alertCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 border border-white dark:border-black animate-pulse" />}
                      </button>
-
-
-
-                     <button
-                        onClick={onOpenSettings}
-                        className={`relative p-1.5 sm:p-3 rounded-full transition-all
-                                ${scrolled ? 'bg-gray-100 dark:bg-neutral-800 text-gray-600 dark:text-gray-300' : 'bg-white/40 dark:bg-white/20 backdrop-blur-md text-gray-900 dark:text-white shadow-lg'} hover:scale-105`}
-                        title="Definições"
-                     >
-                        <Settings size={18} strokeWidth={2.5} className="sm:w-[22px] sm:h-[22px]" />
+                     <button onClick={onOpenSettings} className="p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all" title="Definições">
+                        <Settings size={16} strokeWidth={2.5} />
                      </button>
                   </div>
                </div>
             </motion.div>
 
-            {/* 2. WEATHER HERO: MATERIAL DESIGN 3 (DYNAMIC PARALLAX) */}
+            {/* 2. WEATHER HERO: 2026 IMMERSIVE GRADIENT CARD */}
             {currentWeather && (
                <motion.div
                   animate={{ opacity: 1, y: 0 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 24, delay: 0.5 }}
+                  initial={{ opacity: 0, y: 30 }}
+                  transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.15 }}
                   style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
                   onClick={() => setIsWeatherModalOpen(true)}
                   onMouseMove={onMouseMove}
                   onMouseLeave={onMouseLeave}
-                  className={clsx(
-                     "mx-2 p-3.5 sm:p-5 rounded-[2rem] border flex flex-col justify-between h-32 sm:h-44 group transition-shadow hover:shadow-2xl active:scale-[0.98] cursor-pointer z-20 relative overflow-hidden",
-                     theme.bg,
-                     theme.border
-                  )}
+                  className="mx-3 rounded-[2rem] h-36 sm:h-48 group cursor-pointer relative overflow-hidden shadow-2xl active:scale-[0.985] transition-transform duration-300"
                >
-                  {/* Optional internal glare effect (Subtle) */}
-                  <motion.div
-                     className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 dark:from-white/0 dark:via-white/5 dark:to-white/0 pointer-events-none"
-                     style={{
-                        x: glareX,
-                        y: glareY
-                     }}
-                  />
+                  {/* Dynamic gradient background */}
+                  <div className={clsx(
+                     "absolute inset-0 transition-all duration-1000",
+                     activeTheme === 'sunny' && 'bg-gradient-to-br from-amber-400 via-orange-400 to-red-400',
+                     activeTheme === 'rain' && 'bg-gradient-to-br from-slate-600 via-blue-700 to-indigo-800',
+                     activeTheme === 'night' && 'bg-gradient-to-br from-indigo-950 via-violet-900 to-slate-900',
+                     activeTheme === 'default' && 'bg-gradient-to-br from-emerald-700 via-teal-600 to-cyan-700'
+                  )} />
+                  {/* Glare shimmer */}
+                  <motion.div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 pointer-events-none" style={{ x: glareX, y: glareY }} />
+                  {/* Noise texture for depth */}
+                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.5\'/%3E%3C/svg%3E")' }} />
 
-                  {/* Top Section: Location & Status */}
-                  <div className="flex justify-between items-start translate-z-10" style={{ transform: 'translateZ(20px)' }}>
-                     <div className="flex flex-col gap-0.5">
-                        <div className={clsx("flex items-center gap-2 px-2.5 py-0.5 rounded-full w-fit transition-all", theme.chipBg, theme.hover)}>
-                           <MapPin size={10} className={clsx(theme.icon, "fill-current/10")} />
-                           <span className={clsx("text-[9px] sm:text-[10px] font-black uppercase tracking-widest leading-none", theme.icon.replace('text-', 'text-'))}>Laundos, PT</span>
+                  <div className="relative h-full flex flex-col justify-between p-3 sm:p-7" style={{ transform: 'translateZ(20px)' }}>
+                     {/* Top row */}
+                     <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-1">
+                           <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full w-fit">
+                              <MapPin size={10} className="text-white/80" />
+                              <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Laundos, PT</span>
+                           </div>
+                           <div className="hidden sm:flex items-center gap-1.5 ml-1">
+                              <div className="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse" />
+                              <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">Tempo Real</span>
+                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 ml-1 mt-0.5 transition-opacity group-hover:opacity-100 opacity-70">
-                           <div className={clsx("w-1.5 h-1.5 rounded-full animate-pulse", theme.indicator)} />
-                           <span className={clsx("text-[8px] font-bold uppercase tracking-[0.2em]", theme.icon.replace('text-', 'text-').concat('/40'))}>Tempo Real</span>
+                        <div className="opacity-90 group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl" style={{ transform: 'translateZ(40px)' }}>
+                           {getWeatherIcon(currentWeather.condition, 50)}
                         </div>
                      </div>
 
-                     <div className={clsx("opacity-90 transition-transform group-hover:scale-110 duration-500", theme.icon)} style={{ transform: 'translateZ(40px)' }}>
-                        {getWeatherIcon(currentWeather.condition, 48)}
-                     </div>
-                  </div>
-
-                  {/* Bottom Section: Headline Metrics */}
-                  <div className="flex items-end justify-between" style={{ transform: 'translateZ(30px)' }}>
-                     <div className="flex flex-col">
-                        <div className="flex items-baseline gap-0.5">
-                           <span className={clsx("text-4xl sm:text-6xl font-black tracking-tighter leading-none", theme.text)}>
-                              {currentWeather.temp}
+                     {/* Bottom row */}
+                     <div className="flex items-end justify-between">
+                        <div>
+                           <div className="flex items-start">
+                              <span className="text-4xl sm:text-8xl font-black tracking-tighter leading-none text-white drop-shadow-md">{currentWeather.temp}</span>
+                              <span className="text-xl sm:text-3xl font-light text-white/60 mt-1 sm:mt-2">°C</span>
+                           </div>
+                           <span className="text-[10px] font-black uppercase tracking-widest text-white/60 mt-0.5 block">
+                              {currentWeather.condition === 'sunny' ? '☀️ Céu Limpo' : currentWeather.condition === 'rain' ? '🌧 Chuva' : currentWeather.condition === 'storm' ? '⛈ Tempestade' : '⛅ Parcial'}
                            </span>
-                           <span className={clsx("text-2xl sm:text-3xl font-light", theme.accent)}>°</span>
                         </div>
-                        <span className={clsx("text-[10px] sm:text-xs font-black uppercase tracking-widest mt-0.5", theme.textMuted)}>
-                           {currentWeather.condition === 'sunny' ? 'Céu Limpo' : currentWeather.condition === 'rain' ? 'Chuva' : 'Parcialmente Nublado'}
-                        </span>
-                     </div>
-
-                     {/* MD3 Info Chips */}
-                     <div className="flex gap-1.5 sm:gap-2.5">
-                        <div className="flex flex-col items-center gap-1">
-                           <div className={clsx("p-2 sm:p-3 rounded-xl bg-white dark:bg-neutral-800 border shadow-sm transition-all group-hover:-translate-y-1", theme.border, theme.hover.replace('group-hover:', 'dark:group-hover:'))}>
-                              <Wind size={14} className={theme.accent} />
+                        <div className="hidden sm:flex gap-3">
+                           <div className="flex flex-col items-center gap-1">
+                              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform">
+                                 <Wind size={16} className="text-white" />
+                              </div>
+                              <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.windSpeed}km/h</span>
                            </div>
-                           <span className={clsx("text-[7px] sm:text-[9px] font-black uppercase tracking-tighter", theme.textMuted)}>{currentWeather.windSpeed} km/h</span>
+                           <div className="flex flex-col items-center gap-1">
+                              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: '50ms' }}>
+                                 <Droplets size={16} className="text-cyan-200" />
+                              </div>
+                              <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.humidity}%</span>
+                           </div>
+                           {currentWeather.temp !== undefined && (
+                              <div className="flex flex-col items-center gap-1">
+                                 <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: '100ms' }}>
+                                    <Thermometer size={16} className="text-orange-200" />
+                                 </div>
+                                 <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">Toque</span>
+                              </div>
+                           )}
                         </div>
-                        <div className="flex flex-col items-center gap-1">
-                           <div className={clsx("p-2 sm:p-3 rounded-xl bg-white dark:bg-neutral-800 border shadow-sm transition-all group-hover:-translate-y-1", theme.border, theme.hover.replace('group-hover:', 'dark:group-hover:'))}>
-                              <Droplets size={14} className="text-cyan-500" />
+                        {/* Mobile: compact wind+humidity inline */}
+                        <div className="flex sm:hidden gap-2">
+                           <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                              <Wind size={10} className="text-white/80" />
+                              <span className="text-[9px] font-black text-white/70">{currentWeather.windSpeed}km/h</span>
                            </div>
-                           <span className={clsx("text-[7px] sm:text-[9px] font-black uppercase tracking-tighter", theme.textMuted)}>{currentWeather.humidity}%</span>
+                           <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                              <Droplets size={10} className="text-cyan-200" />
+                              <span className="text-[9px] font-black text-white/70">{currentWeather.humidity}%</span>
+                           </div>
                         </div>
                      </div>
                   </div>
                </motion.div>
             )}
 
-            {/* 3. QUICK ACTIONS (Unified MD3 Design) */}
-            <motion.div variants={itemVariants} className="px-2">
-               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 px-1 pb-2">
+            {/* 2b. Alert pill */}
+            {alertCount > 0 && (
+               <div className="px-3">
+                  <button
+                     onClick={onOpenNotifications}
+                     className="flex items-center gap-2 px-3 py-2 rounded-2xl text-xs font-black uppercase tracking-wider bg-red-500/15 border border-red-500/30 text-red-500 dark:text-red-400 transition-all active:scale-95"
+                  >
+                     <Bell size={13} />
+                     {alertCount} Alerta{alertCount > 1 ? 's' : ''}
+                  </button>
+               </div>
+            )}
 
-                  {/* Button 1: Check-in (MD3 Dynamic) */}
+            {/* --- FARM COPILOT (AI INSIGHTS) --- */}
+            <div className="mt-3">
+               <FarmCopilot
+                  userName={userName}
+                  weather={weather}
+                  hourlyForecast={hourlyForecast}
+                  tasks={tasks}
+                  users={users}
+                  fields={fields}
+                  stocks={stocks}
+                  machines={machines}
+                  alertCount={alertCount}
+                  onNavigate={onNavigate}
+                  onOpenWeather={() => setIsWeatherModalOpen(true)}
+                  onOpenBriefing={() => setIsBriefingModalOpen(true)}
+                  activeTheme={activeTheme}
+               />
+            </div>
+
+            {/* 3. QUICK ACTIONS */}
+            <motion.div variants={itemVariants} className="px-3 mt-1">
+               <div className="grid grid-cols-4 gap-2">
+
+                  {/* Check-in — Emerald */}
                   <button
                      onClick={() => setIsCheckInOpen(true)}
                      className={clsx(
-                        "relative py-2.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1 overflow-hidden group shadow-sm",
+                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 overflow-hidden group active:scale-95 border",
                         activeSession
-                           ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-100 ring-2 ring-emerald-500/50"
-                           : clsx(theme.bg.replace('/50', '/40'), "text-gray-700 dark:text-gray-200 border", theme.border, "hover:bg-gray-50 dark:hover:bg-neutral-700")
+                           ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-600 dark:text-emerald-300 shadow-lg shadow-emerald-500/20'
+                           : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
                      )}
                   >
-                     <div className={clsx(
-                        "p-2 rounded-xl transition-colors",
-                        activeSession ? "bg-emerald-500 text-white" : theme.buttonIcon
-                     )}>
-                        <MapPin size={20} className={activeSession ? "animate-bounce" : "transition-transform group-hover:scale-110"} />
+                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all', activeSession ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-emerald-200 dark:bg-emerald-500/25 group-hover:bg-emerald-300 dark:group-hover:bg-emerald-500/35')}>
+                        <MapPin size={19} className={activeSession ? 'text-white animate-bounce' : 'text-emerald-700 dark:text-emerald-300'} />
                      </div>
-                     <span className="font-black">{activeSession ? 'Em Trabalho' : 'Check-in'}</span>
+                     <span>{activeSession ? 'Ativo' : 'Check-in'}</span>
+                     {activeSession && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
                   </button>
 
-                  {/* Button 2: Cotações (MD3 Dynamic) */}
+                  {/* Cotações — Amber */}
                   <button
                      onClick={() => setIsMarketModalOpen(true)}
-                     className={clsx(
-                        "py-2.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1 group shadow-sm",
-                        theme.bg.replace('/50', '/40'), "text-gray-700 dark:text-gray-200 border", theme.border, "hover:bg-gray-50 dark:hover:bg-neutral-700"
-                     )}
+                     className="relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:scale-95 group"
                   >
-                     <div className={clsx("p-2 rounded-xl transition-colors group-hover:bg-opacity-100", theme.buttonIcon, "group-hover:bg-current group-hover:text-white")}>
-                        {/* Simplified the hover effect to match common MD3 tonal patterns */}
-                        <TrendingUp size={20} className="transition-transform group-hover:scale-110" />
+                     <div className="p-2 sm:p-2.5 rounded-2xl bg-amber-200 dark:bg-amber-500/25 group-hover:bg-amber-300 dark:group-hover:bg-amber-500/35 transition-all">
+                        <TrendingUp size={19} className="text-amber-700 dark:text-amber-300" />
                      </div>
                      Cotações
                   </button>
 
-                  {/* Button 3: Atividade (MD3 Dynamic) */}
+                  {/* Feed — Rose */}
                   <button
                      onClick={() => onNavigate('feed')}
                      className={clsx(
-                        "relative py-2.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1 overflow-hidden group shadow-sm",
+                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 border active:scale-95 group",
                         hasUnreadFeed
-                           ? "bg-rose-100 dark:bg-rose-900/40 text-rose-900 dark:text-rose-100 ring-2 ring-rose-500/50"
-                           : clsx(theme.bg.replace('/50', '/40'), "text-gray-700 dark:text-gray-200 border", theme.border, "hover:bg-gray-50 dark:hover:bg-neutral-700")
+                           ? 'bg-rose-500/20 border-rose-500/50 text-rose-600 dark:text-rose-400 shadow-lg shadow-rose-500/10'
+                           : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20'
                      )}
                   >
-                     <div className={clsx(
-                        "p-2 rounded-xl transition-colors relative",
-                        hasUnreadFeed ? "bg-rose-500 text-white" : theme.buttonIcon
-                     )}>
-                        <MessageSquare size={20} className={clsx("transition-transform group-hover:scale-110", hasUnreadFeed && "animate-bounce")} />
-                        {hasUnreadFeed && (
-                           <span className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border-2 border-rose-500 animate-ping" />
-                        )}
+                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all relative', hasUnreadFeed ? 'bg-rose-500 shadow-lg shadow-rose-500/30' : 'bg-rose-200 dark:bg-rose-500/25 group-hover:bg-rose-300 dark:group-hover:bg-rose-500/35')}>
+                        <MessageSquare size={19} className={hasUnreadFeed ? 'text-white' : 'text-rose-700 dark:text-rose-300'} />
+                        {hasUnreadFeed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full border-2 border-rose-500 animate-ping" />}
                      </div>
-                     Actividade
+                     Feed
                   </button>
 
-                  {/* Button 4: Tarefas (MD3 Dynamic) */}
+                  {/* Tarefas — Indigo */}
                   <button
                      onClick={() => setIsCalendarOpen(true)}
                      className={clsx(
-                        "relative py-2.5 rounded-[1.5rem] font-black text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1 overflow-hidden group shadow-sm",
+                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 border active:scale-95 group",
                         (myPendingTaskCount > 0 || tasksToReviewCount > 0)
-                           ? "bg-indigo-100 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100 ring-2 ring-indigo-500/50"
-                           : clsx(theme.bg.replace('/50', '/40'), "text-gray-700 dark:text-gray-200 border", theme.border, "hover:bg-gray-50 dark:hover:bg-neutral-700")
+                           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-600 dark:text-indigo-400 shadow-lg shadow-indigo-500/10'
+                           : 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20'
                      )}
                   >
-                     <div className={clsx(
-                        "p-2 rounded-xl transition-colors relative",
-                        (myPendingTaskCount > 0 || tasksToReviewCount > 0) ? "bg-indigo-500 text-white" : theme.buttonIcon
-                     )}>
-                        <Calendar size={20} className={clsx("transition-transform group-hover:scale-110", (myPendingTaskCount > 0 || tasksToReviewCount > 0) && "animate-bounce")} />
+                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all relative', (myPendingTaskCount > 0 || tasksToReviewCount > 0) ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-indigo-200 dark:bg-indigo-500/25 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-500/35')}>
+                        <Calendar size={19} className={(myPendingTaskCount > 0 || tasksToReviewCount > 0) ? 'text-white' : 'text-indigo-700 dark:text-indigo-300'} />
                         {(myPendingTaskCount > 0 || tasksToReviewCount > 0) && (
-                           <span className="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full text-[10px] flex items-center justify-center font-black border-2 border-white dark:border-neutral-900 text-white shadow-lg">
+                           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 rounded-full text-[9px] flex items-center justify-center font-black text-white border border-indigo-500/50">
                               {myPendingTaskCount + tasksToReviewCount}
                            </span>
                         )}
                      </div>
                      Tarefas
                   </button>
-
                </div>
             </motion.div>
 
-            {/* --- FARM COPILOT (AI INSIGHTS) --- */}
-            <FarmCopilot
-               userName={userName}
-               weather={weather}
-               hourlyForecast={hourlyForecast}
-               tasks={tasks}
-               users={users}
-               fields={fields}
-               stocks={stocks}
-               machines={machines}
-               alertCount={alertCount}
-               onNavigate={onNavigate}
-               onOpenWeather={() => setIsWeatherModalOpen(true)}
-               onOpenBriefing={() => setIsBriefingModalOpen(true)}
-               activeTheme={activeTheme}
-            />
 
-            < motion.div variants={itemVariants} className="px-2" >
-               <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-1.5 ml-2 italic">Estado da Quinta</h3>
+            {/* 4. KPI CARDS */}
+            <motion.div variants={itemVariants} className="px-3 mt-6">
+               <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30 mb-2.5 ml-1">Estado da Quinta</h3>
+               <div className="grid grid-cols-3 gap-2">
 
-               <div className="bg-white dark:bg-neutral-900 rounded-[1.5rem] p-2 shadow-sm border border-gray-100 dark:border-neutral-800 grid grid-cols-3 divide-x divide-gray-100 dark:divide-neutral-800">
-
-                  {/* Col 1: Water Consumption */}
+                  {/* Water */}
                   <div
                      onClick={() => setIsWaterModalOpen(true)}
-                     className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
+                     className="bg-white dark:bg-white/5 border border-cyan-200 dark:border-cyan-500/20 hover:border-cyan-400 dark:hover:border-cyan-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-cyan-500/10 relative overflow-hidden"
                   >
-                     <div className="text-cyan-500 transition-transform group-hover:scale-110 duration-300">
-                        <Droplets size={24} strokeWidth={2.5} />
+                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-cyan-500/10" />
+                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-cyan-100 dark:bg-cyan-500/15 flex items-center justify-center group-hover:bg-cyan-200 dark:group-hover:bg-cyan-500/25 transition-colors">
+                        <Droplets size={16} className="text-cyan-600 dark:text-cyan-400" />
                      </div>
-                     <div className="text-center px-1">
-                        <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
-                           {waterConsumption}m³
-                        </span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Água</span>
+                     <div>
+                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{waterConsumption}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">m³</span></span>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">Água</span>
                      </div>
                   </div>
 
-                  {/* Col 2: Solar Energy Production */}
+                  {/* Energy */}
                   <div
                      onClick={() => setIsEnergyModalOpen(true)}
-                     className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
+                     className="bg-white dark:bg-white/5 border border-amber-200 dark:border-amber-500/20 hover:border-amber-400 dark:hover:border-amber-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-amber-500/10 relative overflow-hidden"
                   >
-                     <div className="text-amber-500 transition-transform group-hover:scale-110 duration-300">
-                        <Zap size={24} strokeWidth={2.5} />
+                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-amber-500/10" />
+                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-500/25 transition-colors">
+                        <Zap size={16} className="text-amber-600 dark:text-amber-400" />
                      </div>
-                     <div className="text-center px-1">
-                        <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
-                           {solarEnergy}kW
-                        </span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">Energia</span>
+                     <div>
+                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{solarEnergy}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">kW</span></span>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">Solar</span>
                      </div>
                   </div>
 
-                  {/* Col 3: Carbon ESG */}
+                  {/* Carbon */}
                   <div
                      onClick={() => onNavigate('carbon')}
-                     className="flex flex-col items-center justify-center gap-2 group cursor-pointer active:opacity-60 transition-opacity"
+                     className="bg-white dark:bg-white/5 border border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-400 dark:hover:border-emerald-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-emerald-500/10 relative overflow-hidden"
                   >
-                     <div className="text-emerald-500 transition-transform group-hover:scale-110 duration-300">
-                        <Leaf size={24} strokeWidth={2.5} />
+                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-emerald-500/10" />
+                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-500/25 transition-colors">
+                        <Leaf size={16} className="text-emerald-600 dark:text-emerald-400" />
                      </div>
-                     <div className="text-center px-1">
-                        <span className="block text-base sm:text-lg font-black text-gray-900 dark:text-white leading-none mb-1">
-                           {Math.abs(carbonMetrics.netBalance)}t
-                        </span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 uppercase tracking-wide leading-tight block">
-                           CO₂
-                        </span>
+                     <div>
+                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{Math.abs(carbonMetrics.netBalance)}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">t</span></span>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">CO₂</span>
                      </div>
                   </div>
 
                </div>
-            </motion.div >
+            </motion.div>
 
 
 
