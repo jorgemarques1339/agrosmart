@@ -61,7 +61,7 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
         generatedInsights.push({
             id: 'briefing-greeting',
             type: 'suggestion',
-            title: `${greeting}, ${userName.split(' ')[0]}!`,
+            title: `${greeting}, ${(userName || 'Utilizador').split(' ')[0]}!`,
             description: 'Aqui está o resumo proativo para a tua exploração hoje.',
             icon: <Sun size={20} className={activeTheme === 'sunny' ? "text-amber-500" : activeTheme === 'night' ? "text-violet-400" : "text-yellow-500"} />,
             actionLabel: 'Ver Resumo',
@@ -70,11 +70,12 @@ const FarmCopilot: React.FC<FarmCopilotProps> = ({
 
         // 1. Market Opportunities (High Value Dynamic)
         stocks.forEach(s => {
-            if (s.category === 'Colheita' && s.quantity > 0) {
-                const marketMatch = MOCK_MARKET_DATA.find(m =>
-                    s.name.toLowerCase().includes(m.name.toLowerCase().split(' ')[0]) ||
-                    m.name.toLowerCase().includes(s.name.toLowerCase().split(' ')[0])
-                );
+            if (s && s.category === 'Colheita' && s.quantity > 0) {
+                const stockName = (s.name || '').toLowerCase();
+                const marketMatch = MOCK_MARKET_DATA.find(m => {
+                    const mName = (m.name || '').toLowerCase();
+                    return stockName.includes(mName.split(' ')[0]) || mName.includes(stockName.split(' ')[0]);
+                });
 
                 if (marketMatch && marketMatch.change > 1.5) {
                     generatedInsights.push({

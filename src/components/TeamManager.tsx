@@ -249,7 +249,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
 
             <div className="space-y-4">
               <p className="text-xs text-gray-500 font-bold leading-relaxed px-4">
-                Pede à <span className="text-indigo-600">{showQRUser.name.split(' ')[0]}</span> para ler este código com a câmara do telemóvel para instalar e configurar a app instantaneamente.
+                Pede à <span className="text-indigo-600">{(showQRUser.name || 'Operador').split(' ')[0]}</span> para ler este código com a câmara do telemóvel para instalar e configurar a app instantaneamente.
               </p>
 
               <button

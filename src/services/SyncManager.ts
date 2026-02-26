@@ -325,20 +325,22 @@ export class SyncManager {
 
                         const currentStoreItems = (state as any)[this.mapRemoteToStoreKey(meta.remote)] || [];
                         const mergedItems = currentStoreItems
-                            .filter((local: any) => !pendingDeleteIds.has(local.id)) // remove locally-deleted
+                            .filter((local: any) => local && !pendingDeleteIds.has(local.id)) // Ensure local item exists
                             .map((local: any) => {
-                                const remote = itemsToUpdate.find(r => r.id === local.id);
+                                const remote = itemsToUpdate.find(r => r && r.id === local.id);
                                 return remote || local;
-                            });
-                        // Add new remote items that aren't in store AND aren't pending delete
+                            })
+                            .filter(Boolean); // Double safety filter
+
+                        // Add new remote items
                         itemsToUpdate.forEach(remote => {
-                            if (!mergedItems.find((m: any) => m.id === remote.id) && !pendingDeleteIds.has(remote.id)) {
+                            if (remote && remote.id && !mergedItems.find((m: any) => m.id === remote.id) && !pendingDeleteIds.has(remote.id)) {
                                 mergedItems.push(remote);
                             }
                         });
 
                         storeAction(mergedItems);
-                        console.log(`[SyncManager] Merged Store via ${meta.store}`);
+                        console.log(`[SyncManager] Merged Store via ${meta.store} (${mergedItems.length} items)`);
                     }
                 }
             } catch (err) {

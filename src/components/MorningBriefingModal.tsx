@@ -59,7 +59,7 @@ const MorningBriefingModal: React.FC<MorningBriefingModalProps> = ({
                             </div>
                             <div>
                                 <h3 className="text-xl font-black text-gray-900 dark:text-white leading-tight">
-                                    {greeting},<br /> {userName.split(' ')[0]}
+                                    {greeting},<br /> {(userName || 'Utilizador').split(' ')[0]}
                                 </h3>
                             </div>
                         </div>

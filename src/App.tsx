@@ -85,7 +85,8 @@ const App = () => {
   useWeatherSync();
 
   const currentUser = useMemo(() => {
-    return users?.find(u => u.id === currentUserId) || { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
+    if (!users) return { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
+    return users.find(u => u && u.id === currentUserId) || { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
   }, [users, currentUserId]);
 
   const {
