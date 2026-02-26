@@ -1,10 +1,11 @@
+
 import { create } from 'zustand';
 import { db } from '../services/db';
 import { syncManager } from '../services/SyncManager';
 import {
     Field, StockItem, Animal, Machine, Transaction, Task,
-    UserProfile, Notification, ProductBatch, FieldLog, Sensor, MaintenanceLog,
-    WeatherForecast, DetailedForecast, AnimalBatch, FeedItem
+    UserProfile, Notification, AnimalBatch, FeedItem, ProductBatch, FieldLog, Sensor, MaintenanceLog,
+    WeatherForecast, DetailedForecast
 } from '../types';
 
 // Import slices
@@ -83,6 +84,52 @@ export const useStore = create<AppState>()((...a) => ({
         console.log('[Store] All data wiped successfully.');
         alert('Todos os dados locais foram removidos. A aplicação irá reiniciar.');
         window.location.reload();
+    },
+
+    registerTemporaryWorker: async (
+        name: string,
+        phone: string,
+        dailyRate: number,
+        hoursWorked?: number,
+        fieldId?: string,
+        cropName?: string
+    ) => {
+        const today = new Date().toISOString().split('T')[0];
+        const tempWorkerTx = {
+            id: `tx-temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'expense' as const,
+            amount: dailyRate,
+            category: 'Salários',
+            description: `Mão-de-Obra Sazonal: ${name} (${phone})${cropName ? ` — ${cropName}` : ''}${hoursWorked ? ` — ${hoursWorked.toFixed(1)}h` : ''}`,
+            date: today,
+            relatedCrop: cropName || 'Sazonal',
+            relatedId: fieldId,
+        };
+
+        await db.transactions.add(tempWorkerTx);
+
+        const set = a[0];
+        const get = a[1] as any;
+        set((state: any) => ({
+            transactions: [tempWorkerTx, ...state.transactions],
+        }));
+
+        // If a specific field was selected, write a FieldLog diary entry
+        if (fieldId && hoursWorked !== undefined) {
+            const HOURLY_RATE = 7.50;
+            const log = {
+                id: `log-labor-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+                date: today,
+                type: 'labor' as const,
+                description: `Mão-de-obra sazonal: ${name} (${phone})`,
+                operator: name,
+                hoursWorked: parseFloat(hoursWorked.toFixed(2)),
+                hourlyRate: HOURLY_RATE,
+                cost: dailyRate,
+            };
+            // Use the addLogToField action from fieldSlice (already in the store)
+            await get().addLogToField(fieldId, log);
+        }
     },
 
     hydrate: async () => {

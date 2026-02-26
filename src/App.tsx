@@ -40,6 +40,8 @@ import { Login } from './components/Login';
 import AppSkeleton from './components/AppSkeleton';
 import GeofencingService from './components/GeofencingService';
 import CheckInModal from './components/CheckInModal';
+import { AutoPilotService } from './components/AutoPilotService';
+import { PublicClockInPortal } from './components/PublicClockInPortal';
 
 /**
  * Internal helper component for restricted access sections.
@@ -103,6 +105,9 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 }
 
 const App = () => {
+  // --- PUBLIC ROUTING INTERCEPT ---
+  const isPublicClockIn = new URLSearchParams(window.location.search).get('clockin') === 'true';
+
   const {
     fields, stocks, animals, machines, transactions, tasks, notifications, users, harvests,
     activeTab, isDarkMode, isSolarMode, weatherData, detailedForecast, currentUserId, isAuthenticated,
@@ -167,6 +172,15 @@ const App = () => {
   // Render Public Page if requested
   if (viewMode === 'public' && publicBatchId) {
     return <PublicProductPage batchId={publicBatchId} harvests={harvests} fields={fields} />;
+  }
+
+  // Render Temporary Worker Portal if requested
+  if (isPublicClockIn) {
+    return (
+      <ErrorBoundary>
+        <PublicClockInPortal />
+      </ErrorBoundary>
+    );
   }
 
   // Render Auth if not logged in
@@ -573,6 +587,7 @@ const App = () => {
         />
       )}
 
+      <AutoPilotService />
       <InstallPrompt />
       <LoneWorkerMonitor />
       <GeofencingService />

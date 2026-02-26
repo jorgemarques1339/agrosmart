@@ -1,8 +1,7 @@
 import React, { useMemo } from 'react';
 import { X, Navigation, Fuel, AlertTriangle, CheckCircle2, MapPin, ArrowRight } from 'lucide-react';
-import { MapContainer, TileLayer, Polyline, Polygon, Marker } from 'react-leaflet';
-import OfflineTileLayer from './OfflineTileLayer';
-import L from 'leaflet';
+import { Marker } from 'react-map-gl/maplibre';
+import { AgroMap3D } from './AgroMap3D';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Field, DetailedForecast } from '../types';
 import { optimizeRoute } from '../utils/routeOptimizer';
@@ -20,9 +19,9 @@ const RouteOptimizationModal: React.FC<RouteOptimizationModalProps> = ({ isOpen,
     // Calculate map center (average of all field coordinates)
     const mapCenter = useMemo(() => {
         if (fields.length === 0) return [41.442, -8.723] as [number, number];
-        const lat = fields.reduce((acc, f) => acc + f.coordinates[0], 0) / fields.length;
         const lng = fields.reduce((acc, f) => acc + f.coordinates[1], 0) / fields.length;
-        return [lat, lng] as [number, number];
+        const lat = fields.reduce((acc, f) => acc + f.coordinates[0], 0) / fields.length;
+        return [lng, lat] as [number, number];
     }, [fields]);
 
     const routePositions = useMemo(() => optimization.orderedFields.map(f => f.coordinates), [optimization]);
@@ -53,40 +52,36 @@ const RouteOptimizationModal: React.FC<RouteOptimizationModalProps> = ({ isOpen,
                 <div className="flex-1 flex flex-col md:grid md:grid-cols-[1fr_320px] overflow-hidden">
                     {/* Map Area */}
                     <div className="relative h-48 md:h-auto border-b md:border-b-0 md:border-r border-gray-100 dark:border-white/5">
-                        <MapContainer
-                            center={mapCenter}
-                            zoom={15}
-                            style={{ height: '100%', width: '100%' }}
-                            className="z-10"
+                        <AgroMap3D
+                            initialViewState={{
+                                longitude: mapCenter[0],
+                                latitude: mapCenter[1],
+                                zoom: 14,
+                                pitch: 45,
+                                bearing: 0
+                            }}
+                            polygons={fields.map(field => ({
+                                coordinates: field.polygon.map(p => [p[1], p[0]]),
+                                color: [74, 222, 128, 51]
+                            }))}
+                            paths={[{
+                                coordinates: routePositions.map(p => [p[1], p[0]]),
+                                color: [139, 92, 246, 255],
+                                width: 4
+                            }]}
                         >
-                            <OfflineTileLayer
-                                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                                crossOrigin="anonymous"
-                            />
-                            {fields.map(field => (
-                                <Polygon
-                                    key={field.id}
-                                    positions={field.polygon}
-                                    pathOptions={{ color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.2, weight: 2 }}
-                                />
-                            ))}
-                            <Polyline
-                                positions={routePositions}
-                                pathOptions={{ color: '#8b5cf6', weight: 4, dashArray: '10, 10' }}
-                            />
                             {optimization.orderedFields.map((field, i) => (
                                 <Marker
                                     key={field.id}
-                                    position={field.coordinates}
-                                    icon={L.divIcon({
-                                        className: 'custom-div-icon',
-                                        html: `<div class="w-6 h-6 bg-agro-green text-white rounded-full flex items-center justify-center font-black text-xs shadow-lg border-2 border-white">${i + 1}</div>`,
-                                        iconSize: [24, 24],
-                                        iconAnchor: [12, 12]
-                                    })}
-                                />
+                                    longitude={field.coordinates[1]}
+                                    latitude={field.coordinates[0]}
+                                >
+                                    <div className="w-6 h-6 bg-agro-green text-white rounded-full flex items-center justify-center font-black text-xs shadow-lg border-2 border-white">
+                                        {i + 1}
+                                    </div>
+                                </Marker>
                             ))}
-                        </MapContainer>
+                        </AgroMap3D>
 
                         {/* Floating Stats */}
                         <div className="absolute bottom-4 left-4 z-20 flex flex-col gap-2">

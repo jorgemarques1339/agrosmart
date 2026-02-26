@@ -1,5 +1,6 @@
 import { db } from './db';
 import { haptics } from '../utils/haptics';
+import { sounds } from '../utils/sounds';
 import * as Comlink from 'comlink';
 import type { DataSyncWorker } from '../workers/dataWorker';
 import { FeedItem } from '../types';
@@ -70,6 +71,7 @@ export class SyncManager {
             const store = await this.getStore();
             store.setSyncStatus('offline');
             haptics.warning();
+            sounds.playSwoosh();
         }
     }
 

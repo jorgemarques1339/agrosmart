@@ -6,13 +6,12 @@ import {
     MousePointer2, Trash2, CheckCircle2, AlertTriangle, Cloud,
     Camera, Radio, Zap, Wind, Crosshair, Terminal
 } from 'lucide-react';
-import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { Marker } from 'react-map-gl/maplibre';
+import { AgroMap3D } from './AgroMap3D';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Field, Mission, FeedItem } from '../types';
 import { haptics } from '../utils/haptics';
-import OfflineTileLayer from './OfflineTileLayer';
 import { useStore } from '../store/useStore';
 
 // --- HELPERS ---
@@ -46,37 +45,13 @@ const checkPointInPoly = (point: [number, number], vs: [number, number][]) => {
 
 interface MissionControlProps {
     field: Field;
+    initialVehicles?: string[];
     onClose?: () => void;
     onMissionUpdate?: (fieldId: string, missions: Mission[]) => void;
 }
 
-const RouteLayer = ({ waypoints, setWaypoints, isDrawing }: { waypoints: [number, number][], setWaypoints: any, isDrawing: boolean }) => {
-    useMapEvents({
-        click(e) {
-            if (!isDrawing) return;
-            const { lat, lng } = e.latlng;
-            setWaypoints([...waypoints, [lat, lng]] as [number, number][]);
-            haptics.light();
-        },
-    });
-
-    return (
-        <>
-            <Polyline positions={waypoints} pathOptions={{ color: '#8b5cf6', weight: 4, dashArray: '10, 10' }} />
-            {waypoints.map((wp, i) => (
-                <Marker key={i} position={wp} eventHandlers={{ click: (e) => (e as any).originalEvent.stopPropagation() }} />
-            ))}
-        </>
-    );
-};
-
-const MapCenterer = ({ coords }: { coords: [number, number] }) => {
-    const map = useMap();
-    useEffect(() => {
-        map.setView(coords, map.getZoom());
-    }, [coords, map]);
-    return null;
-};
+// Helper to flip lat/lng to lng/lat
+const invertCoords = (coords: [number, number][]) => coords.map(c => [c[1], c[0]] as [number, number]);
 
 const FLEET = [
     { id: 'd1', name: 'Drone Alpha-1', type: 'drone' as const, icon: <Cloud size={16} />, batteryDrain: 0.2 },
@@ -86,8 +61,8 @@ const FLEET = [
 
 const DRONE_VIEW_URL = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMWExYTFhIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM0YWRlODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiPkxJVkUgRkVFRCBTSU1VTEFUSU9OPC90ZXh0Pjwvc3ZnPg==";
 
-const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate, onClose }) => {
-    const [activeSwarm, setActiveSwarm] = useState<string[]>([FLEET[0].id]);
+const MissionControl: React.FC<MissionControlProps> = ({ field, initialVehicles, onMissionUpdate, onClose }) => {
+    const [activeSwarm, setActiveSwarm] = useState<string[]>(initialVehicles || [FLEET[0].id]);
     const [isFleetExpanded, setIsFleetExpanded] = useState(false);
     const [waypoints, setWaypoints] = useState<[number, number][]>([]);
     const [isSimulationActive, setIsSimulationActive] = useState(false);
@@ -142,7 +117,9 @@ const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate,
                     setLeadPos(newLeadPos);
 
                     if (newLeadPos) {
-                        const isInside = checkPointInPoly(newLeadPos, field.polygon);
+                        // Note: newLeadPos is [lng, lat], field.polygon is [lat, lng]. Flip before check.
+                        const flippedLeadPos: [number, number] = [newLeadPos[1], newLeadPos[0]];
+                        const isInside = checkPointInPoly(flippedLeadPos, field.polygon);
                         if (!isInside && !isGeofenceViolated) {
                             setIsGeofenceViolated(true);
                             haptics.warning();
@@ -325,16 +302,36 @@ const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate,
                     </div>
 
                     {/* MINI MAP HUD */}
-                    <div className="absolute top-6 left-6 w-48 h-48 rounded-[1.5rem] overflow-hidden border-2 border-white/20 shadow-2xl z-20 group-hover:scale-110 transition-transform duration-500">
-                        <MapContainer center={field.coordinates} zoom={18} style={{ height: '100%', width: '100%' }} zoomControl={false} scrollWheelZoom={false}>
-                            <OfflineTileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
-                            <Polygon positions={field.polygon} pathOptions={{ color: '#10b981', weight: 1, fillOpacity: 0.2 }} />
-                            <RouteLayer waypoints={waypoints} setWaypoints={setWaypoints} isDrawing={isDrawing} />
-                            {leadPos && <Marker position={leadPos} icon={L.divIcon({ className: 'custom-radar', html: '<div class="w-4 h-4 bg-agro-green rounded-full shadow-[0_0_15px_#10b981] animate-ping"></div>' })} />}
-                            {leadPos && <MapCenterer coords={leadPos} />}
-                        </MapContainer>
+                    <div className="absolute top-6 left-6 w-48 h-48 rounded-[1.5rem] overflow-hidden border-2 border-white/20 shadow-2xl z-20 group-hover:scale-110 transition-transform duration-500 bg-neutral-900 pointer-events-auto">
+                        <AgroMap3D
+                            initialViewState={{
+                                longitude: leadPos ? leadPos[0] : field.coordinates[1],
+                                latitude: leadPos ? leadPos[1] : field.coordinates[0],
+                                zoom: 16,
+                                pitch: 60,
+                                bearing: 0
+                            }}
+                            polygons={[{ coordinates: invertCoords(field.polygon), color: [16, 185, 129, 51] }]}
+                            paths={waypoints.length > 1 ? [{ coordinates: waypoints, color: [139, 92, 246, 255], width: 3 }] : []}
+                            onClick={(info) => {
+                                if (!isDrawing || !info.coordinate) return;
+                                setWaypoints([...waypoints, info.coordinate as [number, number]]);
+                                haptics.light();
+                            }}
+                        >
+                            {waypoints.map((wp, i) => (
+                                <Marker key={i} longitude={wp[0]} latitude={wp[1]}>
+                                    <div className="w-3 h-3 bg-purple-500 rounded-full border-2 border-white shadow-md" />
+                                </Marker>
+                            ))}
+                            {leadPos && (
+                                <Marker longitude={leadPos[0]} latitude={leadPos[1]}>
+                                    <div className="w-4 h-4 bg-agro-green rounded-full shadow-[0_0_15px_#10b981] animate-ping" />
+                                </Marker>
+                            )}
+                        </AgroMap3D>
                         <div className="absolute inset-0 pointer-events-none border border-white/30 rounded-[1.5rem]" />
-                        <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/60 text-[7px] text-white font-black uppercase rounded">TATIC-MAP</div>
+                        <div className="absolute bottom-2 left-2 px-1.5 py-0.5 bg-black/60 text-[7px] text-white font-black uppercase rounded z-30">TATIC-MAP</div>
                     </div>
                 </div>
             </div>
@@ -349,8 +346,8 @@ const MissionControl: React.FC<MissionControlProps> = ({ field, onMissionUpdate,
                         <TelemetryValue icon={Zap} label="POTENCIA" value={Math.floor(battery)} unit="%" colorClass={battery < 20 ? "text-red-500" : "text-yellow-400"} />
                         <TelemetryValue icon={Navigation} label="PROGRESSO" value={Math.floor(progress)} unit="%" colorClass="text-blue-400" />
                         <TelemetryValue icon={Wind} label="VELOCIDADE" value={isSimulationActive ? (4.2 * speedMultiplier).toFixed(1) : 0.0} unit="km/h" colorClass="text-emerald-400" />
-                        <TelemetryValue icon={MapPin} label="COORD_X" value={leadPos ? leadPos[0].toFixed(5) : '---'} colorClass="text-purple-400" />
-                        <TelemetryValue icon={MapPin} label="COORD_Y" value={leadPos ? leadPos[1].toFixed(5) : '---'} colorClass="text-purple-400" />
+                        <TelemetryValue icon={MapPin} label="COORD_LNG" value={leadPos ? leadPos[0].toFixed(5) : '---'} colorClass="text-purple-400" />
+                        <TelemetryValue icon={MapPin} label="COORD_LAT" value={leadPos ? leadPos[1].toFixed(5) : '---'} colorClass="text-purple-400" />
                         <TelemetryValue icon={Signal} label="SINAL_LINK" value={92} unit="%" colorClass="text-blue-500" />
                     </div>
 

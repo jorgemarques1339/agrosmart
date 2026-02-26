@@ -11,6 +11,7 @@ export interface FieldSlice {
     updateField: (id: string, updates: Partial<Field>) => Promise<void>;
     deleteField: (id: string) => Promise<void>;
     toggleIrrigation: (id: string, status: boolean) => Promise<void>;
+    toggleAutoPilot: (id: string) => Promise<void>;
     addLogToField: (fieldId: string, log: FieldLog, transaction?: Transaction, stockUpdate?: { id: string, quantity: number }) => Promise<void>;
 }
 
@@ -44,6 +45,21 @@ export const createFieldSlice: StateCreator<AppState, [], [], FieldSlice> = (set
 
     toggleIrrigation: async (id, status) => {
         await db.fields.update(id, { irrigationStatus: status });
+        const fullField = await db.fields.get(id);
+        if (fullField) {
+            syncManager.addToQueue('UPDATE_FIELD', fullField);
+            set(state => ({
+                fields: state.fields.map(f => f.id === id ? fullField : f)
+            }));
+        }
+    },
+
+    toggleAutoPilot: async (id) => {
+        const field = get().fields.find(f => f.id === id);
+        if (!field) return;
+        const newStatus = !field.autoPilotEnabled;
+
+        await db.fields.update(id, { autoPilotEnabled: newStatus });
         const fullField = await db.fields.get(id);
         if (fullField) {
             syncManager.addToQueue('UPDATE_FIELD', fullField);

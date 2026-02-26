@@ -17,7 +17,7 @@ export default defineConfig({
             if (id.includes('react')) return 'vendor-react';
             if (id.includes('supabase')) return 'vendor-supabase';
             if (id.includes('jspdf') || id.includes('lucide-react')) return 'vendor-utils';
-            if (id.includes('leaflet')) return 'vendor-maps';
+            if (id.includes('maplibre') || id.includes('deck.gl')) return 'vendor-maps';
             return 'vendor';
           }
         }

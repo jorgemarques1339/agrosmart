@@ -8,6 +8,7 @@ import { Field, DetailedForecast } from '../types';
 import { calculateIrrigationNeed } from '../utils/irrigationModel';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { haptics } from '../utils/haptics';
+import { useStore } from '../store/useStore';
 
 interface IrrigationTwinProps {
     field: Field;
@@ -20,6 +21,30 @@ const IrrigationTwin: React.FC<IrrigationTwinProps> = ({ field, forecast, onAppl
     const containerRef = React.useRef<HTMLDivElement>(null);
     const x = useMotionValue(0);
     const background = useTransform(x, [0, 200], ['rgba(255,255,255,0.05)', 'rgba(59,130,246,0.5)']);
+
+    const { toggleAutoPilot, setPendingAutoPilotRequest, pendingAutoPilotRequest } = useStore();
+
+    // AutoPilot Logic: Trigger a pending request if active and irrigation is recommended
+    React.useEffect(() => {
+        if (field.autoPilotEnabled && !field.irrigationStatus && recommendation.minutes > 0) {
+            // Avoid triggering if a request is already pending for this field
+            if (!pendingAutoPilotRequest || pendingAutoPilotRequest.fieldId !== field.id) {
+                // Short timeout to simulate computational delay
+                const timer = setTimeout(() => {
+                    setPendingAutoPilotRequest({
+                        id: `ap-${field.id}-${Date.now()}`,
+                        fieldId: field.id,
+                        fieldName: field.name,
+                        action: 'irrigate',
+                        reason: `Rega otimizada necessária (${recommendation.minutes} min). ET0: ${recommendation.et0}mm, Kc: ${recommendation.kc}.`,
+                        minutes: recommendation.minutes
+                    });
+                    haptics.warning(); // Alert the user of a pending action
+                }, 1500);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [field.autoPilotEnabled, field.irrigationStatus, recommendation.minutes, field.id, pendingAutoPilotRequest?.fieldId]);
 
     const getStressColor = (stress: number) => {
         if (stress < 30) return 'bg-emerald-500';
@@ -41,6 +66,34 @@ const IrrigationTwin: React.FC<IrrigationTwinProps> = ({ field, forecast, onAppl
 
     return (
         <div className="space-y-3 md:space-y-6">
+            {/* AutoPilot Toggle Header */}
+            <div className="flex items-center justify-between bg-white dark:bg-neutral-900 rounded-2xl md:rounded-[2rem] p-4 md:p-6 shadow-sm border border-gray-100 dark:border-neutral-800">
+                <div className="flex items-center gap-3 md:gap-4">
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-colors ${field.autoPilotEnabled ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-400' : 'bg-gray-100 text-gray-400 dark:bg-neutral-800 dark:text-gray-500'}`}>
+                        <Zap size={22} className={field.autoPilotEnabled ? 'animate-pulse' : ''} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm md:text-base font-black text-gray-900 dark:text-white leading-tight">AutoPilot (Twin 2.0)</h3>
+                        <p className="text-[10px] md:text-xs font-bold text-gray-400 mt-0.5">Gestão semi-autónoma por AI</p>
+                    </div>
+                </div>
+                <button
+                    onClick={() => {
+                        haptics.light();
+                        toggleAutoPilot(field.id);
+                    }}
+                    className={`${field.autoPilotEnabled ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-neutral-700'
+                        } relative inline-flex h-6 w-11 md:h-7 md:w-12 items-center rounded-full transition-colors focus:outline-none`}
+                >
+                    <motion.span
+                        layout
+                        animate={{ x: field.autoPilotEnabled ? (typeof window !== 'undefined' && window.innerWidth >= 768 ? 24 : 20) : 4 }}
+                        transition={{ type: "spring", stiffness: 700, damping: 30 }}
+                        className={`inline-block h-4 w-4 md:h-5 md:w-5 rounded-full bg-white shadow-sm`}
+                    />
+                </button>
+            </div>
+
             {/* 1. MAIN RECOMMENDATION CARD */}
             <div className={`rounded-[1.5rem] md:rounded-[2.5rem] p-3 md:p-6 text-white shadow-xl relative overflow-hidden group transition-colors duration-500 ${recommendation.ndviImpact === 'increase'
                 ? 'bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-700'
@@ -121,6 +174,10 @@ const IrrigationTwin: React.FC<IrrigationTwinProps> = ({ field, forecast, onAppl
                             <Droplets className="text-blue-600 w-5 h-5 md:w-6 md:h-6" />
                         </motion.div>
                     </motion.div>
+                ) : field.autoPilotEnabled ? (
+                    <div className="w-full mt-3 md:mt-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9px] md:text-sm bg-indigo-500/20 text-indigo-200 border border-indigo-500/30 flex items-center justify-center gap-2">
+                        <Zap size={16} className="text-indigo-300 animate-pulse" /> AutoPilot Ativo
+                    </div>
                 ) : (
                     <div
                         className="w-full mt-3 md:mt-6 py-2.5 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-[9px] md:text-sm bg-white/10 text-white/50 cursor-not-allowed border border-white/10 flex items-center justify-center gap-2"

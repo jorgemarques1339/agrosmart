@@ -231,6 +231,7 @@ export interface Field {
   slope?: number; // Average terrain slope in degrees
   currentNdvi?: number; // 0.0 - 1.0 from Sentinel-2
   ndviHistory?: { date: string; value: number }[]; // Satellite vigor history
+  autoPilotEnabled?: boolean; // Irrigation AutoPilot (Twin 2.0)
   updatedAt?: string;
 }
 
@@ -407,6 +408,7 @@ export interface AppState {
   harvests: ProductBatch[];
   notifications: Notification[];
   reclaimCredits: (amount: number, value: number) => Promise<void>;
+  registerTemporaryWorker: (name: string, phone: string, dailyRate: number) => Promise<void>;
 }
 
 export interface Notification {
@@ -419,4 +421,13 @@ export interface Notification {
   actionLink?: string;
   relatedId?: string;
   updatedAt?: string;
+}
+
+export interface AutoPilotRequest {
+  id: string; // Unique ID for the request
+  fieldId: string;
+  fieldName: string;
+  action: 'irrigate' | 'skip';
+  reason: string;
+  minutes?: number;
 }

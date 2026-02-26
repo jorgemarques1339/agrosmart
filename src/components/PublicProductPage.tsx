@@ -1,8 +1,8 @@
 import React from 'react';
 import { ProductBatch, Field } from '../types';
 import { MapPin, Calendar, Sun, Droplets, Award, Share2, ArrowLeft, ShieldCheck, Leaf, Wind } from 'lucide-react';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import OfflineTileLayer from './OfflineTileLayer';
+import { Marker } from 'react-map-gl/maplibre';
+import { AgroMap3D } from './AgroMap3D';
 
 interface PublicProductPageProps {
    batchId: string;
@@ -13,7 +13,6 @@ interface PublicProductPageProps {
 const PublicProductPage: React.FC<PublicProductPageProps> = ({ batchId, harvests, fields }) => {
    // Find real batch data
    const data = harvests.find(h => h.batchId === batchId);
-   const MapContainerAny = MapContainer as any;
 
    if (!data) {
       return (
@@ -105,17 +104,20 @@ const PublicProductPage: React.FC<PublicProductPageProps> = ({ batchId, harvests
                      <span className="text-[10px] font-black text-agro-green uppercase tracking-wider mb-3 block">O Solo</span>
                      <h3 className="font-black text-xl mb-3 mb-4 leading-tight">Colhido em {data.origin}</h3>
                      <div className="h-40 w-full rounded-2xl overflow-hidden relative z-0 border border-gray-100 shadow-inner">
-                        <MapContainerAny
-                           center={data.coordinates}
-                           zoom={14}
-                           zoomControl={false}
-                           dragging={false}
-                           scrollWheelZoom={false}
-                           style={{ height: '100%', width: '100%' }}
+                        <div className="absolute inset-0 z-10 pointer-events-none" />
+                        <AgroMap3D
+                           initialViewState={{
+                              longitude: data.coordinates[1],
+                              latitude: data.coordinates[0],
+                              zoom: 14,
+                              pitch: 30,
+                              bearing: 0
+                           }}
                         >
-                           <OfflineTileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
-                           <Marker position={data.coordinates} />
-                        </MapContainerAny>
+                           <Marker longitude={data.coordinates[1]} latitude={data.coordinates[0]}>
+                              <div className="w-4 h-4 bg-agro-green rounded-full border-2 border-white shadow-xl animate-pulse" />
+                           </Marker>
+                        </AgroMap3D>
                      </div>
                   </div>
                </div>

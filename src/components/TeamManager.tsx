@@ -24,6 +24,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
   const [newName, setNewName] = useState('');
   const [newRole, setNewRole] = useState<UserProfile['role']>('farmer');
   const [showQRUser, setShowQRUser] = useState<UserProfile | null>(null);
+  const [showClockInQR, setShowClockInQR] = useState(false);
 
   const isAdmin = currentUser.role === 'admin';
 
@@ -77,16 +78,29 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
 
           {/* Admin Tools: Add Section */}
           {isAdmin && !showAddForm && (
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="w-full py-4 px-6 bg-emerald-500 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all group"
-            >
-              <div className="flex items-center gap-3">
-                <UserPlus size={20} />
-                Adicionar Novo Membro
-              </div>
-              <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="w-full py-4 px-6 bg-emerald-500 text-white rounded-[1.5rem] font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <UserPlus size={20} />
+                  Adicionar Novo Membro
+                </div>
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+
+              <button
+                onClick={() => setShowClockInQR(true)}
+                className="w-full py-4 px-6 bg-white dark:bg-neutral-900 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 rounded-[1.5rem] font-black text-sm flex items-center justify-between shadow-lg shadow-emerald-500/5 active:scale-[0.98] transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <QrCode size={20} />
+                  Portal Trabalhadores Sazonais (Tarefeiros)
+                </div>
+                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           )}
 
           {/* Add Form (Visible only to Admin when active) */}
@@ -228,6 +242,47 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
           </p>
         </div>
       </div>
+
+      {/* QR Code Modal for Seasonal Roster */}
+      {showClockInQR && (
+        <div className="absolute inset-0 z-50 bg-[#FDFDF5] dark:bg-[#0A0A0A] flex flex-col p-8 items-center text-center animate-slide-up">
+          <div className="w-full flex justify-end">
+            <button onClick={() => setShowClockInQR(false)} className="p-3 bg-gray-100 dark:bg-neutral-800 rounded-full active:scale-90 transition-transform">
+              <X size={20} className="dark:text-white" />
+            </button>
+          </div>
+
+          <div className="flex-1 flex flex-col items-center justify-center -mt-8">
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6 border border-emerald-500/30">
+              <Sprout className="text-emerald-500" size={32} />
+            </div>
+
+            <h3 className="text-2xl font-black dark:text-white mb-2">Portal de Sazonais</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 max-w-xs">
+              Peça aos tarefeiros para lerem este código QR com a câmara do telemóvel para picarem o ponto hoje.
+            </p>
+
+            <div className="bg-white p-4 rounded-3xl shadow-xl shadow-emerald-900/10 border-4 border-emerald-50/50 mb-8 inline-block">
+              <QRCodeSVG
+                value={`${window.location.origin}?clockin=true`}
+                size={220}
+                level="Q"
+                includeMargin={false}
+              />
+            </div>
+
+            <a
+              href={`${window.location.origin}?clockin=true`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-black text-emerald-500 hover:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 hover:bg-emerald-500/20 px-4 py-3 rounded-xl text-center break-all w-full select-all transition-colors block border border-emerald-500/20 cursor-pointer"
+            >
+              {`${window.location.origin}?clockin=true`}
+            </a>
+          </div>
+
+        </div>
+      )}
 
       {/* QR Code Modal Overlay */}
       {showQRUser && (

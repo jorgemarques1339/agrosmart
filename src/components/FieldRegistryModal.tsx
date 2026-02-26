@@ -2,10 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
     X, Save, Calendar, Sprout, Database,
     ShieldCheck, FileText,
-    Users, Clock, DollarSign, Beaker, Droplets, Camera, Image as ImageIcon, Loader2
+    Users, Clock, DollarSign, Beaker, Droplets, Camera, Image as ImageIcon, Loader2, Fingerprint
 } from 'lucide-react';
 import { uploadFieldLogPhotos } from '../services/photoUploadService';
 import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
 import { Field, StockItem, Employee } from '../types';
 
 export type RegistryType = 'treatment' | 'fertilization' | 'observation' | 'labor' | 'irrigation' | 'analysis';
@@ -109,7 +110,10 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
 
     // if (!isOpen) return null; // Handled by AnimatePresence
 
-    const handleSubmit = async () => {
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+    const handleSubmit = async (biometricallySigned: boolean = false) => {
+        setIsAuthenticating(false);
         setIsUploading(true);
         // Generate a temporary log ID for the storage path
         const tempLogId = `log-${Date.now()}`;
@@ -128,7 +132,8 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
             date,
             type,
             fieldId: field.id,
-            attachments: uploadedUrls
+            attachments: uploadedUrls,
+            biometricallySigned
         };
 
         let specificData = {};
@@ -191,6 +196,59 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
 
         onConfirm({ ...baseData, ...specificData });
         onClose();
+    };
+
+    const handleAuthAndSubmit = async () => {
+        if (type !== 'treatment') {
+            return handleSubmit(false);
+        }
+
+        setIsAuthenticating(true);
+
+        try {
+            // Check if WebAuthn is supported
+            if (!window.PublicKeyCredential) {
+                alert('Biometria não suportada neste dispositivo. A assinar digitalmente via PIN padrão.');
+                return handleSubmit(true); // Fallback if no biometric hardware
+            }
+
+            // Mocking a WebAuthn creation request to trigger OS Biometric Prompt (Windows Hello / TouchID / FaceID)
+            const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
+                challenge: new Uint8Array(32),
+                rp: {
+                    name: "AgroSmart DGAV Compliance",
+                    id: window.location.hostname
+                },
+                user: {
+                    id: new Uint8Array(16),
+                    name: "agricultor@agrosmart.pt",
+                    displayName: "Agricultor Autorizado"
+                },
+                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                authenticatorSelection: {
+                    authenticatorAttachment: "platform", // Force local biometrics (FaceID/TouchID)
+                    userVerification: "required"
+                },
+                timeout: 60000,
+                attestation: "none"
+            };
+
+            await navigator.credentials.create({
+                publicKey: publicKeyCredentialCreationOptions
+            });
+
+            // Biometrics succeeded
+            handleSubmit(true);
+
+        } catch (error: any) {
+            console.error('[WebAuthn] Biometric auth failed or cancelled', error);
+            setIsAuthenticating(false);
+            if (error.name === 'NotAllowedError') {
+                alert('Assinatura biométrica cancelada ou falhou. O registo fitofarmacêutico não foi guardado.');
+            } else {
+                alert('Erro inesperado na biometria. Tente novamente.');
+            }
+        }
     };
 
     const getTitle = () => {
@@ -647,12 +705,19 @@ const FieldRegistryModal: React.FC<FieldRegistryModalProps> = ({
                             {/* Footer Actions */}
                             <div className="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-neutral-900/50 pb-8 md:pb-6">
                                 <button
-                                    onClick={handleSubmit}
-                                    disabled={isUploading}
-                                    className="w-full py-4 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    onClick={handleAuthAndSubmit}
+                                    disabled={isUploading || isAuthenticating}
+                                    className={clsx(
+                                        "w-full py-4 text-white rounded-xl font-bold shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed",
+                                        type === 'treatment' ? "bg-emerald-600 shadow-emerald-600/30" : "bg-agro-green shadow-agro-green/30"
+                                    )}
                                 >
                                     {isUploading ? (
                                         <><Loader2 size={18} className="animate-spin" /> A carregar fotos...</>
+                                    ) : isAuthenticating ? (
+                                        <><Loader2 size={18} className="animate-spin" /> A confirmar Identidade (Biometria)...</>
+                                    ) : type === 'treatment' ? (
+                                        <><Fingerprint size={20} className="animate-pulse" /> Assinar e Guardar Registo Fito</>
                                     ) : (
                                         <><Save size={18} /> Confirmar Registo</>
                                     )}

@@ -4,6 +4,7 @@ import { useStore } from '../store/useStore';
 import { MapPin, ArrowRight, X, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { haptics } from '../utils/haptics';
+import { sounds } from '../utils/sounds';
 import {
     sendGeofenceNotification,
     dismissGeofenceNotification,
@@ -84,6 +85,7 @@ const GeofencingService: React.FC = () => {
                     if (fieldFound) {
                         if (!nearbyField || nearbyField.id !== fieldFound.id) {
                             setNearbyField(fieldFound);
+                            sounds.playBop();
                             haptics.warning();
 
                             // Fire native push notification (once per field entry)

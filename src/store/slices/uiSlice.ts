@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { AppState } from '../useStore';
-import { WeatherForecast, DetailedForecast, Task, ProductBatch } from '../../types';
+import { WeatherForecast, DetailedForecast, Task, ProductBatch, AutoPilotRequest } from '../../types';
 
 export interface Conflict {
     id: string; // Entity ID
@@ -14,6 +14,7 @@ export interface UISlice {
     activeTab: string;
     isDarkMode: boolean;
     isSolarMode: boolean;
+    isThermalMode: boolean;
     isOnline: boolean;
     weatherData: WeatherForecast[];
     detailedForecast: DetailedForecast[];
@@ -25,6 +26,7 @@ export interface UISlice {
     };
     conflicts: Conflict[];
     focusedTarget: { type: 'sensor' | 'field', id: string } | null;
+    pendingAutoPilotRequest: AutoPilotRequest | null;
     ui: {
         modals: {
             settings: boolean;
@@ -45,6 +47,7 @@ export interface UISlice {
     setActiveTab: (tab: string) => void;
     setDarkMode: (isDark: boolean) => void;
     setSolarMode: (isSolar: boolean) => void;
+    setThermalMode: (isThermal: boolean) => void;
     setOnline: (isOnline: boolean) => void;
     setWeatherData: (data: WeatherForecast[]) => void;
     setDetailedForecast: (data: DetailedForecast[]) => void;
@@ -57,12 +60,14 @@ export interface UISlice {
     updateGuideData: (updates: any) => void;
     addConflict: (conflict: Conflict) => void;
     resolveConflict: (entityId: string, choice: 'local' | 'remote') => void;
+    setPendingAutoPilotRequest: (request: AutoPilotRequest | null) => void;
 }
 
 export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get) => ({
     activeTab: 'dashboard',
     isDarkMode: localStorage.getItem('oriva_dark_mode') === 'true',
     isSolarMode: localStorage.getItem('oriva_solar_mode') === 'true',
+    isThermalMode: false,
     isOnline: navigator.onLine,
     weatherData: [],
     detailedForecast: [],
@@ -74,6 +79,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
     },
     conflicts: [],
     focusedTarget: null,
+    pendingAutoPilotRequest: null,
     ui: {
         modals: {
             settings: false,
@@ -105,6 +111,7 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
         localStorage.setItem('oriva_solar_mode', String(isSolar));
         set({ isSolarMode: isSolar });
     },
+    setThermalMode: (isThermal) => set({ isThermalMode: isThermal }),
     setOnline: (isOnline) => set({ isOnline, syncStatus: isOnline ? 'idle' : 'offline' }),
     setWeatherData: (weatherData) => set({ weatherData }),
     setDetailedForecast: (data) => set({ detailedForecast: data }),
@@ -171,4 +178,5 @@ export const createUISlice: StateCreator<AppState, [], [], UISlice> = (set, get)
             conflicts: state.conflicts.filter(c => c.id !== entityId)
         }));
     },
+    setPendingAutoPilotRequest: (request) => set({ pendingAutoPilotRequest: request }),
 });

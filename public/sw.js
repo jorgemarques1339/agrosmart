@@ -6,21 +6,20 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
   'https://cdn.tailwindcss.com',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://esm.sh/react@^19.2.4',
   'https://esm.sh/react-dom@^19.2.4',
   'https://esm.sh/lucide-react@^0.563.0',
   'https://esm.sh/recharts@^3.7.0',
-  'https://esm.sh/react-leaflet@^5.0.0',
-  'https://esm.sh/leaflet@^1.9.4',
   'https://esm.sh/mqtt@^5.15.0',
   'https://esm.sh/jspdf@2.5.1',
   'https://esm.sh/jspdf-autotable@3.8.2'
 ];
 
-// Map Tile detection logic
+// Map Tile detection logic (Includes Carto Basemaps and AWS Elevation Terrain)
 const isMapTile = (url) => {
-  return url.includes('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile');
+  return url.includes('server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile') ||
+    url.includes('basemaps.cartocdn.com') ||
+    url.includes('s3.amazonaws.com/elevation-tiles-prod/terrarium');
 };
 
 self.addEventListener('install', (event) => {

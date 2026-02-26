@@ -9,8 +9,8 @@ import {
   Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon, Navigation, BrainCircuit, Plane as Drone, Terminal, MoreHorizontal, LogOut, Check, Briefcase, Calendar, ChevronRight, Settings, Database, Download, Eye, MessageSquare, Share2, Filter, Search, Edit3, Save, Archive, Lock, Unlock, Globe, Satellite, PieChart, Layers
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
-import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
-import OfflineTileLayer from './OfflineTileLayer';
+import { AgroMap3D } from './AgroMap3D';
+import { Marker } from 'react-map-gl/maplibre';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import IrrigationTwin from './IrrigationTwin';
@@ -28,6 +28,12 @@ import { db } from '../services/db';
 import { calculateMildioRisk } from '../utils/diseaseModel';
 import MissionControl from './MissionControl';
 import { iotManager } from '../services/IoTManager';
+
+const FLEET = [
+  { id: 'd1', name: 'Drone Alpha-1', type: 'drone' as const, icon: <CloudSun size={16} />, batteryDrain: 0.2 },
+  { id: 'd2', name: 'AgroBot X-5', type: 'autonomous_tractor' as const, icon: <Cpu size={16} />, batteryDrain: 0.1 },
+  { id: 'd3', name: 'Drone Bravo-2', type: 'drone' as const, icon: <CloudSun size={16} />, batteryDrain: 0.25 },
+];
 
 interface FieldCardProps {
   field: Field;
@@ -400,10 +406,59 @@ const FieldCard: React.FC<FieldCardProps> = ({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showRegistryModal, setShowRegistryModal] = useState(false);
   const [isMissionFullScreen, setIsMissionFullScreen] = useState(false);
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([FLEET[0].id]);
   const [registryType, setRegistryType] = useState<RegistryType>('observation');
   const [tileCount, setTileCount] = useState(0);
   const [showNDVILayer, setShowNDVILayer] = useState(false);
   const [ndviDate, setNdviDate] = useState('23 Fev (Há 3 dias)');
+
+  // --- Live Radar (MQTT Simulation) ---
+  const [liveVehicles, setLiveVehicles] = useState<{ id: string, name: string, type: 'tractor' | 'harvester', position: [number, number], heading: number }[]>([]);
+  const [liveTrails, setLiveTrails] = useState<{ coordinates: [number, number][], color: [number, number, number, number], width: number }[]>([]);
+
+  useEffect(() => {
+    if (!field.crop.includes('Trigo') || activeTab !== 'sensors') {
+      setLiveVehicles([]);
+      setLiveTrails([]);
+      return;
+    }
+
+    const centerLat = field.coordinates[0];
+    const centerLng = field.coordinates[1];
+    const radius = 0.0015; // ~150m radius
+
+    let t = 0;
+    let trail1: [number, number][] = [];
+    let trail2: [number, number][] = [];
+
+    const interval = setInterval(() => {
+      t += 0.05;
+
+      const tLat = centerLat + Math.sin(t) * radius;
+      const tLng = centerLng + Math.cos(t) * radius * 1.5;
+
+      const dLat = centerLat + Math.cos(t * 1.5) * radius * 1.8;
+      const dLng = centerLng + Math.sin(t * 1.5) * radius * 1.8;
+
+      const p1: [number, number] = [tLng, tLat]; // DeckGL requires [lng, lat]
+      const p2: [number, number] = [dLng, dLat];
+
+      setLiveVehicles([
+        { id: 'v1', name: 'Trator John Deere', type: 'tractor', position: p1, heading: t * (180 / Math.PI) },
+        { id: 'v2', name: 'Ceifeira Claas', type: 'harvester', position: p2, heading: -(t * 1.5) * (180 / Math.PI) }
+      ]);
+
+      trail1 = [...trail1.slice(-100), p1]; // keep last 100 points
+      trail2 = [...trail2.slice(-100), p2];
+
+      setLiveTrails([
+        { coordinates: trail1, color: [74, 222, 128, 200], width: 6 }, // Tractor trail (green)
+        { coordinates: trail2, color: [234, 179, 8, 200], width: 8 }  // Harvester trail (yellow)
+      ]);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [field.crop, activeTab, field.coordinates]);
 
   const detailedForecast = useStore(state => state.detailedForecast);
   const diseaseRisk = useMemo(() => calculateMildioRisk(field, detailedForecast), [field, detailedForecast]);
@@ -751,47 +806,75 @@ const FieldCard: React.FC<FieldCardProps> = ({
                   {activeTab === 'sensors' && (
                     <motion.div key="sensors" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
                       <div className="h-48 md:h-[300px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/50 dark:border-white/5 relative group">
-                        <MapContainer center={field.coordinates} zoom={15} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                          <OfflineTileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
-                          {showNDVILayer ? (
-                            <>
-                              <Polygon positions={field.polygon} pathOptions={{ color: '#fff', fill: false, weight: 2, dashArray: '5, 5' }} />
-                              {ndviLayers.map((layer, idx) => <Polygon key={idx} positions={layer.positions} pathOptions={{ color: 'transparent', fillColor: layer.color, fillOpacity: layer.opacity }} />)}
-                            </>
-                          ) : (
-                            <Polygon positions={field.polygon} pathOptions={{ color: '#4ade80', fillColor: '#4ade80', fillOpacity: 0.3, weight: 3 }} />
-                          )}
-                        </MapContainer>
+                        <AgroMap3D
+                          initialViewState={{
+                            longitude: field.coordinates[1],
+                            latitude: field.coordinates[0],
+                            zoom: 15,
+                            pitch: 50,
+                            bearing: -20
+                          }}
+                          polygons={showNDVILayer ? (
+                            ndviLayers.map((l: any) => {
+                              const parseHex = (hex: string, alpha: number) => {
+                                const r = parseInt(hex.slice(1, 3), 16);
+                                const g = parseInt(hex.slice(3, 5), 16);
+                                const b = parseInt(hex.slice(5, 7), 16);
+                                return [r, g, b, alpha] as [number, number, number, number];
+                              };
+                              return {
+                                coordinates: l.positions.map((p: [number, number]) => [p[1], p[0]]),
+                                color: parseHex(l.color, Math.round(l.opacity * 255))
+                              };
+                            })
+                          ) : [
+                            {
+                              coordinates: field.polygon.map(p => [p[1], p[0]]),
+                              color: [74, 222, 128, 76] // fallback green with low opacity
+                            }
+                          ]}
+                          paths={showNDVILayer ? [] : liveTrails}
+                          showThermal={showNDVILayer}
+                          thermalData={
+                            showNDVILayer ? field.polygon.map(p => ({
+                              coordinates: [p[1], p[0]] as [number, number],
+                              weight: Math.random() // Distributing thermal clouds around polygon vertices
+                            })) : []
+                          }
+                        >
+                          {!showNDVILayer && liveVehicles.map(v => (
+                            <Marker key={v.id} longitude={v.position[0]} latitude={v.position[1]} anchor="center" style={{ zIndex: 100 }}>
+                              <div className="flex flex-col items-center">
+                                <div className={clsx("p-2 rounded-full shadow-xl border-2 border-white animate-pulse", v.type === 'harvester' ? 'bg-yellow-500' : 'bg-green-500')}>
+                                  {v.type === 'harvester' ? <Wheat size={16} className="text-white" /> : <Cpu size={16} className="text-white" />}
+                                </div>
+                                <div className="mt-1 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] font-bold text-white uppercase tracking-wider whitespace-nowrap border border-white/10 shadow-lg">
+                                  {v.name}
+                                  <span className="text-gray-400 ml-1">{(v.type === 'tractor' ? 8 : 4)} km/h</span>
+                                </div>
+                              </div>
+                            </Marker>
+                          ))}
+                        </AgroMap3D>
                         <div className="absolute top-6 left-6 right-6 flex justify-end gap-2 z-[400]">
-                          {!showNDVILayer && (
-                            <div className="flex gap-2">
-                              <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-white/10">
-                                <span className="text-[8px] font-black uppercase opacity-70">オフライン ({tileCount})</span>
-                                <p className="text-sm font-black">{field.areaHa} HA</p>
-                              </div>
-                              <div className="bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl text-white border border-agro-green/50">
-                                <span className="text-[8px] font-black uppercase opacity-70">Lucro Est.</span>
-                                <p className="text-sm font-black text-agro-green">{financialData.netMargin.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
-                              </div>
-                            </div>
-                          )}
+                          {/* Top right map overlay area reserved for future tools */}
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Vigor Card */}
-                        <div className="bg-white dark:bg-neutral-900 p-4 sm:p-6 rounded-[2rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between shadow-sm">
+                        {/* Predictive Yield Analytics Card */}
+                        <div className="bg-white dark:bg-neutral-900 p-3 sm:p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between shadow-sm">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 sm:gap-3">
-                              <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-xl">
-                                <Leaf className="text-green-500" size={16} />
+                              <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-xl">
+                                <Brain className="text-purple-500" size={14} strokeWidth={2.5} />
                               </div>
-                              <span className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Vigor (NDVI)</span>
+                              <span className="text-[10px] md:text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Previsão</span>
                             </div>
                             <button
                               onClick={() => setShowNDVILayer(!showNDVILayer)}
                               className={clsx(
-                                "px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase transition-all shadow-sm border",
+                                "px-3 sm:px-4 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase transition-all shadow-sm border",
                                 showNDVILayer
                                   ? "bg-agro-green text-white border-transparent"
                                   : "bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-100 dark:border-white/5"
@@ -800,11 +883,22 @@ const FieldCard: React.FC<FieldCardProps> = ({
                               Satelital
                             </button>
                           </div>
-                          <div className="flex items-baseline gap-2 sm:gap-3 mt-4 sm:mt-6">
-                            <span className="text-4xl sm:text-6xl font-black text-gray-900 dark:text-white tracking-tighter">0.86</span>
-                            <div className="flex flex-col">
-                              <span className="text-[10px] sm:text-xs font-black text-emerald-500 uppercase italic">Excelente</span>
-                              <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase mt-0.5">Sem Stress</span>
+                          <div className="mt-3 sm:mt-5">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-4xl sm:text-5xl font-black text-red-500 tracking-tighter">-5%</span>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] sm:text-xs font-black text-gray-900 dark:text-white uppercase italic tracking-wide">Quebra Estimada</span>
+                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase mt-0.5">Potencial Produtivo</span>
+                              </div>
+                            </div>
+                            <div className="mt-2.5 sm:mt-4 p-2.5 sm:p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                              <div className="flex items-start gap-2">
+                                <ShieldAlert size={12} className="text-orange-500 shrink-0 mt-0.5 sm:w-3 sm:h-3" />
+                                <p className="text-[9px] sm:text-[10px] text-orange-700 dark:text-orange-400 font-medium leading-snug sm:leading-[1.4] tracking-wide">
+                                  <span className="font-bold uppercase tracking-widest mr-1">Alerta Algorítmico:</span>
+                                  Tendência para quebra de 5% de colheita em {field.crop.toLowerCase()} devido ao cruzamento histórico de anomalias ETc e declínio de vigor NDVI.
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -855,14 +949,60 @@ const FieldCard: React.FC<FieldCardProps> = ({
                   )}
 
                   {activeTab === 'missions' && (
-                    <motion.div key="missions" className="flex flex-col items-center justify-center p-12 text-center bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-white/5 gap-6">
-                      <div className="w-24 h-24 rounded-full bg-agro-green/10 flex items-center justify-center text-agro-green"><Drone size={48} /></div>
-                      <div className="max-w-md">
-                        <h3 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-2">Centro de Comando Ativo</h3>
-                        <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Controlo centralizado de frotas autónomas e planeamento de missões em tempo real.</p>
+                    <motion.div key="missions" className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-12 text-center bg-white dark:bg-neutral-900 rounded-3xl md:rounded-[2.5rem] border border-gray-100 dark:border-white/5 gap-3 md:gap-6">
+                      <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-agro-green/10 flex items-center justify-center text-agro-green mb-1 md:mb-0"><Drone size={24} className="md:w-10 md:h-10" /></div>
+                      <div className="max-w-md px-2">
+                        <h3 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-1.5 md:mb-2">Selecione o Enxame</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-[10px] md:text-sm font-medium leading-tight">Atribua veículos autónomos para formar a equipa desta missão antes de iniciar as operações.</p>
                       </div>
-                      <button onClick={() => setIsMissionFullScreen(true)} className="px-8 py-4 bg-agro-green text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-                        <Terminal size={20} /> Abrir Centro de Comando
+
+                      {/* Vehicle Selection Grid */}
+                      <div className="w-full max-w-lg grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 my-2 md:my-4 px-1">
+                        {FLEET.map(vehicle => {
+                          const isSelected = selectedVehicles.includes(vehicle.id);
+                          return (
+                            <button
+                              key={vehicle.id}
+                              onClick={() => {
+                                setSelectedVehicles(prev =>
+                                  isSelected
+                                    ? prev.filter(id => id !== vehicle.id)
+                                    : [...prev, vehicle.id]
+                                );
+                              }}
+                              className={clsx(
+                                "flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all active:scale-95 relative",
+                                isSelected
+                                  ? "border-agro-green bg-agro-green/5 text-agro-green dark:text-white"
+                                  : "border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-neutral-800 text-gray-400 hover:border-gray-300 dark:hover:border-gray-600"
+                              )}
+                            >
+                              <div className={clsx("p-1.5 md:p-2 rounded-lg md:rounded-xl", isSelected ? "bg-agro-green text-white" : "bg-white dark:bg-black/20 text-gray-400")}>
+                                {React.cloneElement(vehicle.icon as React.ReactElement<{ className: string }>, { className: "w-4 h-4 md:w-5 md:h-5" })}
+                              </div>
+                              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-center leading-tight">{vehicle.name}</span>
+                              {isSelected && <Check size={12} className="text-agro-green absolute top-2 right-2 md:top-3 md:right-3 md:w-[14px] md:h-[14px]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (selectedVehicles.length === 0) {
+                            alert("Selecione pelo menos 1 veículo para a missão.");
+                            return;
+                          }
+                          setIsMissionFullScreen(true);
+                        }}
+                        className={clsx(
+                          "px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-xs md:text-sm shadow-xl transition-all flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-center",
+                          selectedVehicles.length > 0
+                            ? "bg-agro-green text-white hover:scale-105 active:scale-95 shadow-agro-green/30"
+                            : "bg-gray-200 dark:bg-neutral-800 text-gray-400 cursor-not-allowed"
+                        )}
+                      >
+                        <Terminal size={18} className="md:w-5 md:h-5" /> Abrir Centro de Comando
                       </button>
                     </motion.div>
                   )}
@@ -965,7 +1105,7 @@ const FieldCard: React.FC<FieldCardProps> = ({
         {isMissionFullScreen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[600] bg-black flex items-center justify-center p-0 md:p-8">
             <div className="w-full h-full max-w-7xl relative bg-neutral-900 rounded-none md:rounded-[3rem] overflow-hidden">
-              <MissionControl field={field} onClose={() => setIsMissionFullScreen(false)} />
+              <MissionControl field={field} initialVehicles={selectedVehicles} onClose={() => setIsMissionFullScreen(false)} />
             </div>
           </motion.div>
         )}
