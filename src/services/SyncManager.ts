@@ -432,6 +432,15 @@ export class SyncManager {
             payload = data;
         }
 
+        // --- SCHEMA COMPATIBILITY PATCH ---
+        // Exclude hourly_rate from users table if it causes errors on some Supabase instances
+        const table = this.mapOperationToTable(op);
+        if (table === 'users' && payload) {
+            const { hourlyRate, hourly_rate, ...rest } = payload;
+            payload = rest;
+            console.log(`[Sync] Stripping hourly_rate from ${table} payload for compatibility.`);
+        }
+
         // Convert keys to snake_case to match SQL schema
         return this.toSnakeCase(payload);
     }

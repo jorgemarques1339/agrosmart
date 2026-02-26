@@ -13,30 +13,28 @@ export const ConflictDiscoveryModal: React.FC = () => {
     if (!conflict) return null;
 
     const handleResolve = async (choice: 'local' | 'remote') => {
+        if (!conflict) return;
         haptics.medium();
 
         try {
             if (choice === 'remote') {
                 // Keep Remote: Update local DB with remote data and remove pending sync op
                 const dexieTable = (db as any)[conflict.type];
-                if (dexieTable) {
+                if (dexieTable && conflict.remoteData) {
                     await dexieTable.put(conflict.remoteData);
                 }
 
                 // Clear pending sync op for this entity
                 await db.syncQueue
                     .filter(op => {
-                        const opId = op.data.id || op.data.updates?.id || op.data.fieldId || op.data.batchId;
+                        const opId = op.data?.id || op.data?.updates?.id || op.data?.fieldId || op.data?.batchId;
                         return opId === conflict.id;
                     })
                     .delete();
             } else {
                 // Keep Local: Force push local data again
-                // We don't need to do much here because the op is already in syncQueue.
-                // But we might want to update its updatedAt to be even newer than the remote one
-                // so it "wins" on the next sync pass.
                 const dexieTable = (db as any)[conflict.type];
-                if (dexieTable) {
+                if (dexieTable && conflict.localData) {
                     const localWithNewTime = { ...conflict.localData, updatedAt: new Date().toISOString() };
                     await dexieTable.put(localWithNewTime);
                 }
@@ -47,7 +45,7 @@ export const ConflictDiscoveryModal: React.FC = () => {
             addNotification({
                 id: `conflict-res-${Date.now()}`,
                 title: 'Conflito Resolvido',
-                message: `As alterações do ${conflict.type} foram harmonizadas.`,
+                message: `As alterações do ${conflict.type || 'registo'} foram harmonizadas.`,
                 type: 'success',
                 timestamp: new Date().toISOString(),
                 read: false
@@ -60,15 +58,15 @@ export const ConflictDiscoveryModal: React.FC = () => {
 
     const renderDataDiff = () => {
         // Simple diff: only show fields that differ
-        const local = conflict.localData;
-        const remote = conflict.remoteData;
+        const local = conflict.localData || {};
+        const remote = conflict.remoteData || {};
         const keys = Object.keys({ ...local, ...remote }).filter(k => k !== 'updatedAt' && k !== 'id');
 
         return (
             <div className="space-y-3">
                 {keys.map(key => {
-                    const valL = JSON.stringify(local[key]);
-                    const valR = JSON.stringify(remote[key]);
+                    const valL = local[key] !== undefined ? JSON.stringify(local[key]) : '---';
+                    const valR = remote[key] !== undefined ? JSON.stringify(remote[key]) : '---';
                     if (valL === valR) return null;
 
                     return (
@@ -103,7 +101,7 @@ export const ConflictDiscoveryModal: React.FC = () => {
                         </div>
                         <h3 className="text-2xl font-black dark:text-white leading-tight">Conflito de Dados</h3>
                         <p className="text-gray-500 text-sm mt-2">
-                            Alguém editou o registo <span className="text-amber-600 font-bold">"{conflict.localData.name || conflict.id}"</span> na nuvem enquanto trabalhava localmente.
+                            Alguém editou o registo <span className="text-amber-600 font-bold">"{conflict.localData?.name || conflict.id || 'Sem Nome'}"</span> na nuvem enquanto trabalhava localmente.
                         </p>
                     </div>
 
