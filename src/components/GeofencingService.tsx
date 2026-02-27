@@ -26,7 +26,10 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 const GeofencingService: React.FC = () => {
-    const { fields, activeSession, startSession, permissions } = useStore();
+    const fields = useStore(state => state.fields);
+    const activeSession = useStore(state => state.activeSession);
+    const startSession = useStore(state => state.startSession);
+    const permissions = useStore(state => state.permissions);
     const [nearbyField, setNearbyField] = useState<any>(null);
     const [notifPermission, setNotifPermission] = useState<string>(() => getNotificationPermission());
     const notifiedFieldIds = useRef<Set<string>>(new Set()); // prevent double-firing

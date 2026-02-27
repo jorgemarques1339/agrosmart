@@ -32,7 +32,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   syncStatus = 'idle',
   lastSyncTime = null
 }) => {
-  const { permissions, setPermission } = useStore();
+  const permissions = useStore(state => state.permissions);
+  const setPermission = useStore(state => state.setPermission);
   const [tempName, setTempName] = useState(currentName);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

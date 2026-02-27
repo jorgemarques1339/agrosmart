@@ -7,7 +7,9 @@ import { haptics } from '../utils/haptics';
 import { db } from '../services/db';
 
 export const ConflictDiscoveryModal: React.FC = () => {
-    const { conflicts, resolveConflict, addNotification } = useStore();
+    const conflicts = useStore(state => state.conflicts);
+    const resolveConflict = useStore(state => state.resolveConflict);
+    const addNotification = useStore(state => state.addNotification);
     const conflict = conflicts[0]; // Process one at a time
 
     if (!conflict) return null;

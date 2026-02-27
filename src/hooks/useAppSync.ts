@@ -5,7 +5,9 @@ import { syncManager } from '../services/SyncManager';
 import { iotManager } from '../services/IoTManager';
 
 export const useAppSync = () => {
-    const { isHydrated, hydrate, setOnline } = useStore();
+    const isHydrated = useStore(state => state.isHydrated);
+    const hydrate = useStore(state => state.hydrate);
+    const setOnline = useStore(state => state.setOnline);
     const [syncQueueCount, setSyncQueueCount] = useState(0);
 
     useEffect(() => {

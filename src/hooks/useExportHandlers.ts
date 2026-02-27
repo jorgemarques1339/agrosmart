@@ -3,7 +3,11 @@ import autoTable from 'jspdf-autotable';
 import { useStore } from '../store/useStore';
 
 export const useExportHandlers = () => {
-    const { fields, stocks, ui, closeModal, registerSale } = useStore();
+    const fields = useStore(state => state.fields);
+    const stocks = useStore(state => state.stocks);
+    const ui = useStore(state => state.ui);
+    const closeModal = useStore(state => state.closeModal);
+    const registerSale = useStore(state => state.registerSale);
     const { guideData } = ui.modals;
 
     const generateGuidePDF = () => {

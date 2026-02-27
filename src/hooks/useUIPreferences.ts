@@ -3,11 +3,17 @@ import { useStore } from '../store/useStore';
 import { Notification } from '../types';
 
 export const useUIPreferences = () => {
-    const {
-        isDarkMode, isSolarMode, currentUserId, users,
-        setDarkMode, setSolarMode, setCurrentUserId,
-        openModal, closeModal, addNotification, ui
-    } = useStore();
+    const isDarkMode = useStore(state => state.isDarkMode);
+    const isSolarMode = useStore(state => state.isSolarMode);
+    const currentUserId = useStore(state => state.currentUserId);
+    const users = useStore(state => state.users);
+    const setDarkMode = useStore(state => state.setDarkMode);
+    const setSolarMode = useStore(state => state.setSolarMode);
+    const setCurrentUserId = useStore(state => state.setCurrentUserId);
+    const openModal = useStore(state => state.openModal);
+    const closeModal = useStore(state => state.closeModal);
+    const addNotification = useStore(state => state.addNotification);
+    const ui = useStore(state => state.ui);
 
     const { modals } = ui;
 

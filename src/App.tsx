@@ -11,17 +11,17 @@ import { UserProfile } from './types';
 import { Login } from './components/Login';
 import AppSkeleton from './components/AppSkeleton';
 import { MainLayout } from './components/MainLayout';
-import { PublicClockInPortal } from './components/PublicClockInPortal';
+import { PublicClockInPortal } from './features/team/PublicClockInPortal';
 
 // Lazy Loaded Components
-const DashboardHome = React.lazy(() => import('./components/DashboardHome'));
-const AnimalCard = React.lazy(() => import('./components/AnimalCard'));
-const StockManager = React.lazy(() => import('./components/StockManager'));
-const MachineManager = React.lazy(() => import('./components/MachineManager'));
-const FinanceManager = React.lazy(() => import('./components/FinanceManager'));
-const CultivationView = React.lazy(() => import('./components/CultivationView'));
-const CarbonDashboard = React.lazy(() => import('./components/CarbonDashboard'));
-const PublicProductPage = React.lazy(() => import('./components/PublicProductPage'));
+const DashboardHome = React.lazy(() => import('./features/dashboard/DashboardHome'));
+const AnimalCard = React.lazy(() => import('./features/animals/AnimalCard'));
+const StockManager = React.lazy(() => import('./features/inventory/StockManager'));
+const MachineManager = React.lazy(() => import('./features/machines/MachineManager'));
+const FinanceManager = React.lazy(() => import('./features/finance/FinanceManager'));
+const CultivationView = React.lazy(() => import('./features/cultivation/CultivationView'));
+const CarbonDashboard = React.lazy(() => import('./features/dashboard/CarbonDashboard'));
+const PublicProductPage = React.lazy(() => import('./features/traceability/PublicProductPage'));
 
 /**
  * Internal helper component for restricted access sections.

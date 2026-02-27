@@ -8,7 +8,9 @@ const LAT = 41.442;
 const LON = -8.723;
 
 export const useWeatherSync = () => {
-    const { setWeatherData, setDetailedForecast, setOnline } = useStore();
+    const setWeatherData = useStore(state => state.setWeatherData);
+    const setDetailedForecast = useStore(state => state.setDetailedForecast);
+    const setOnline = useStore(state => state.setOnline);
 
     const fetchWeather = useCallback(async () => {
         if (!navigator.onLine) {

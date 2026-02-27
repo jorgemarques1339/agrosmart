@@ -1,0 +1,1179 @@
+
+import React, { useState, useMemo, useEffect, useCallback, Suspense } from 'react';
+import {
+  Droplets, Thermometer, Brain, Sprout, ChevronDown,
+  MapPin, Loader2, Activity, Wifi,
+  Coins, TrendingUp, TrendingDown, Wallet, Cpu, Signal,
+  ShieldAlert, FileText, List, Workflow,
+  Radio, Package, Wheat, Leaf, BarChart3, ScanEye, X, ArrowLeft,
+  Syringe, Trash2, Power, Plus, ShieldCheck, Clock, Battery, CloudSun, Camera, Zap, FileCheck, Image as ImageIcon, Navigation, BrainCircuit, Plane as Drone, Terminal, MoreHorizontal, LogOut, Check, Briefcase, Calendar, ChevronRight, Settings, Database, Download, Eye, MessageSquare, Share2, Filter, Search, Edit3, Save, Archive, Lock, Unlock, Globe, Satellite, PieChart, Layers
+} from 'lucide-react';
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+const AgroMap3D = React.lazy(() => import('../../components/AgroMap3D').then(m => ({ default: m.AgroMap3D })));
+import { Marker } from 'react-map-gl/maplibre';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import IrrigationTwin from './IrrigationTwin';
+import { motion, AnimatePresence } from 'framer-motion';
+import clsx from 'clsx';
+import { Field, FieldLog, StockItem, Sensor } from '../../types';
+const PestDetection = React.lazy(() => import('./PestDetection'));
+import SoilScanner from './SoilScanner';
+import ARFieldScouting from './ARFieldScouting';
+import AutomationHub from './AutomationHub';
+import HarvestModal from './HarvestModal';
+import FieldRegistryModal, { RegistryType } from './FieldRegistryModal';
+import { useStore } from '../../store/useStore';
+import { db } from '../../services/db';
+import { calculateMildioRisk } from '../../utils/diseaseModel';
+import { calculateYieldPrediction } from '../../utils/yieldPredictor';
+import MissionControl from '../dashboard/MissionControl';
+import { iotManager } from '../../services/IoTManager';
+
+const FLEET = [
+  { id: 'd1', name: 'Drone Alpha-1', type: 'drone' as const, icon: <CloudSun size={16} />, batteryDrain: 0.2 },
+  { id: 'd2', name: 'AgroBot X-5', type: 'autonomous_tractor' as const, icon: <Cpu size={16} />, batteryDrain: 0.1 },
+  { id: 'd3', name: 'Drone Bravo-2', type: 'drone' as const, icon: <CloudSun size={16} />, batteryDrain: 0.25 },
+];
+
+interface FieldCardProps {
+  field: Field;
+  stocks?: StockItem[];
+  onToggleIrrigation: (id: string, status: boolean) => void;
+  onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>) => void;
+  onUseStock?: (fieldId: string, stockId: string, quantity: number, date: string) => void;
+  onRegisterSensor?: (fieldId: string, sensor: Sensor) => void;
+  onRegisterSale?: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
+  onHarvest?: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
+  onDelete?: (id: string) => void;
+}
+
+// --- ATOMIC COMPONENTS ---
+
+const TelemetryCapsule = ({
+  icon: Icon,
+  label,
+  value,
+  unit,
+  colorClass,
+  isAlert = false
+}: {
+  icon: any;
+  label: string;
+  value: string | number;
+  unit: string;
+  colorClass: string;
+  isAlert?: boolean
+}) => (
+  <div className={clsx(
+    "flex items-center gap-2 md:gap-3 px-2.5 py-2 md:px-4 md:py-3 rounded-xl md:rounded-2xl border backdrop-blur-sm transition-all shadow-sm",
+    isAlert
+      ? "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+      : "bg-white/60 dark:bg-white/5 border-white/40 dark:border-white/10"
+  )}>
+    <div className={clsx("p-1.5 md:p-2 rounded-lg md:rounded-xl", isAlert ? "bg-red-500 text-white" : "bg-white dark:bg-neutral-800 text-gray-500 dark:text-gray-400 shadow-inner")}>
+      <Icon size={14} className={clsx("md:w-4 md:h-4", isAlert ? "animate-pulse" : colorClass)} />
+    </div>
+    <div>
+      <p className="text-[8px] md:text-[9px] font-bold uppercase tracking-widest opacity-60 leading-none mb-0.5 md:mb-1">{label}</p>
+      <p className="flex items-baseline gap-0.5 font-black text-sm md:text-xl leading-none text-gray-900 dark:text-white">
+        {value}<span className="text-[10px] md:text-xs font-bold opacity-50">{unit}</span>
+      </p>
+    </div>
+  </div>
+);
+
+const TactileButton = ({
+  onClick,
+  active,
+  loading,
+  icon: Icon,
+  label,
+  activeColor = "blue"
+}: {
+  onClick: (e: React.MouseEvent) => void;
+  active: boolean;
+  loading?: boolean;
+  icon: any;
+  label: string;
+  activeColor?: "blue" | "green" | "yellow"
+}) => {
+  const colorMap = {
+    blue: "bg-blue-600 shadow-blue-500/50",
+    green: "bg-emerald-600 shadow-emerald-500/50",
+    yellow: "bg-amber-500 shadow-amber-500/50"
+  };
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.92 }}
+      onClick={onClick}
+      className={clsx(
+        "relative h-10 md:h-16 px-3 md:px-6 rounded-xl md:rounded-[1.2rem] flex items-center justify-center gap-2 md:gap-3 transition-all duration-300 shadow-lg group border",
+        active
+          ? clsx("text-white border-transparent", colorMap[activeColor as keyof typeof colorMap])
+          : "bg-[#EAEAEA] dark:bg-[#1a1a1a] text-gray-500 dark:text-gray-400 border-white/50 dark:border-white/5 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.8)] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.5),inset_-2px_-2px_5px_rgba(255,255,255,0.05)] hover:bg-gray-200 dark:hover:bg-[#252525]"
+      )}
+    >
+      <AnimatePresence mode="wait">
+        {loading ? (
+          <motion.div
+            key="loader"
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+          >
+            <Loader2 size={20} className="animate-spin" />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="icon"
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="flex items-center gap-2"
+          >
+            <Icon size={20} className={active ? "text-white" : ""} strokeWidth={2.5} />
+            <span className="font-bold uppercase text-xs tracking-wide">{label}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {active && (
+        <motion.div
+          layoutId={`glow-${label}`}
+          className="absolute inset-0 rounded-[1.2rem] bg-white/20 blur-md"
+        />
+      )}
+    </motion.button>
+  );
+};
+
+const ActionMenu = ({
+  isOpen,
+  onClose,
+  options
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  options: Array<{ id: string; label: string; icon: any; color: string; onClick: () => void }>
+}) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={(e) => { e.stopPropagation(); onClose(); }}
+            className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ y: "100%", opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-x-0 bottom-0 z-[201] md:inset-0 md:flex md:items-center md:justify-center pointer-events-none"
+          >
+            <div className="bg-[#FDFDF5] dark:bg-[#1a1a1a] w-full md:max-w-xl rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 pb-10 md:pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.2)] border-t border-white/20 pointer-events-auto">
+              <div className="w-12 h-1.5 bg-gray-300 dark:bg-neutral-700 rounded-full mx-auto mb-6 md:hidden" />
+              <div className="flex justify-between items-center mb-6 px-2">
+                <h3 className="text-xl font-black italic uppercase text-gray-900 dark:text-white tracking-tight">Novo Registo</h3>
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {options.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => {
+                      option.onClick();
+                      onClose();
+                    }}
+                    className={clsx(
+                      "flex flex-col items-center justify-center gap-3 p-4 md:p-6 rounded-[1.5rem] border transition-all active:scale-95 group",
+                      "bg-white dark:bg-neutral-800 border-gray-100 dark:border-white/5 shadow-sm hover:border-gray-200 dark:hover:border-white/10 hover:shadow-md"
+                    )}
+                  >
+                    <div className={clsx("w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-inner mb-1 transition-transform group-hover:scale-110", option.color)}>
+                      <option.icon size={24} className="md:w-7 md:h-7" strokeWidth={2} />
+                    </div>
+                    <span className="font-bold text-xs md:text-sm text-gray-700 dark:text-gray-200 uppercase tracking-wide leading-none text-center">{option.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const LOG_TYPE_COLOR: Record<string, string> = {
+  treatment: 'bg-orange-500',
+  fertilization: 'bg-green-500',
+  observation: 'bg-blue-500',
+  irrigation: 'bg-cyan-500',
+  labor: 'bg-amber-500',
+  analysis: 'bg-purple-500',
+  harvest: 'bg-yellow-500',
+};
+
+const SensorItem = ({ sensor }: { sensor: Sensor }) => {
+  const Icon = sensor.type === 'moisture' ? Droplets : sensor.type === 'weather' ? CloudSun : sensor.type === 'valve' ? Radio : Camera;
+  const statusColor = sensor.status === 'online' ? 'text-green-500' : sensor.status === 'offline' ? 'text-gray-400' : 'text-blue-500';
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-white dark:bg-neutral-800 rounded-2xl border border-gray-100 dark:border-white/5 shadow-sm group hover:border-agro-green/30 transition-all">
+      <div className={clsx("p-3 rounded-xl bg-gray-50 dark:bg-neutral-700", statusColor)}>
+        <Icon size={20} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-center mb-0.5">
+          <h5 className="font-bold text-sm text-gray-900 dark:text-white truncate">{sensor.name}</h5>
+          <span className={clsx("text-[9px] font-black uppercase tracking-widest", statusColor)}>
+            {sensor.status}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase">
+            <Battery size={10} className={sensor.batteryLevel < 20 ? 'text-red-500' : 'text-gray-400'} />
+            {sensor.batteryLevel}%
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-gray-400 font-bold uppercase">
+            <Signal size={10} className="text-blue-500" />
+            {sensor.signalStrength}%
+          </div>
+          <span className="text-[9px] text-gray-300 dark:text-neutral-600 font-mono italic truncate">
+            {sensor.id}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const GalleryTab = ({ field, onAddPhoto }: { field: Field; onAddPhoto: () => void }) => {
+  const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null);
+
+  const allPhotos = React.useMemo(() =>
+    (field.logs || [])
+      .flatMap(log =>
+        (log.attachments || []).map(url => ({
+          url,
+          date: log.date,
+          type: log.type,
+          label: log.productName || log.description || log.type,
+        }))
+      )
+      .filter(p => p.url && (p.url.startsWith('http') || p.url.startsWith('data:'))),
+    [field.logs]
+  );
+
+  return (
+    <motion.div
+      key="gallery"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-4"
+    >
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-agro-green/10 rounded-xl">
+            <ImageIcon size={16} className="text-agro-green" />
+          </div>
+          <div>
+            <h4 className="font-black text-sm text-gray-900 dark:text-white">Galeria de Evidências</h4>
+            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+              {allPhotos.length} foto{allPhotos.length !== 1 ? 's' : ''} registada{allPhotos.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onAddPhoto}
+          className="flex items-center gap-1.5 px-3 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+        >
+          <Camera size={13} /> Adicionar
+        </button>
+      </div>
+
+      {allPhotos.length === 0 ? (
+        <div className="text-center py-20 flex flex-col items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">
+            <Camera size={36} className="text-gray-300" />
+          </div>
+          <div>
+            <p className="font-black text-gray-500 text-sm mb-1">Sem evidências fotográficas</p>
+            <p className="text-[11px] text-gray-400">Adiciona fotos ao criar um<br />Novo Registo no campo.</p>
+          </div>
+          <button
+            onClick={onAddPhoto}
+            className="px-5 py-2.5 bg-agro-green text-white rounded-2xl text-xs font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-transform flex items-center gap-2"
+          >
+            <Camera size={14} /> Criar primeiro registo com foto
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {allPhotos.map((photo, idx) => (
+            <button
+              key={idx}
+              onClick={() => setLightboxUrl(photo.url)}
+              className="relative group aspect-square rounded-2xl overflow-hidden bg-gray-100 dark:bg-neutral-800 border-2 border-transparent hover:border-agro-green/50 transition-all active:scale-[0.97] shadow-sm"
+            >
+              <img
+                src={photo.url}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                alt={photo.label}
+                loading="lazy"
+              />
+              <div className="absolute inset-x-0 bottom-0 p-2.5 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <p className="text-[9px] font-bold text-white/70 uppercase tracking-wider">{photo.date}</p>
+                <p className="text-[11px] font-bold text-white truncate">{photo.label}</p>
+              </div>
+              <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full ${LOG_TYPE_COLOR[photo.type] || 'bg-gray-500'}`}>
+                <span className="text-[8px] font-black text-white uppercase tracking-wider">{photo.type}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {lightboxUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setLightboxUrl(null)}
+            className="fixed inset-0 z-[500] bg-black/95 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.85 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.85 }}
+              onClick={e => e.stopPropagation()}
+              className="relative max-w-2xl w-full"
+            >
+              <img src={lightboxUrl} className="w-full max-h-[80vh] object-contain rounded-2xl" alt="evidência" />
+              <button
+                onClick={() => setLightboxUrl(null)}
+                className="absolute top-3 right-3 w-10 h-10 bg-black/60 backdrop-blur-sm rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+              >
+                <X size={20} />
+              </button>
+              <a
+                href={lightboxUrl}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-transform"
+                onClick={e => e.stopPropagation()}
+              >
+                <ImageIcon size={12} /> Descarregar
+              </a>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
+
+// --- FIELD CARD COMPONENT ---
+
+const FieldCard: React.FC<FieldCardProps> = ({
+  field,
+  onToggleIrrigation,
+  onHarvest,
+  onDelete,
+  onAddLog,
+  stocks = []
+}) => {
+  const setChildModalOpen = useStore(state => state.setChildModalOpen);
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'sensors' | 'journal' | 'gallery' | 'ai' | 'missions' | 'twin'>('sensors');
+  const [aiMode, setAiMode] = useState<'pests' | 'soil' | 'ar'>('pests');
+  const [isLoadingIoT, setIsLoadingIoT] = useState(false);
+  const [showAutomationHub, setShowAutomationHub] = useState(false);
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState(false);
+  const [showRegistryModal, setShowRegistryModal] = useState(false);
+  const [isMissionFullScreen, setIsMissionFullScreen] = useState(false);
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([FLEET[0].id]);
+  const [registryType, setRegistryType] = useState<RegistryType>('observation');
+  const [tileCount, setTileCount] = useState(0);
+  const [showNDVILayer, setShowNDVILayer] = useState(false);
+  const [ndviDate, setNdviDate] = useState('23 Fev (Há 3 dias)');
+
+  // --- Live Radar (MQTT Simulation) ---
+  const [liveVehicles, setLiveVehicles] = useState<{ id: string, name: string, type: 'tractor' | 'harvester', position: [number, number], heading: number }[]>([]);
+  const [liveTrails, setLiveTrails] = useState<{ coordinates: [number, number][], color: [number, number, number, number], width: number }[]>([]);
+
+  useEffect(() => {
+    if (!field.crop.includes('Trigo') || activeTab !== 'sensors') {
+      setLiveVehicles([]);
+      setLiveTrails([]);
+      return;
+    }
+
+    const centerLat = field.coordinates[0];
+    const centerLng = field.coordinates[1];
+    const radius = 0.0015; // ~150m radius
+
+    let t = 0;
+    let trail1: [number, number][] = [];
+    let trail2: [number, number][] = [];
+
+    const interval = setInterval(() => {
+      t += 0.05;
+
+      const tLat = centerLat + Math.sin(t) * radius;
+      const tLng = centerLng + Math.cos(t) * radius * 1.5;
+
+      const dLat = centerLat + Math.cos(t * 1.5) * radius * 1.8;
+      const dLng = centerLng + Math.sin(t * 1.5) * radius * 1.8;
+
+      const p1: [number, number] = [tLng, tLat]; // DeckGL requires [lng, lat]
+      const p2: [number, number] = [dLng, dLat];
+
+      setLiveVehicles([
+        { id: 'v1', name: 'Trator John Deere', type: 'tractor', position: p1, heading: t * (180 / Math.PI) },
+        { id: 'v2', name: 'Ceifeira Claas', type: 'harvester', position: p2, heading: -(t * 1.5) * (180 / Math.PI) }
+      ]);
+
+      trail1 = [...trail1.slice(-100), p1]; // keep last 100 points
+      trail2 = [...trail2.slice(-100), p2];
+
+      setLiveTrails([
+        { coordinates: trail1, color: [74, 222, 128, 200], width: 6 }, // Tractor trail (green)
+        { coordinates: trail2, color: [234, 179, 8, 200], width: 8 }  // Harvester trail (yellow)
+      ]);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [field.crop, activeTab, field.coordinates]);
+
+  const detailedForecast = useStore(state => state.detailedForecast);
+  const diseaseRisk = useMemo(() => calculateMildioRisk(field, detailedForecast), [field, detailedForecast]);
+  const yieldPrediction = useMemo(() => calculateYieldPrediction(field, detailedForecast), [field, detailedForecast]);
+
+  const handleExportDGAV = () => {
+    const doc = new jsPDF();
+    const green: [number, number, number] = [62, 104, 55];
+
+    doc.setFillColor(green[0], green[1], green[2]);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("AgroSmart Enterprise", 105, 18, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "normal");
+    doc.text("RELATÓRIO DE ATIVIDADES - CADERNO DE CAMPO (DGAV/IFAP)", 105, 28, { align: 'center' });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("1. IDENTIFICAÇÃO DA EXPLORAÇÃO E PARCELA", 14, 55);
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Proprietário / Empresa: Oriva Farms Lda.`, 14, 62);
+    doc.text(`Nº de Beneficiário (IFAP): 001234567`, 14, 67);
+    doc.text(`Parcelário (i-Digital): Parcela ${field.name}`, 14, 72);
+    doc.text(`Localização: ${field.coordinates.join(', ')}`, 14, 77);
+
+    doc.text(`Cultura: ${field.crop}`, 110, 62);
+    doc.text(`Área da Parcela: ${field.areaHa} ha`, 110, 67);
+    doc.text(`Data de Emissão: ${new Date().toLocaleDateString()}`, 110, 72);
+
+    const treatmentLogs = field.logs?.filter(l => l.type === 'treatment') || [];
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("2. REGISTO DE PRODUTOS FITOSSANITÁRIOS", 14, 90);
+
+    const treatRows = treatmentLogs.map(log => [
+      log.date,
+      log.productName || 'N/A',
+      log.apv || '-',
+      log.activeSubstance || '-',
+      log.target || '-',
+      `${log.quantity} ${log.unit}`,
+      log.safetyDays ? `${log.safetyDays} dias` : '-',
+      log.operator || 'Oriva Tech'
+    ]);
+
+    autoTable(doc, {
+      startY: 95,
+      head: [['Data', 'Produto', 'Nº APV', 'S. Ativa', 'Alvo', 'Dose Total', 'IS', 'Aplicador']],
+      body: treatRows,
+      theme: 'grid',
+      headStyles: { fillColor: green, fontSize: 8 },
+      styles: { fontSize: 7, cellPadding: 2 },
+      columnStyles: { 1: { fontStyle: 'bold' } }
+    });
+
+    const fertLogs = field.logs?.filter(l => l.type === 'fertilization') || [];
+    let currentY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("3. REGISTO DE FERTILIZAÇÃO E MELHORAMENTO", 14, currentY);
+
+    const fertRows = fertLogs.map(log => [
+      log.date,
+      log.productName || 'Fertilizante',
+      `${log.quantity} ${log.unit}`,
+      "-",
+      "Realizado"
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Data', 'Fertilizante / Adubo', 'Quantidade', 'Teor N-P-K', 'Estado']],
+      body: fertRows,
+      theme: 'grid',
+      headStyles: { fillColor: [100, 100, 100], fontSize: 8 },
+      styles: { fontSize: 7 }
+    });
+
+    const otherLogs = field.logs?.filter(l => !['treatment', 'fertilization'].includes(l.type)) || [];
+    currentY = (doc as any).lastAutoTable.finalY + 15;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("4. OUTRAS OPERAÇÕES CULTURAIS E OBSERVAÇÕES", 14, currentY);
+
+    const otherRows = otherLogs.map(log => [
+      log.date,
+      log.type.toUpperCase(),
+      log.description,
+      "Conforme"
+    ]);
+
+    autoTable(doc, {
+      startY: currentY + 5,
+      head: [['Data', 'Tipo de Operação', 'Descrição Detalhada', 'Observação']],
+      body: otherRows,
+      theme: 'striped',
+      headStyles: { fillColor: [150, 150, 150], fontSize: 8 },
+      styles: { fontSize: 7 }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 25;
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 30;
+    }
+
+    doc.setDrawColor(0);
+    doc.line(14, currentY, 80, currentY);
+    doc.line(120, currentY, 186, currentY);
+
+    doc.setFontSize(8);
+    doc.text("O Responsável Técnico (Assinatura)", 14, currentY + 5);
+    doc.text("O Aplicador (Assinatura / Carimbo)", 120, currentY + 5);
+
+    doc.setFontSize(7);
+    doc.setTextColor(150);
+    const footerText = "Relatório certificado pela AgroSmart Enterprise v1.4 - Gerado em Conformidade com o Regulamento (CE) nº 1107/2009.";
+    doc.text(footerText, 105, 285, { align: 'center' });
+
+    doc.save(`Caderno_Campo_${field.name.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  useEffect(() => {
+    setChildModalOpen(isOpen || showHarvestModal || showActionMenu || showRegistryModal || isMissionFullScreen);
+    return () => setChildModalOpen(false);
+  }, [isOpen, showHarvestModal, showActionMenu, showRegistryModal, isMissionFullScreen, setChildModalOpen]);
+
+  useEffect(() => {
+    const updateTileCount = async () => {
+      const count = await db.tiles.count();
+      setTileCount(count);
+    };
+    updateTileCount();
+    const interval = setInterval(updateTileCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleOpenRegistry = (type: RegistryType) => {
+    setRegistryType(type);
+    setShowRegistryModal(true);
+    setShowActionMenu(false);
+  };
+
+  const actionOptions = [
+    { id: 'treatment', label: 'Fitossanitário', icon: ShieldCheck, color: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400', onClick: () => handleOpenRegistry('treatment') },
+    { id: 'fertilization', label: 'Fertilização', icon: Sprout, color: 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400', onClick: () => handleOpenRegistry('fertilization') },
+    { id: 'observation', label: 'Observações', icon: FileText, color: 'bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400', onClick: () => handleOpenRegistry('observation') },
+    { id: 'labor', label: 'Mão de Obra', icon: Clock, color: 'bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400', onClick: () => handleOpenRegistry('labor') },
+    { id: 'rega', label: 'Rega Manual', icon: Droplets, color: 'bg-cyan-100 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-400', onClick: () => handleOpenRegistry('irrigation') },
+    { id: 'analises', label: 'Análises', icon: ScanEye, color: 'bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400', onClick: () => handleOpenRegistry('analysis') },
+    { id: 'colheita', label: 'Colheita', icon: Wheat, color: 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400', onClick: () => setShowHarvestModal(true) }
+  ];
+
+  const safetyLock = useMemo(() => {
+    const activeTreatment = field.logs
+      .filter(l => l.type === 'treatment' && l.safetyDays && l.safetyDays > 0)
+      .map(l => {
+        const endDate = new Date(l.date);
+        endDate.setDate(endDate.getDate() + (l.safetyDays || 0));
+        const diffTime = endDate.getTime() - new Date().getTime();
+        const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return { daysLeft, endDate };
+      })
+      .filter(item => item.daysLeft > 0)
+      .sort((a, b) => b.daysLeft - a.daysLeft)[0];
+    return activeTreatment;
+  }, [field.logs]);
+
+  useEffect(() => {
+    iotManager.subscribeToField(field.id);
+  }, [field.id]);
+
+  const handleIoTToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsLoadingIoT(true);
+    iotManager.toggleIrrigation(field.id, !field.irrigationStatus);
+    setTimeout(() => setIsLoadingIoT(false), 800);
+  };
+
+  const handleDelete = () => {
+    if (onDelete && window.confirm(`Tem a certeza que deseja eliminar o campo "${field.name}"? Esta ação não pode ser desfeita.`)) {
+      onDelete(field.id);
+    }
+  };
+
+  const financialData = useMemo(() => {
+    const totalExpenses = field.logs?.reduce((acc, log) => acc + (log.cost || 0), 0) || 0;
+    const getMarketPrice = (crop: string) => {
+      if (crop.includes('Uva')) return 1200;
+      if (crop.includes('Milho')) return 280;
+      if (crop.includes('Trigo')) return 350;
+      if (crop.includes('Olival')) return 800;
+      return 400;
+    };
+    const marketPrice = getMarketPrice(field.crop);
+    const lastNdvi = field.history && field.history.length > 0 ? field.history[field.history.length - 1].ndvi : 0.86;
+    let ndviMultiplier = 1.0;
+    if (lastNdvi > 0.8) ndviMultiplier = 1.1;
+    else if (lastNdvi < 0.4) ndviMultiplier = 0.6;
+    else if (lastNdvi < 0.6) ndviMultiplier = 0.85;
+
+    const baseProduction = field.areaHa * (field.yieldPerHa || 0);
+    const estimatedProduction = baseProduction * ndviMultiplier;
+    const estimatedRevenue = estimatedProduction * marketPrice;
+    const netMargin = estimatedRevenue - totalExpenses;
+    return { totalExpenses, estimatedRevenue, netMargin, marketPrice, estimatedProduction, isPositiveYield: lastNdvi >= 0.6 };
+  }, [field]);
+
+  const ndviLayers = useMemo(() => {
+    const shrinkPolygon = (poly: [number, number][], factor: number): [number, number][] => {
+      const centerLat = poly.reduce((sum, p) => sum + p[0], 0) / poly.length;
+      const centerLng = poly.reduce((sum, p) => sum + p[1], 0) / poly.length;
+      return poly.map(p => [centerLat + (p[0] - centerLat) * factor, centerLng + (p[1] - centerLng) * factor]);
+    };
+    return [
+      { positions: field.polygon, color: '#facc15', label: 'Médio', opacity: 0.6 },
+      { positions: shrinkPolygon(field.polygon, 0.8), color: '#4ade80', label: 'Alto', opacity: 0.7 },
+      { positions: shrinkPolygon(field.polygon, 0.5), color: '#166534', label: 'Muito Alto', opacity: 0.8 },
+      { positions: shrinkPolygon(field.polygon, 0.2), color: '#ef4444', label: 'Baixo (Stress)', opacity: 0.6 }
+    ];
+  }, [field.polygon]);
+
+  return (
+    <>
+      <motion.div
+        layout
+        className="relative bg-[#FDFDF5] dark:bg-[#0A0A0A] rounded-[2.5rem] border border-white/50 dark:border-white/10 shadow-xl overflow-hidden group hover:border-agro-green/30 hover:shadow-2xl transition-all duration-500"
+      >
+        {safetyLock && (
+          <div className="absolute top-0 right-0 left-0 h-1 bg-red-500 z-20 shadow-[0_0_20px_rgba(239,68,68,0.6)] animate-pulse"></div>
+        )}
+
+        <div
+          className="p-3 md:p-6 cursor-pointer relative z-10"
+          onClick={() => setIsOpen(true)}
+        >
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 md:gap-6">
+            <div className="flex items-start gap-3 md:gap-5 min-w-0">
+              <div className="relative w-12 h-12 md:w-20 md:h-20 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full rotate-[-90deg]">
+                  <path className="text-gray-200 dark:text-neutral-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="2" />
+                  <motion.path
+                    initial={{ strokeDasharray: "0, 100" }}
+                    animate={{ strokeDasharray: `${field.healthScore}, 100` }}
+                    transition={{ duration: 1.5, ease: "easeOut" }}
+                    className={field.healthScore > 80 ? "text-agro-green drop-shadow-[0_0_8px_rgba(74,222,128,0.5)]" : "text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]"}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center text-lg md:text-3xl pb-0.5 md:pb-1">{field.emoji}</div>
+                <div className={clsx("absolute bottom-0 right-0 w-3 h-3 md:w-6 md:h-6 rounded-full border-2 md:border-4 border-[#FDFDF5] dark:border-[#0A0A0A] flex items-center justify-center shadow-md", field.healthScore > 80 ? "bg-green-500" : "bg-red-500 animate-pulse")}>
+                  {field.healthScore <= 80 && <Activity size={10} className="text-white" />}
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0 pt-0 md:pt-1">
+                <h3 className="font-black italic text-base md:text-3xl text-gray-900 dark:text-white uppercase tracking-tighter leading-none truncate font-display">{field.name}</h3>
+                <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm font-bold text-gray-400 dark:text-gray-500 mb-2 md:mb-3">
+                  <span className="flex items-center gap-1 truncate text-gray-500 dark:text-gray-400 uppercase tracking-wide text-[10px] md:text-xs">
+                    <Sprout size={10} className="md:w-3 md:h-3 text-agro-green" /> {field.crop}
+                  </span>
+                  <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                  <span className="text-[10px] md:text-xs uppercase tracking-wide">{field.areaHa} HA</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <TelemetryCapsule icon={Droplets} label="Solo" value={field.humidity} unit="%" colorClass="text-blue-500" isAlert={field.humidity < 30} />
+                  <TelemetryCapsule icon={Thermometer} label="Temp" value={field.temp} unit="°C" colorClass="text-orange-500" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 md:gap-3 w-full xl:w-auto mt-3 md:mt-4 xl:mt-0 pt-3 md:pt-4 xl:pt-0 border-t xl:border-t-0 border-gray-100 dark:border-white/5">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowActionMenu(true); }}
+                className="flex-1 xl:flex-none h-10 md:h-16 px-3 md:px-6 rounded-xl md:rounded-[1.2rem] bg-[#FFF8E1] dark:bg-yellow-900/10 text-yellow-700 dark:text-yellow-500 border border-yellow-200 dark:border-yellow-700/30 flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all hover:bg-[#FFF3C4]"
+              >
+                <Plus size={18} />
+                <div className="text-left leading-none">
+                  <span className="block text-[8px] md:text-[9px] font-bold uppercase opacity-60">Novo</span>
+                  <span className="block text-[10px] md:text-xs font-black uppercase tracking-wide">Registo</span>
+                </div>
+              </button>
+              <div className="flex-1 xl:flex-none max-w-[200px]">
+                <TactileButton onClick={handleIoTToggle} active={field.irrigationStatus} loading={isLoadingIoT} icon={field.irrigationStatus ? Wifi : Power} label={field.irrigationStatus ? "Rega Ativa" : "Ativar Rega"} activeColor="blue" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      <ActionMenu isOpen={showActionMenu} onClose={() => setShowActionMenu(false)} options={actionOptions} />
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="fixed inset-0 z-[150] bg-[#FDFDF5] dark:bg-[#0A0A0A] overflow-hidden flex flex-col"
+          >
+            <div className="px-4 py-4 md:px-8 bg-white/50 dark:bg-black/50 backdrop-blur-xl border-b border-gray-200 dark:border-white/5 flex items-center justify-between sticky top-0 z-50">
+              <div className="flex items-center gap-4">
+                <button onClick={() => setIsOpen(false)} className="w-12 h-12 rounded-2xl bg-white dark:bg-neutral-900 flex items-center justify-center shadow-sm border border-gray-100 dark:border-white/10 active:scale-90"><ArrowLeft size={24} /></button>
+                <div>
+                  <h2 className="text-2xl md:text-3xl font-black italic uppercase text-gray-900 dark:text-white leading-none tracking-tighter">{field.name}</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="px-2 py-0.5 bg-gray-200 dark:bg-white/10 rounded-md text-[10px] font-bold uppercase tracking-wider text-gray-500"><MapPin size={10} /> {field.coordinates[0].toFixed(4)}, {field.coordinates[1].toFixed(4)}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-white dark:bg-neutral-900 rounded-2xl flex items-center justify-center text-3xl">{field.emoji}</div>
+                <button onClick={handleDelete} className="w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-900/10 text-red-500 flex items-center justify-center border border-red-100 hover:bg-red-100 transition-colors ml-2"><Trash2 size={20} /></button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
+              <div className="max-w-7xl mx-auto pb-10 space-y-8">
+                <div className="flex p-1.5 bg-gray-200/50 dark:bg-white/5 rounded-[1.5rem] sticky top-0 mx-auto w-full max-w-lg md:max-w-3xl lg:max-w-4xl shadow-inner z-40">
+                  {[
+                    { id: 'sensors', label: 'Dados', icon: Activity },
+                    { id: 'twin', label: 'Digital-Twin', icon: Droplets },
+                    { id: 'missions', label: 'Autónomos', icon: Drone },
+                    { id: 'journal', label: 'Diário', icon: FileText },
+                    { id: 'gallery', label: 'Galeria', icon: ImageIcon },
+                    { id: 'ai', label: 'Agro-Vision', icon: ScanEye },
+                  ].map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className="flex-1 relative py-3 rounded-[1.2rem] flex items-center justify-center gap-2 text-sm font-bold uppercase tracking-wide">
+                      {activeTab === tab.id && <motion.div layoutId="activeTabEx" className="absolute inset-0 bg-white dark:bg-neutral-800 rounded-[1.2rem] shadow-sm z-[-1]" />}
+                      <span className={clsx("flex items-center gap-2", activeTab === tab.id ? "text-agro-green dark:text-white" : "text-gray-500 opacity-70")}>
+                        <tab.icon size={18} />
+                        <span className="hidden sm:inline-block text-[10px] md:text-xs">{tab.label}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+
+                <AnimatePresence mode="wait">
+                  {activeTab === 'sensors' && (
+                    <motion.div key="sensors" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+                      <div className="h-48 md:h-[300px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl border border-white/50 dark:border-white/5 relative group">
+                        <Suspense fallback={<div className="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-neutral-800"><Loader2 className="animate-spin text-agro-green" size={32} /></div>}>
+                          <AgroMap3D
+                            initialViewState={{
+                              longitude: field.coordinates[1],
+                              latitude: field.coordinates[0],
+                              zoom: 15,
+                              pitch: 50,
+                              bearing: -20
+                            }}
+                            polygons={showNDVILayer ? (
+                              ndviLayers.map((l: any) => {
+                                const parseHex = (hex: string, alpha: number) => {
+                                  const r = parseInt(hex.slice(1, 3), 16);
+                                  const g = parseInt(hex.slice(3, 5), 16);
+                                  const b = parseInt(hex.slice(5, 7), 16);
+                                  return [r, g, b, alpha] as [number, number, number, number];
+                                };
+                                return {
+                                  coordinates: l.positions.map((p: [number, number]) => [p[1], p[0]]),
+                                  color: parseHex(l.color, Math.round(l.opacity * 255))
+                                };
+                              })
+                            ) : [
+                              {
+                                coordinates: field.polygon.map(p => [p[1], p[0]]),
+                                color: [74, 222, 128, 76] // fallback green with low opacity
+                              }
+                            ]}
+                            paths={showNDVILayer ? [] : liveTrails}
+                            showThermal={showNDVILayer}
+                            thermalData={
+                              showNDVILayer ? field.polygon.map(p => ({
+                                coordinates: [p[1], p[0]] as [number, number],
+                                weight: Math.random() // Distributing thermal clouds around polygon vertices
+                              })) : []
+                            }
+                          >
+                            {!showNDVILayer && liveVehicles.map(v => (
+                              <Marker key={v.id} longitude={v.position[0]} latitude={v.position[1]} anchor="center" style={{ zIndex: 100 }}>
+                                <div className="flex flex-col items-center">
+                                  <div className={clsx("p-2 rounded-full shadow-xl border-2 border-white animate-pulse", v.type === 'harvester' ? 'bg-yellow-500' : 'bg-green-500')}>
+                                    {v.type === 'harvester' ? <Wheat size={16} className="text-white" /> : <Cpu size={16} className="text-white" />}
+                                  </div>
+                                  <div className="mt-1 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-[9px] font-bold text-white uppercase tracking-wider whitespace-nowrap border border-white/10 shadow-lg">
+                                    {v.name}
+                                    <span className="text-gray-400 ml-1">{(v.type === 'tractor' ? 8 : 4)} km/h</span>
+                                  </div>
+                                </div>
+                              </Marker>
+                            ))}
+                          </AgroMap3D>
+                        </Suspense>
+                        <div className="absolute top-6 left-6 right-6 flex justify-end gap-2 z-[400]">
+                          {/* Top right map overlay area reserved for future tools */}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Predictive Yield Analytics Card */}
+                        <div className="bg-white dark:bg-neutral-900 p-3 sm:p-5 md:p-6 rounded-3xl md:rounded-[2rem] border border-gray-100 dark:border-white/5 flex flex-col justify-between shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <div className="p-1.5 sm:p-2 bg-purple-500/10 rounded-xl">
+                                <Brain className="text-purple-500" size={14} strokeWidth={2.5} />
+                              </div>
+                              <span className="text-[10px] md:text-xs font-black text-gray-700 dark:text-gray-300 uppercase tracking-widest">Previsão</span>
+                            </div>
+                            <button
+                              onClick={() => setShowNDVILayer(!showNDVILayer)}
+                              className={clsx(
+                                "px-3 sm:px-4 py-1.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase transition-all shadow-sm border",
+                                showNDVILayer
+                                  ? "bg-agro-green text-white border-transparent"
+                                  : "bg-gray-50 dark:bg-white/5 text-gray-500 border-gray-100 dark:border-white/5"
+                              )}
+                            >
+                              Satelital
+                            </button>
+                          </div>
+                          <div className="mt-3 sm:mt-5">
+                            <div className="flex items-baseline gap-2">
+                              <span className={`text-4xl sm:text-5xl font-black tracking-tighter ${yieldPrediction.trend === 'up' ? 'text-green-500' : yieldPrediction.trend === 'down' ? 'text-red-500' : 'text-gray-500'}`}>
+                                {yieldPrediction.estimatedYieldChange > 0 ? '+' : ''}{yieldPrediction.estimatedYieldChange}%
+                              </span>
+                              <div className="flex flex-col">
+                                <span className="text-[10px] sm:text-xs font-black text-gray-900 dark:text-white uppercase italic tracking-wide">
+                                  {yieldPrediction.trend === 'up' ? 'Aumento Estimado' : yieldPrediction.trend === 'down' ? 'Quebra Estimada' : 'Estabilidade'}
+                                </span>
+                                <span className="text-[8px] sm:text-[9px] font-bold text-gray-400 uppercase mt-0.5">Potencial Produtivo</span>
+                              </div>
+                            </div>
+
+                            <div className="mt-2.5 sm:mt-4 p-2.5 sm:p-3 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Calendar size={14} className="text-gray-400" />
+                                <span className="text-[10px] font-bold uppercase text-gray-500">Colheita Prevista</span>
+                              </div>
+                              <span className="text-xs font-black text-gray-800 dark:text-gray-200">
+                                {new Date(yieldPrediction.estimatedHarvestDate).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}
+                              </span>
+                            </div>
+                            <div className="space-y-2 mt-2.5 sm:mt-4">
+                              {yieldPrediction.factors.length > 0 && (
+                                <div className={`p-2.5 sm:p-3 rounded-xl border ${yieldPrediction.trend === 'up' ? 'bg-green-500/10 border-green-500/20' : yieldPrediction.trend === 'down' ? 'bg-orange-500/10 border-orange-500/20' : 'bg-gray-500/10 border-gray-500/20'}`}>
+                                  <div className="flex items-start gap-2">
+                                    <BrainCircuit size={12} className={`shrink-0 mt-0.5 sm:w-3 sm:h-3 ${yieldPrediction.trend === 'up' ? 'text-green-500' : yieldPrediction.trend === 'down' ? 'text-orange-500' : 'text-gray-500'}`} />
+                                    <div className="flex flex-col gap-1">
+                                      <span className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-widest ${yieldPrediction.trend === 'up' ? 'text-green-700 dark:text-green-400' : yieldPrediction.trend === 'down' ? 'text-orange-700 dark:text-orange-400' : 'text-gray-700 dark:text-gray-400'}`}>Insights IA:</span>
+                                      <ul className={`text-[9px] sm:text-[10px] font-medium leading-snug sm:leading-[1.4] tracking-wide list-disc pl-3 ${yieldPrediction.trend === 'up' ? 'text-green-700 dark:text-green-400' : yieldPrediction.trend === 'down' ? 'text-orange-700 dark:text-orange-400' : 'text-gray-700 dark:text-gray-400'}`}>
+                                        {yieldPrediction.factors.map((factor, idx) => (
+                                          <li key={idx}>{factor}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+
+                              {diseaseRisk.percentage > 30 && (
+                                <div className={`p-2.5 sm:p-3 rounded-xl border transition-all ${diseaseRisk.level === 'Crítico' ? 'bg-red-500/10 border-red-500/20 shadow-red-500/10' : diseaseRisk.level === 'Alto' ? 'bg-orange-500/10 border-orange-500/20 shadow-orange-500/10' : 'bg-yellow-500/10 border-yellow-500/20 shadow-yellow-500/10'}`}>
+                                  <div className="flex items-start gap-2">
+                                    <BrainCircuit size={12} className={`shrink-0 mt-0.5 sm:w-3 sm:h-3 ${diseaseRisk.level === 'Crítico' ? 'text-red-500' : diseaseRisk.level === 'Alto' ? 'text-orange-500' : 'text-yellow-500'}`} />
+                                    <p className={`text-[9px] sm:text-[10px] font-medium leading-snug sm:leading-[1.4] tracking-wide ${diseaseRisk.level === 'Crítico' ? 'text-red-700 dark:text-red-400' : diseaseRisk.level === 'Alto' ? 'text-orange-700 dark:text-orange-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
+                                      <span className="font-bold uppercase tracking-widest mr-1">Risco Fitossanitário ({diseaseRisk.level}):</span>
+                                      Condições propícias para fungos (ex: Míldio) devido a umidade {diseaseRisk.factors.humidity.toLowerCase()} e temp. {diseaseRisk.factors.temp.toLowerCase()} ({diseaseRisk.percentage}% prob.). Considere ação preventiva.
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* IoT Devices Card */}
+                        <div className="flex flex-col gap-4">
+                          <div className="flex items-center justify-between px-2">
+                            <div className="flex items-center gap-2">
+                              <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                                <Radio size={14} className="text-blue-500" />
+                              </div>
+                              <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Dispositivos IoT</h4>
+                            </div>
+                            <button
+                              onClick={() => setShowAutomationHub(true)}
+                              className="text-[10px] font-black text-agro-green uppercase hover:underline"
+                            >
+                              Automação
+                            </button>
+                          </div>
+
+                          <div className="space-y-3 max-h-[300px] overflow-y-auto custom-scrollbar p-1">
+                            {(!field.sensors || field.sensors.length === 0) ? (
+                              <div className="bg-white dark:bg-neutral-900 p-8 rounded-3xl border border-dashed border-gray-200 dark:border-white/10 flex flex-col items-center text-center gap-3 shadow-sm">
+                                <div className="p-3 bg-gray-50 dark:bg-neutral-800 rounded-2xl text-gray-300">
+                                  <Signal size={24} />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Nenhum sensor ligado</p>
+                                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tight">Instale hardware para telemetria local</p>
+                                </div>
+                              </div>
+                            ) : (
+                              field.sensors.map(sensor => (
+                                <SensorItem key={sensor.id} sensor={sensor} />
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'twin' && (
+                    <motion.div key="twin" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <IrrigationTwin field={field} forecast={detailedForecast} onApplyIrrigation={() => onToggleIrrigation(field.id, true)} />
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'missions' && (
+                    <motion.div key="missions" className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-12 text-center bg-white dark:bg-neutral-900 rounded-3xl md:rounded-[2.5rem] border border-gray-100 dark:border-white/5 gap-3 md:gap-6">
+                      <div className="w-12 h-12 md:w-20 md:h-20 rounded-full bg-agro-green/10 flex items-center justify-center text-agro-green mb-1 md:mb-0"><Drone size={24} className="md:w-10 md:h-10" /></div>
+                      <div className="max-w-md px-2">
+                        <h3 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-1.5 md:mb-2">Selecione o Enxame</h3>
+                        <p className="text-gray-500 dark:text-gray-400 text-[10px] md:text-sm font-medium leading-tight">Atribua veículos autónomos para formar a equipa desta missão antes de iniciar as operações.</p>
+                      </div>
+
+                      {/* Vehicle Selection Grid */}
+                      <div className="w-full max-w-lg grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-3 my-2 md:my-4 px-1">
+                        {FLEET.map(vehicle => {
+                          const isSelected = selectedVehicles.includes(vehicle.id);
+                          return (
+                            <button
+                              key={vehicle.id}
+                              onClick={() => {
+                                setSelectedVehicles(prev =>
+                                  isSelected
+                                    ? prev.filter(id => id !== vehicle.id)
+                                    : [...prev, vehicle.id]
+                                );
+                              }}
+                              className={clsx(
+                                "flex flex-col items-center gap-1.5 md:gap-2 p-3 md:p-4 rounded-xl md:rounded-2xl border-2 transition-all active:scale-95 relative",
+                                isSelected
+                                  ? "border-agro-green bg-agro-green/5 text-agro-green dark:text-white"
+                                  : "border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-neutral-800 text-gray-400 hover:border-gray-300 dark:hover:border-gray-600"
+                              )}
+                            >
+                              <div className={clsx("p-1.5 md:p-2 rounded-lg md:rounded-xl", isSelected ? "bg-agro-green text-white" : "bg-white dark:bg-black/20 text-gray-400")}>
+                                {React.cloneElement(vehicle.icon as React.ReactElement<{ className: string }>, { className: "w-4 h-4 md:w-5 md:h-5" })}
+                              </div>
+                              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-center leading-tight">{vehicle.name}</span>
+                              {isSelected && <Check size={12} className="text-agro-green absolute top-2 right-2 md:top-3 md:right-3 md:w-[14px] md:h-[14px]" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          if (selectedVehicles.length === 0) {
+                            alert("Selecione pelo menos 1 veículo para a missão.");
+                            return;
+                          }
+                          setIsMissionFullScreen(true);
+                        }}
+                        className={clsx(
+                          "px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl font-black uppercase tracking-widest text-xs md:text-sm shadow-xl transition-all flex items-center gap-2 md:gap-3 w-full sm:w-auto justify-center",
+                          selectedVehicles.length > 0
+                            ? "bg-agro-green text-white hover:scale-105 active:scale-95 shadow-agro-green/30"
+                            : "bg-gray-200 dark:bg-neutral-800 text-gray-400 cursor-not-allowed"
+                        )}
+                      >
+                        <Terminal size={18} className="md:w-5 md:h-5" /> Abrir Centro de Comando
+                      </button>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'ai' && (
+                    <motion.div key="ai" className="space-y-6">
+                      <div className="flex justify-center mb-6">
+                        <div className="bg-gray-100 dark:bg-neutral-900 p-1 rounded-2xl inline-flex gap-1">
+                          <button onClick={() => setAiMode('pests')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'pests' ? "bg-white dark:bg-neutral-800 text-agro-green" : "text-gray-400")}>Pragas</button>
+                          <button onClick={() => setAiMode('soil')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'soil' ? "bg-white dark:bg-neutral-800 text-blue-500" : "text-gray-400")}>Solo</button>
+                          <button onClick={() => setAiMode('ar')} className={clsx("px-4 py-2 rounded-xl text-xs font-black uppercase transition-all", aiMode === 'ar' ? "bg-white dark:bg-neutral-800 text-purple-500" : "text-gray-400")}>AR</button>
+                        </div>
+                      </div>
+                      <AnimatePresence mode="wait">
+                        {aiMode === 'pests' ? (
+                          <motion.div key="pests" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                            <Suspense fallback={<div className="p-8 flex items-center justify-center"><Loader2 className="animate-spin text-agro-green" /></div>}>
+                              <PestDetection diseaseRisk={diseaseRisk} onSaveDiagnostic={(d) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `AI Scan: ${d.disease?.name}`, operator: 'AI', target: d.disease?.name, attachments: [] })} />
+                            </Suspense>
+                          </motion.div>
+                        ) : aiMode === 'soil' ? (
+                          <motion.div key="soil" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                            <SoilScanner onSaveAnalysis={(r) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `Solo: N:${r.npk.n}`, operator: 'AI', target: 'Nutrientes', attachments: [] })} />
+                          </motion.div>
+                        ) : (
+                          <motion.div key="ar" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}>
+                            <ARFieldScouting field={field} onSaveCapture={(img) => onAddLog(field.id, { date: new Date().toISOString().split('T')[0], type: 'observation', description: `AR Scouting Capture`, operator: 'AR', target: 'Telemetria Campo', attachments: [img] })} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'journal' && (
+                    <motion.div key="journal" className="space-y-4">
+                      {/* Journal Header with Export */}
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 bg-blue-500/10 rounded-xl">
+                            <FileText size={16} className="text-blue-500" />
+                          </div>
+                          <div>
+                            <h4 className="font-black text-sm text-gray-900 dark:text-white">Diário de Operações</h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                              {field.logs?.length || 0} registo{(field.logs?.length || 0) !== 1 ? 's' : ''} efetuado{(field.logs?.length || 0) !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleExportDGAV}
+                          className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-neutral-800 border border-gray-100 dark:border-white/5 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-neutral-700 transition-all active:scale-95"
+                        >
+                          <Download size={14} /> <span className="hidden sm:inline">Exportar DGAV</span>
+                        </button>
+                      </div>
+
+                      {(!field.logs || field.logs.length === 0) ? (
+                        <div className="text-center py-20 flex flex-col items-center gap-4 bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-white/5">
+                          <div className="w-20 h-20 rounded-full bg-gray-50 dark:bg-neutral-800 flex items-center justify-center">
+                            <FileText size={36} className="text-gray-300 dark:text-neutral-700" />
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-500 text-sm mb-1">Sem registos no diário</p>
+                            <p className="text-[11px] text-gray-400">Adicione uma operação para<br />ver o histórico aqui.</p>
+                          </div>
+                          <button
+                            onClick={() => setShowActionMenu(true)}
+                            className="px-6 py-2 bg-agro-green text-white rounded-xl text-xs font-bold shadow-lg shadow-agro-green/20"
+                          >
+                            Novo Registo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {field.logs.slice().reverse().map(log => (
+                            <div key={log.id} className="bg-white dark:bg-neutral-900 p-5 rounded-3xl border border-gray-100 dark:border-white/5 flex gap-4 items-stretch group hover:border-agro-green/30 transition-colors">
+                              <div className={`w-1.5 rounded-full ${LOG_TYPE_COLOR[log.type] || 'bg-gray-400'} shadow-sm`} />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-center mb-1">
+                                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{log.date}</span>
+                                  <span className="text-[9px] font-black uppercase bg-gray-50 dark:bg-white/5 px-2 py-0.5 rounded text-gray-500 dark:text-gray-400">{log.type}</span>
+                                </div>
+                                <h4 className="font-bold text-gray-900 dark:text-white truncate">{log.productName || log.description}</h4>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{log.description}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'gallery' && <GalleryTab field={field} onAddPhoto={() => { setIsOpen(false); setShowActionMenu(true); }} />}
+                </AnimatePresence>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isMissionFullScreen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[600] bg-black flex items-center justify-center p-0 md:p-8">
+            <div className="w-full h-full max-w-7xl relative bg-neutral-900 rounded-none md:rounded-[3rem] overflow-hidden">
+              <MissionControl field={field} initialVehicles={selectedVehicles} onClose={() => setIsMissionFullScreen(false)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {showAutomationHub && <AutomationHub fields={[field]} onToggleIrrigation={onToggleIrrigation} onClose={() => setShowAutomationHub(false)} />}
+
+      {showHarvestModal && onHarvest && (
+        <HarvestModal
+          isOpen={showHarvestModal}
+          onClose={() => setShowHarvestModal(false)}
+          field={field}
+          onConfirm={(data) => { onHarvest(field.id, data); setShowHarvestModal(false); }}
+        />
+      )}
+
+      <FieldRegistryModal
+        isOpen={showRegistryModal}
+        onClose={() => setShowRegistryModal(false)}
+        type={registryType}
+        field={field}
+        stocks={stocks}
+        employees={[{ id: '1', name: 'João', role: 'Operador', hourlyRate: 10 }]}
+        onConfirm={(data: any) => onAddLog(field.id, data)}
+      />
+    </>
+  );
+};
+
+export default FieldCard;

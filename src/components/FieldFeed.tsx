@@ -18,11 +18,13 @@ interface FieldFeedProps {
 }
 
 const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
-    const {
-        users, feedItems, currentUserId,
-        addFeedItem, setCurrentUserId, notifications,
-        openModal
-    } = useStore();
+    const users = useStore(state => state.users);
+    const feedItems = useStore(state => state.feedItems);
+    const currentUserId = useStore(state => state.currentUserId);
+    const addFeedItem = useStore(state => state.addFeedItem);
+    const setCurrentUserId = useStore(state => state.setCurrentUserId);
+    const notifications = useStore(state => state.notifications);
+    const openModal = useStore(state => state.openModal);
 
     // Reset unread flag when feed is opened
     React.useEffect(() => {

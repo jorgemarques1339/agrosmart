@@ -2,10 +2,13 @@ import { useStore } from '../store/useStore';
 import { Transaction, StockItem, ProductBatch } from '../types';
 
 export const useFarmOperations = (userName: string) => {
-    const {
-        fields, addTask, updateTask, deleteTask,
-        registerSale, harvestField, addTransaction
-    } = useStore();
+    const fields = useStore(state => state.fields);
+    const addTask = useStore(state => state.addTask);
+    const updateTask = useStore(state => state.updateTask);
+    const deleteTask = useStore(state => state.deleteTask);
+    const registerSale = useStore(state => state.registerSale);
+    const harvestField = useStore(state => state.harvestField);
+    const addTransaction = useStore(state => state.addTransaction);
 
     const handleAddTask = (
         title: string,

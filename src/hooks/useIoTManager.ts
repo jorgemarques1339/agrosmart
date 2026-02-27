@@ -4,7 +4,11 @@ import { VoiceActionType } from '../components/VoiceAssistant';
 import { Sensor } from '../types';
 
 export const useIoTManager = () => {
-    const { fields, toggleIrrigation, updateField, addNotification, setActiveTab } = useStore();
+    const fields = useStore(state => state.fields);
+    const toggleIrrigation = useStore(state => state.toggleIrrigation);
+    const updateField = useStore(state => state.updateField);
+    const addNotification = useStore(state => state.addNotification);
+    const setActiveTab = useStore(state => state.setActiveTab);
 
     const handleVoiceCommand = useCallback((action: VoiceActionType) => {
         switch (action.type) {
