@@ -7,6 +7,8 @@ import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { StockItem } from '../types';
 import { useStore } from '../store/useStore';
 import { MOCK_MARKET_DATA } from './MarketPrices';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 interface StockManagerProps {
   stocks: StockItem[];
@@ -292,23 +294,21 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Fornecedor</label>
-              <div className="relative">
-                <Package size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input
-                  value={editSupplier}
-                  onChange={(e) => setEditSupplier(e.target.value)}
-                  placeholder="Nome"
-                  className="w-full pl-9 pr-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
-                />
-              </div>
+              <Input
+                value={editSupplier}
+                onChange={(e) => setEditSupplier(e.target.value)}
+                placeholder="Nome"
+                icon={<Package size={14} />}
+                className="h-10 text-xs"
+              />
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Email Forn.</label>
-              <input
+              <Input
                 value={editSupplierEmail}
                 onChange={(e) => setEditSupplierEmail(e.target.value)}
                 placeholder="email@..."
-                className="w-full px-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                className="h-10 text-xs pl-4"
               />
             </div>
           </div>
@@ -316,70 +316,71 @@ const ProductDetailsModal = ({ item, isOpen, onClose, onUpdate, onEdit, onDelete
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço / {item.unit} (€)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">€</span>
-                <input
-                  type="number"
-                  value={editPrice}
-                  onChange={(e) => setEditPrice(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
-                />
-              </div>
+              <Input
+                type="number"
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                icon={<span className="font-bold text-xs">€</span>}
+                className="h-10 text-xs"
+              />
             </div>
             <div>
               <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Consumo/Dia ({item.unit})</label>
-              <input
+              <Input
                 type="number"
                 value={editDailyUsage}
                 onChange={(e) => setEditDailyUsage(e.target.value)}
                 placeholder="Ex: 50"
-                className="w-full px-3 py-2.5 bg-gray-100 dark:bg-neutral-800 rounded-xl font-bold text-xs text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                className="h-10 text-xs pl-4"
               />
             </div>
           </div>
         </div>
 
-        {/* Generate Order Button (Only if Supplier info exists) */}
         {onGenerateOrder && (editSupplier || item.supplier) && (
-          <button
+          <Button
             onClick={() => {
               handleSave(); // Save current edits first
               onGenerateOrder(); // Open generation
             }}
+            variant={isCritical ? "danger" : "primary"}
             className={clsx(
-              "w-full py-4 rounded-xl font-bold mb-4 shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2",
-              isCritical
-                ? "bg-red-500 hover:bg-red-600 text-white shadow-red-500/30 animate-pulse"
-                : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30"
+              "w-full rounded-xl mb-4 gap-2",
+              !isCritical && "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/30 dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
             )}
+            size="lg"
           >
             <Package size={18} />
             Gerar Encomenda Automática
-          </button>
+          </Button>
         )}
 
         {/* Footer Actions */}
         <div className="flex gap-3">
           {onDelete && (
-            <button
+            <Button
               onClick={() => {
                 if (window.confirm('Eliminar produto?')) {
                   onDelete(item.id);
                   onClose();
                 }
               }}
-              className="p-4 rounded-xl bg-red-100 dark:bg-red-900/20 text-red-500 active:scale-95 transition-all"
+              variant="outline"
+              className="p-4 rounded-xl border-red-200 dark:border-red-900/40 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
               title="Eliminar"
+              size="icon"
             >
               <TrendingUp className="rotate-180" size={20} />
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             onClick={handleSave}
-            className="flex-1 py-4 bg-agro-green text-white rounded-xl font-bold shadow-lg shadow-agro-green/30 active:scale-95 transition-all flex items-center justify-center gap-2"
+            variant="agro"
+            className="flex-1 rounded-xl shadow-lg gap-2"
+            size="lg"
           >
             <Save size={18} /> Guardar Alterações
-          </button>
+          </Button>
         </div>
 
       </motion.div>
@@ -525,27 +526,24 @@ const AutoOrderModal = ({ item, isOpen, onClose }: { item: StockItem | null, isO
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <button
+              <Button
                 onClick={() => handleAction('pdf')}
                 disabled={status === 'generating'}
-                className="py-3.5 bg-gray-100 hover:bg-gray-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                variant="secondary"
+                className="h-auto py-3.5 rounded-xl flex flex-col gap-1"
               >
                 <Save size={18} className="text-gray-600 dark:text-gray-300" />
                 <span className="text-xs text-gray-600 dark:text-gray-300">Descarregar PDF</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleAction('email')}
                 disabled={status === 'generating' || !item.supplierEmail}
-                className={clsx(
-                  "py-3.5 rounded-xl font-bold flex flex-col items-center justify-center gap-1 transition-colors",
-                  !item.supplierEmail || status === 'generating'
-                    ? "bg-gray-100 dark:bg-neutral-800 opacity-50 cursor-not-allowed text-gray-400"
-                    : "bg-agro-green text-white shadow-lg shadow-agro-green/30 hover:bg-green-600"
-                )}
+                variant={(!item.supplierEmail || status === 'generating') ? "secondary" : "agro"}
+                className="h-auto py-3.5 rounded-xl flex flex-col gap-1 shadow-lg"
               >
                 <Truck size={18} />
                 <span className="text-xs">Enviar por Email</span>
-              </button>
+              </Button>
             </div>
             {!item.supplierEmail && (
               <p className="text-[10px] text-center text-red-400 font-medium mt-3">Configure o email do fornecedor para enviar automaticamente.</p>
@@ -678,13 +676,15 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
         <div className="flex items-center justify-between px-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-gray-400">Registo de Inventário</h3>
 
-          <button
+          <Button
             onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 bg-agro-green text-white px-4 py-2 rounded-full shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+            variant="agro"
+            size="sm"
+            className="flex items-center gap-2 rounded-full shadow-lg shadow-agro-green/30 px-4"
           >
             <Plus size={16} strokeWidth={3} />
             <span className="font-bold text-[8px] uppercase">Novo Item</span>
-          </button>
+          </Button>
         </div>
 
         <div className="flex flex-col gap-3 px-2 md:px-0">
@@ -719,10 +719,10 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
               <div className="space-y-4">
                 <div>
                   <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Produto</label>
-                  <input
+                  <Input
                     value={newItem.name}
                     onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                    className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                    className="h-12 text-sm"
                     placeholder="Ex: Ureia 46%"
                   />
                 </div>
@@ -760,21 +760,21 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Quantidade Inicial</label>
-                    <input
+                    <Input
                       type="number"
                       value={newItem.quantity}
                       onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                      className="h-12 text-sm pl-4"
                       placeholder="0"
                     />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Preço / Un (€)</label>
-                    <input
+                    <Input
                       type="number"
                       value={newItem.pricePerUnit}
                       onChange={(e) => setNewItem({ ...newItem, pricePerUnit: e.target.value })}
-                      className="w-full p-4 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
+                      className="h-12 text-sm pl-4"
                       placeholder="0.00"
                     />
                   </div>
@@ -788,35 +788,35 @@ const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDelete
                   </p>
                   <div>
                     <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Nome do Fornecedor</label>
-                    <div className="relative">
-                      <Package size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        value={newItem.supplier}
-                        onChange={(e) => setNewItem({ ...newItem, supplier: e.target.value })}
-                        className="w-full pl-10 pr-4 py-3.5 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green text-sm"
-                        placeholder="Ex: FertPlus S.A."
-                      />
-                    </div>
+                    <Input
+                      value={newItem.supplier}
+                      onChange={(e) => setNewItem({ ...newItem, supplier: e.target.value })}
+                      placeholder="Ex: FertPlus S.A."
+                      icon={<Package size={14} />}
+                      className="h-12 text-sm"
+                    />
                   </div>
                   <div>
                     <label className="text-[10px] font-bold uppercase text-gray-400 ml-2 mb-1 block">Email (para auto-encomenda)</label>
-                    <input
+                    <Input
                       type="email"
                       value={newItem.supplierEmail}
                       onChange={(e) => setNewItem({ ...newItem, supplierEmail: e.target.value })}
-                      className="w-full px-4 py-3.5 bg-gray-100 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green text-sm"
+                      className="h-12 text-sm pl-4"
                       placeholder="vendas@fornecedor.pt"
                     />
                   </div>
                 </div>
 
-                <button
+                <Button
                   onClick={handleCreate}
                   disabled={!newItem.name || !newItem.quantity}
-                  className="w-full py-4 bg-agro-green text-white rounded-[1.5rem] font-bold shadow-xl shadow-agro-green/20 active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                  variant="agro"
+                  size="lg"
+                  className="w-full mt-4 rounded-[1.5rem] shadow-xl shadow-agro-green/20 gap-2"
                 >
                   <Save size={20} /> Guardar Produto
-                </button>
+                </Button>
               </div>
             </motion.div>
           </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Mic, MicOff, X, Activity, Command, Check, AlertCircle, Sparkles, BrainCircuit } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { processOrivaInsight } from '../services/orivaInsight';
+import { generateCopilotResponse } from '../services/aiService';
 
 // Tipos para as ações que a App suporta via voz
 export type VoiceActionType =
@@ -79,32 +79,11 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand }) => {
   };
 
   // --- 2. Processamento de Comandos (NLP + Oriva Insight) ---
-  const processTranscript = useCallback((text: string) => {
+  const processTranscript = useCallback(async (text: string) => {
     if (!text) return;
 
     setStatus('processing');
     const lowerText = text.toLowerCase();
-
-    // PRIORITY 1: Data Insights (The "Heart" of Oriva Insight)
-    const insight = processOrivaInsight(text, store);
-
-    if (insight) {
-      setTimeout(() => {
-        setStatus('success');
-        setFeedbackMsg(insight.answer);
-        speakAnswer(insight.answer);
-        setTranscript(''); // LIMPAR TRANSCRIPT PARA EVITAR LOOP
-
-        if (insight.action) {
-          setTimeout(() => {
-            onCommand(insight.action as VoiceActionType);
-          }, 2000);
-        }
-
-        setTimeout(() => setStatus('idle'), 6000);
-      }, 800);
-      return;
-    }
 
     // PRIORITY 2: Simple Navigation / Command Mappings (Legacy)
     let action: VoiceActionType | null = null;
@@ -158,14 +137,39 @@ const VoiceAssistant: React.FC<VoiceAssistantProps> = ({ onCommand }) => {
         setTranscript(''); // LIMPAR TRANSCRIPT PARA EVITAR LOOP
         setTimeout(() => setStatus('idle'), 2500);
       }, 600);
-    } else {
-      setStatus('error');
-      setFeedbackMsg('Não consegui processar esse pedido. Tenta perguntar sobre custos, stock ou animais.');
-      speakAnswer('Não percebi. Tenta perguntar sobre custos, stock ou animais.');
-      setTranscript(''); // LIMPAR TRANSCRIPT PARA EVITAR LOOP
-      setTimeout(() => setStatus('idle'), 3000);
+      return;
     }
 
+    // PRIORITY 2: LLM FarmCopilot Integration
+    try {
+      const contextData = {
+        userName: store.users?.find(u => u.id === store.currentUserId)?.name || "Utilizador",
+        users: store.users,
+        tasks: store.tasks,
+        fields: store.fields,
+        machines: store.machines,
+        stocks: store.stocks,
+      };
+
+      setFeedbackMsg(''); // Clear it initially before streaming
+
+      const aiResponse = await generateCopilotResponse(text, contextData, (chunk) => {
+        // UI Feedback during streaming 
+        // In a real app we'd accumulate the chunks, here for simulation we update if needed
+      });
+
+      setStatus('success');
+      setFeedbackMsg(aiResponse);
+      speakAnswer(aiResponse);
+      setTranscript('');
+      setTimeout(() => setStatus('idle'), Math.max(6000, aiResponse.length * 50));
+    } catch (err) {
+      setStatus('error');
+      setFeedbackMsg('Não consegui processar esse pedido com a IA do FarmCopilot.');
+      speakAnswer('Não consegui aceder à rede neural. Tente novamente mais tarde.');
+      setTranscript('');
+      setTimeout(() => setStatus('idle'), 3000);
+    }
   }, [onCommand, store]);
 
   // Trigger processamento quando a escuta para

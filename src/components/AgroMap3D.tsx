@@ -68,7 +68,7 @@ interface AgroMap3DProps {
     className?: string;
 }
 
-export const AgroMap3D: React.FC<AgroMap3DProps> = ({
+export const AgroMap3D: React.FC<AgroMap3DProps> = React.memo(({
     initialViewState,
     polygons = [],
     paths = [],
@@ -138,17 +138,29 @@ export const AgroMap3D: React.FC<AgroMap3DProps> = ({
         return tempLayers;
     }, [polygons, paths, thermalData, showThermal]);
 
+    // Memoize the DeckGL initialViewState to avoid recreation on every render
+    const deckViewState = useMemo(() => ({
+        ...initialViewState,
+        pitch: initialViewState.pitch ?? 45,
+        bearing: initialViewState.bearing ?? 0
+    }), [
+        initialViewState.longitude,
+        initialViewState.latitude,
+        initialViewState.zoom,
+        initialViewState.pitch,
+        initialViewState.bearing
+    ]);
+
+    // Memoize the lighting array
+    const effects = useMemo(() => [lightingEffect], []);
+
     return (
         <div className={`relative w-full h-full overflow-hidden rounded-xl ${className}`}>
             <DeckGL
-                initialViewState={{
-                    ...initialViewState,
-                    pitch: initialViewState.pitch ?? 45,
-                    bearing: initialViewState.bearing ?? 0
-                }}
+                initialViewState={deckViewState}
                 controller={true}
                 layers={layers}
-                effects={[lightingEffect]}
+                effects={effects}
                 onClick={onClick}
             >
                 <Map
@@ -162,4 +174,16 @@ export const AgroMap3D: React.FC<AgroMap3DProps> = ({
             </DeckGL>
         </div>
     );
-};
+}, (prevProps, nextProps) => {
+    // Custom comparison function for React.memo to ensure deep comparison of array/object props
+    return (
+        prevProps.showThermal === nextProps.showThermal &&
+        prevProps.className === nextProps.className &&
+        prevProps.initialViewState.latitude === nextProps.initialViewState.latitude &&
+        prevProps.initialViewState.longitude === nextProps.initialViewState.longitude &&
+        prevProps.initialViewState.zoom === nextProps.initialViewState.zoom &&
+        JSON.stringify(prevProps.polygons) === JSON.stringify(nextProps.polygons) &&
+        JSON.stringify(prevProps.paths) === JSON.stringify(nextProps.paths) &&
+        JSON.stringify(prevProps.thermalData) === JSON.stringify(nextProps.thermalData)
+    );
+});

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
-import { Lock, User, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { haptics } from '../utils/haptics';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 export const Login: React.FC = () => {
     const [username, setUsername] = useState('');
@@ -66,59 +68,52 @@ export const Login: React.FC = () => {
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 ml-1">Utilizador</label>
-                        <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <User size={18} className="text-white/20 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
-                                type="text"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all text-sm"
-                                placeholder="ex: jorge_marques"
-                                required
-                            />
-                        </div>
+                        <Input
+                            type="text"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            icon={<User size={18} className="text-white/40" />}
+                            placeholder="ex: jorge_marques"
+                            required
+                            className="bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:ring-emerald-500/50 focus:bg-white/10"
+                        />
                     </div>
 
                     <div className="space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 ml-1">Palavra-passe</label>
                         <div className="relative group">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <Lock size={18} className="text-white/20 group-focus-within:text-emerald-400 transition-colors" />
-                            </div>
-                            <input
+                            <Input
                                 type={showPassword ? 'text' : 'password'}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-white/10 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all text-sm"
+                                icon={<Lock size={18} className="text-white/40" />}
                                 placeholder="••••••••"
                                 required
+                                className="bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:ring-emerald-500/50 focus:bg-white/10 pr-12"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute inset-y-0 right-0 pr-4 flex items-center text-white/20 hover:text-white transition-colors"
+                                className="absolute top-1/2 -translate-y-1/2 right-0 pr-4 flex items-center text-white/40 hover:text-white transition-colors"
                             >
                                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                         </div>
                     </div>
 
-                    <button
+                    <Button
                         type="submit"
-                        disabled={isLoading}
-                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-70 group"
+                        isLoading={isLoading}
+                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white group"
+                        size="lg"
                     >
-                        {isLoading ? (
-                            <Loader2 size={20} className="animate-spin" />
-                        ) : (
+                        {!isLoading && (
                             <>
-                                <span className="uppercase tracking-widest text-xs">Entrar no Ecossistema</span>
+                                <span className="uppercase tracking-widest text-xs mr-3">Entrar no Ecossistema</span>
                                 <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                             </>
                         )}
-                    </button>
+                    </Button>
                 </form>
 
                 {/* Footer Info */}

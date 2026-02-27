@@ -15,6 +15,12 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Transaction, StockItem, Animal, Field } from '../types';
 import { useStore } from '../store/useStore';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Select } from './ui/Select';
+import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from './ui/Dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from './ui/Table';
 
 interface FinanceManagerProps {
   transactions: Transaction[];
@@ -264,47 +270,46 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
         <div className="flex gap-2">
           {/* Botão Exportar PDF */}
-          <button
+          <Button
             onClick={generateReport}
             disabled={isGeneratingPdf || transactions.length === 0}
-            className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm transition-all active:scale-95 ${transactions.length === 0 ? 'bg-gray-100 text-gray-300' : 'bg-white dark:bg-neutral-800 text-gray-600 dark:text-white hover:text-blue-600'
-              }`}
+            variant="ghost"
+            size="icon"
+            className="w-10 h-10 rounded-full bg-white dark:bg-neutral-800 shadow-sm text-gray-600 dark:text-white"
             title="Exportar Relatório"
           >
-            {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
-          </button>
+            {isGeneratingPdf ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />}
+          </Button>
 
           {/* Botão Nova Transação */}
-          <button
+          <Button
             onClick={() => setIsModalOpen(true)}
-            className="w-9 h-9 bg-agro-green text-white rounded-full flex items-center justify-center shadow-lg shadow-agro-green/30 active:scale-95 transition-transform"
+            variant="agro"
+            size="icon"
+            className="w-10 h-10 rounded-full shadow-lg shadow-agro-green/30"
           >
             <Plus size={20} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {/* 2. Tabs Navegação */}
-      <div className="flex bg-gray-100 dark:bg-neutral-900 p-1 rounded-[1.5rem] mb-4">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'dashboard'
-            ? 'bg-white dark:bg-neutral-800 shadow-md text-agro-green dark:text-white scale-[1.02]'
-            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-            }`}
-        >
-          Dashboard
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`flex-1 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wide transition-all ${activeTab === 'history'
-            ? 'bg-white dark:bg-neutral-800 shadow-md text-agro-green dark:text-white scale-[1.02]'
-            : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
-            }`}
-        >
-          Movimentos
-        </button>
-      </div>
+      <Tabs className="mb-4">
+        <TabsList>
+          <TabsTrigger
+            active={activeTab === 'dashboard'}
+            onClick={() => setActiveTab('dashboard')}
+          >
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger
+            active={activeTab === 'history'}
+            onClick={() => setActiveTab('history')}
+          >
+            Movimentos
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
 
       {/* --- TAB: DASHBOARD (MÉTRICAS & GRÁFICOS) --- */}
       {activeTab === 'dashboard' && (
@@ -557,163 +562,155 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({
 
               {/* Desktop Table View (Show on md screens and up) */}
               <div className="hidden md:block bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-neutral-800/50">
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Tipo</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Data</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Descrição</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Categoria</th>
-                      <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50 dark:divide-neutral-800">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Descrição</TableHead>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
-                      <tr key={tx.id} className="hover:bg-gray-50/50 dark:hover:bg-neutral-800/30 transition-colors group">
-                        <td className="px-6 py-4">
+                      <TableRow key={tx.id}>
+                        <TableCell>
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'income'
                             ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
                             : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
                             }`}>
                             {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell>
                           <span className="text-xs font-mono font-bold text-gray-500">{tx.date}</span>
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell>
                           <span className="text-sm font-bold text-gray-900 dark:text-white">{tx.description}</span>
-                        </td>
-                        <td className="px-6 py-4">
+                        </TableCell>
+                        <TableCell>
                           <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded-full">
                             {tx.category}
                           </span>
-                        </td>
-                        <td className={`px-6 py-4 text-right font-black text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                        </TableCell>
+                        <TableCell className={`text-right font-black text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
                           {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </>
           )}
         </div>
       )}
 
-      {/* --- MODAL DE ADIÇÃO (BottomSheet / Centered) --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-0 md:p-6" onClick={() => setIsModalOpen(false)}>
-          <div
-            className="bg-white dark:bg-neutral-900 w-full md:max-w-xl p-6 rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl animate-slide-up border-t md:border border-white/20 pb-12 md:pb-8 max-h-[92vh] md:max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl md:text-2xl font-black dark:text-white">Nova Transação</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-gray-100 dark:bg-neutral-800 rounded-full">
-                <X size={20} className="dark:text-white" />
-              </button>
-            </div>
+      {/* --- MODAL DE ADIÇÃO --- */}
+      <Dialog isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        <DialogHeader>
+          <DialogTitle>Nova Transação</DialogTitle>
+          <DialogClose onClose={() => setIsModalOpen(false)} />
+        </DialogHeader>
 
-            <div className="space-y-5">
-              {/* Type Toggle */}
-              <div className="flex bg-gray-100 dark:bg-neutral-800 p-1 rounded-2xl">
-                <button
-                  onClick={() => setNewTx({ ...newTx, type: 'expense' })}
-                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${newTx.type === 'expense' ? 'bg-white dark:bg-neutral-700 shadow text-red-500' : 'text-gray-400'
-                    }`}
-                >
-                  Despesa
-                </button>
-                <button
-                  onClick={() => setNewTx({ ...newTx, type: 'income' })}
-                  className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${newTx.type === 'income' ? 'bg-white dark:bg-neutral-700 shadow text-green-500' : 'text-gray-400'
-                    }`}
-                >
-                  Receita
-                </button>
-              </div>
-
-              {/* Amount */}
-              <div>
-                <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Valor (€)</label>
-                <input
-                  type="number"
-                  autoFocus
-                  value={newTx.amount}
-                  onChange={(e) => setNewTx({ ...newTx, amount: e.target.value })}
-                  className="w-full p-4 bg-gray-50 dark:bg-neutral-800 rounded-2xl text-3xl font-black dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
-                  placeholder="0.00"
-                />
-              </div>
-
-              {/* Category & Date */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Categoria</label>
-                  <select
-                    value={newTx.category}
-                    onChange={(e) => setNewTx({ ...newTx, category: e.target.value })}
-                    className="w-full p-4 bg-gray-50 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none appearance-none"
-                  >
-                    <option value="">Selecione...</option>
-                    {newTx.type === 'expense' ? (
-                      <>
-                        <option value="Stock">Stock</option>
-                        <option value="Manutenção">Manutenção</option>
-                        <option value="Combustível">Combustível</option>
-                        <option value="Campo">Campo</option>
-                        <option value="Salários">Salários</option>
-                        <option value="Outro">Outro</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="Vendas">Vendas</option>
-                        <option value="Subsídios">Subsídios</option>
-                        <option value="Serviços">Serviços</option>
-                        <option value="Outro">Outro</option>
-                      </>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
-                  <input
-                    type="date"
-                    value={newTx.date}
-                    onChange={(e) => setNewTx({ ...newTx, date: e.target.value })}
-                    className="w-full p-4 bg-gray-50 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Descrição</label>
-                <input
-                  type="text"
-                  value={newTx.description}
-                  onChange={(e) => setNewTx({ ...newTx, description: e.target.value })}
-                  className="w-full p-4 bg-gray-50 dark:bg-neutral-800 rounded-2xl font-bold dark:text-white outline-none focus:ring-2 focus:ring-agro-green"
-                  placeholder="Ex: Venda de Milho"
-                />
-              </div>
-
-              <button
-                onClick={handleSave}
-                disabled={!newTx.amount || !newTx.category}
-                className={`w-full py-5 rounded-[1.5rem] font-bold text-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2 ${!newTx.amount || !newTx.category
-                  ? 'bg-gray-300 dark:bg-neutral-700 cursor-not-allowed'
-                  : 'bg-agro-green text-white'
-                  }`}
+        <DialogContent className="space-y-5">
+          {/* Type Toggle */}
+          <Tabs>
+            <TabsList>
+              <TabsTrigger
+                active={newTx.type === 'expense'}
+                onClick={() => setNewTx({ ...newTx, type: 'expense' })}
+                className="text-red-500 hover:text-red-600"
               >
-                Confirmar
-              </button>
+                Despesa
+              </TabsTrigger>
+              <TabsTrigger
+                active={newTx.type === 'income'}
+                onClick={() => setNewTx({ ...newTx, type: 'income' })}
+                className="text-green-500 hover:text-green-600"
+              >
+                Receita
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Amount */}
+          <div>
+            <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Valor (€)</label>
+            <Input
+              type="number"
+              autoFocus
+              value={newTx.amount}
+              onChange={(e) => setNewTx({ ...newTx, amount: e.target.value })}
+              className="h-16 text-3xl font-black bg-gray-50 dark:bg-neutral-800"
+              placeholder="0.00"
+            />
+          </div>
+
+          {/* Category & Date */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Categoria</label>
+              <Select
+                value={newTx.category}
+                onChange={(e) => setNewTx({ ...newTx, category: e.target.value })}
+                className="bg-gray-50 dark:bg-neutral-800 h-14"
+              >
+                <option value="">Selecione...</option>
+                {newTx.type === 'expense' ? (
+                  <>
+                    <option value="Stock">Stock</option>
+                    <option value="Manutenção">Manutenção</option>
+                    <option value="Combustível">Combustível</option>
+                    <option value="Campo">Campo</option>
+                    <option value="Salários">Salários</option>
+                    <option value="Outro">Outro</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="Vendas">Vendas</option>
+                    <option value="Subsídios">Subsídios</option>
+                    <option value="Serviços">Serviços</option>
+                    <option value="Outro">Outro</option>
+                  </>
+                )}
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Data</label>
+              <Input
+                type="date"
+                value={newTx.date}
+                onChange={(e) => setNewTx({ ...newTx, date: e.target.value })}
+                className="h-14 bg-gray-50 dark:bg-neutral-800"
+              />
             </div>
           </div>
-        </div>
-      )}
+
+          {/* Description */}
+          <div>
+            <label className="text-xs font-bold uppercase text-gray-400 ml-2 mb-1 block">Descrição</label>
+            <Input
+              type="text"
+              value={newTx.description}
+              onChange={(e) => setNewTx({ ...newTx, description: e.target.value })}
+              className="h-14 bg-gray-50 dark:bg-neutral-800"
+              placeholder="Ex: Venda de Milho"
+            />
+          </div>
+
+          <Button
+            onClick={handleSave}
+            disabled={!newTx.amount || !newTx.category}
+            variant="agro"
+            size="lg"
+            className="w-full h-16 text-xl mt-2 rounded-[1.5rem]"
+          >
+            Confirmar
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
