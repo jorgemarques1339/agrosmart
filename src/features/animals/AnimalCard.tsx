@@ -665,30 +665,31 @@ const BatchCard = ({
 
 // --- Main Export: AnimalCard Manager (Handles Scan, Add, and Profile) ---
 interface AnimalCardManagerProps {
-  animals?: Animal[];
-  animalBatches?: AnimalBatch[];
   animal?: Animal; // Optional direct animal prop for direct view
-  onAddAnimal?: (animal: Omit<Animal, 'id'>) => void;
-  onAddProduction?: (id: string, value: number, type: 'milk' | 'weight') => void;
-  onUpdateAnimal?: (id: string, updates: Partial<Animal>) => void;
-  onScheduleTask?: (title: string, type: 'task', date: string) => void;
   onReset?: () => void;
-  onApplyBatchAction?: (batchId: string, type: string, description: string) => void;
-  onAddAnimalBatch?: (batch: AnimalBatch) => void;
 }
 
 const AnimalCard: React.FC<AnimalCardManagerProps> = ({
-  animals = [],
-  animalBatches = [],
+
   animal: propAnimal,
-  onAddAnimal,
-  onAddProduction,
-  onUpdateAnimal: propOnUpdateAnimal,
-  onScheduleTask,
-  onReset: propOnReset,
-  onApplyBatchAction,
-  onAddAnimalBatch
+  onReset: propOnReset
 }) => {
+  const animals = useStore(state => state.animals) || [];
+  const animalBatches = useStore(state => state.animalBatches) || [];
+  const addAnimal = useStore(state => state.addAnimal);
+  const addProduction = useStore(state => state.addProduction);
+  const updateAnimal = useStore(state => state.updateAnimal);
+  const addTask = useStore(state => state.addTask);
+  const applyBatchAction = useStore(state => state.applyBatchAction);
+  const addAnimalBatch = useStore(state => state.addAnimalBatch);
+
+  const onAddAnimal = (a: Omit<Animal, 'id'>) => addAnimal({ ...a, id: Date.now().toString() } as any);
+  const onAddProduction = addProduction;
+  const propOnUpdateAnimal = updateAnimal;
+  const onScheduleTask = (title: string, type: string, date: string) => addTask({ id: Date.now().toString(), title, type, date, completed: false, status: 'pending' } as any);
+  const onApplyBatchAction = applyBatchAction;
+  const onAddAnimalBatch = addAnimalBatch;
+
   const setChildModalOpen = useStore(state => state.setChildModalOpen);
   const [viewState, setViewState] = useState<'scanning' | 'loading' | 'profile' | 'add_tag' | 'batches'>('scanning');
   const [foundAnimal, setFoundAnimal] = useState<Animal | null>(null);

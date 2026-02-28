@@ -15,14 +15,7 @@ import ISOBUSBridge from './ISOBUSBridge';
 import { haptics } from '../../utils/haptics';
 import { useStore } from '../../store/useStore';
 
-interface MachineManagerProps {
-  machines: Machine[];
-  stocks?: StockItem[];
-  onUpdateHours: (id: string, hours: number) => void;
-  onUpdateMachine?: (id: string, data: Partial<Machine>) => void;
-  onAddLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
-  onAddMachine: (machine: Omit<Machine, 'id' | 'logs'>) => void;
-}
+interface MachineManagerProps { }
 
 // --- ATOMIC COMPONENTS ---
 
@@ -185,14 +178,45 @@ const MachineCopilot = ({ machines, onSelect }: { machines: Machine[], onSelect:
   );
 };
 
-const MachineManager: React.FC<MachineManagerProps> = ({
-  machines,
-  stocks = [],
-  onUpdateHours,
-  onUpdateMachine,
-  onAddLog,
-  onAddMachine
-}) => {
+const MachineManager: React.FC<MachineManagerProps> = () => {
+  const machines = useStore(state => state.machines) || [];
+  const stocks = useStore(state => state.stocks) || [];
+  const updateMachine = useStore(state => state.updateMachine);
+  const addMachine = useStore(state => state.addMachine);
+  const updateStock = useStore(state => state.updateStock);
+  const addNotification = useStore(state => state.addNotification);
+  const addTransaction = useStore(state => state.addTransaction);
+
+  const onUpdateHours = (id: string, hours: number) => updateMachine(id, { engineHours: hours });
+  const onUpdateMachine = updateMachine;
+  const onAddMachine = (m: Omit<Machine, 'id' | 'logs'>) => addMachine({ ...m, id: Date.now().toString(), logs: [] } as any);
+
+  const onAddLog = (id: string, log: Omit<MaintenanceLog, 'id'>) => {
+    const machine = machines.find(m => m.id === id);
+    if (!machine) return;
+    const logId = Date.now().toString();
+
+    updateMachine(id, { logs: [...(machine.logs || []), { ...log, id: logId } as any] });
+
+    if (log.type === 'fuel' && log.quantity) {
+      const fuelItem = stocks.find(s => s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo'));
+      if (fuelItem) {
+        updateStock(fuelItem.id, { quantity: fuelItem.quantity - log.quantity });
+        addNotification({
+          id: `notif-fuel-${logId}`, title: 'Stock: Saída de Combustível',
+          message: `${log.quantity}L de ${fuelItem.name} consumidos por ${machine.name}.`,
+          type: 'info', timestamp: new Date().toISOString(), read: false
+        });
+      }
+    }
+
+    if (log.cost > 0) {
+      addTransaction({
+        id: `tx-maint-${logId}`, date: log.date, type: 'expense', amount: log.cost,
+        category: 'Manutenção', description: `Manutenção: ${machine.name} - ${log.description}`
+      });
+    }
+  };
   const setChildModalOpen = useStore(state => state.setChildModalOpen);
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   const [modalType, setModalType] = useState<'hours' | 'maintenance' | null>(null);

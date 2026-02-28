@@ -113,36 +113,8 @@ const GlobalProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 const AppRoutes = () => {
-  const {
-    fields, stocks, animals, machines, transactions, tasks, harvests,
-    weatherData, detailedForecast, currentUserId, users,
-    addField, deleteField,
-    addStock, updateStock, deleteStock,
-    addAnimal, updateAnimal, addProduction,
-    addAnimalBatch, updateAnimalBatch, applyBatchAction,
-    addMachine, updateMachine,
-    addTask, updateTask, deleteTask,
-    addTransaction, addLogToField, toggleIrrigation,
-    animalBatches, feedItems, hasUnreadFeed,
-    syncStatus, lastSyncTime,
-    activeSession, startSession, endSession, openModal, addNotification
-  } = useStore();
-
-  const currentUser = useMemo(() => {
-    if (!users) return { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
-    return users.find(u => u && u.id === currentUserId) || { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
-  }, [users, currentUserId]);
-
-  const navigate = useNavigate();
-
-  const alertCount = useMemo(() => {
-    let count = 0;
-    if (weatherData.length > 0 && (weatherData[0].condition === 'rain' || weatherData[0].condition === 'storm')) count++;
-    count += animals.filter(a => a.status === 'sick').length;
-    count += fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
-    count += stocks.filter(s => s.quantity <= s.minStock).length;
-    return count;
-  }, [weatherData, animals, fields, stocks]);
+  const fields = useStore(state => state.fields);
+  const harvests = useStore(state => state.harvests);
 
   // Public intercepters
   const params = new URLSearchParams(window.location.search);
@@ -175,165 +147,30 @@ const AppRoutes = () => {
         </GlobalProvider>
       }>
         <Route index element={
-          <DashboardHome
-            userName={currentUser.name}
-            weather={weatherData}
-            hourlyForecast={detailedForecast}
-            tasks={tasks}
-            fields={fields}
-            machines={machines}
-            stocks={stocks}
-            users={users}
-            currentUser={currentUser}
-            animals={animals}
-            feedItems={feedItems}
-            hasUnreadFeed={hasUnreadFeed}
-            syncStatus={syncStatus}
-            lastSyncTime={lastSyncTime}
-            alertCount={alertCount}
-            activeSession={activeSession}
-            onStartSession={startSession}
-            onEndSession={endSession}
-            onAddTask={(title, priority, date, assignee) => {
-              addTask({ id: Date.now().toString(), title, priority, date, assignedTo: assignee, status: 'pending', completed: false });
-            }}
-            onUpdateTask={updateTask}
-            onDeleteTask={deleteTask}
-            onWeatherClick={() => openModal('notifications')}
-            onOpenSettings={() => openModal('settings')}
-            onOpenNotifications={() => openModal('notificationCenter')}
-            onUpdateMachineHours={(id, hours) => updateMachine(id, { engineHours: hours })}
-            onAddMachineLog={(id, log) => {
-              const machine = machines.find(m => m.id === id);
-              if (!machine) return;
-              const stressIncrease = log.workIntensity === 'heavy' ? 15 : log.workIntensity === 'standard' ? 5 : 0;
-              const newStress = Math.min((machine.stressLevel || 0) + stressIncrease, 100);
-              const logId = Date.now().toString();
-
-              updateMachine(id, {
-                logs: [...(machine.logs || []), { ...log, id: logId }],
-                stressLevel: newStress
-              });
-
-              if (log.cost > 0) {
-                addTransaction({
-                  id: `tx-maint-${logId}`,
-                  date: log.date,
-                  type: 'expense',
-                  amount: log.cost,
-                  category: 'Manutenção',
-                  description: `Manutenção: ${machine.name} - ${log.description}`
-                });
-              }
-            }}
-            onNavigate={(tab) => {
-              if (tab === 'team') openModal('teamManager');
-              else if (tab === 'feed') openModal('fieldFeed');
-              else navigate(`/${tab}`);
-            }}
-          />
+          <DashboardHome />
         } />
 
         <Route path="cultivation" element={
-          <CultivationView
-            fields={fields}
-            stocks={stocks}
-            employees={users as any}
-            harvests={harvests}
-            toggleIrrigation={toggleIrrigation}
-            onAddLog={(fId, log) => addLogToField(fId, { ...log, id: Date.now().toString() })}
-            onUseStock={(fieldId, stockId, qty, date) => {
-              const stock = stocks.find(s => s.id === stockId);
-              if (!stock) return;
-              updateStock(stockId, { quantity: stock.quantity - qty });
-              addTransaction({ id: Date.now().toString(), date, type: 'expense', amount: qty * stock.pricePerUnit, category: 'Insumos', description: 'Uso em campo' });
-              addLogToField(fieldId, { id: Date.now().toString(), date, type: 'treatment', description: `Uso de ${qty} ${stock.unit} de ${stock.name}` });
-            }}
-            onAddField={(f) => {
-              const newField = {
-                yieldPerHa: 0, polygon: [], irrigationStatus: false, humidity: 50, temp: 20, healthScore: 100,
-                harvestWindow: 'Próxima Época', history: [], logs: [], sensors: [], ...f, id: Date.now().toString()
-              };
-              addField(newField as any);
-            }}
-            onRegisterSensor={() => { }}
-            operatorName={currentUser.name}
-            onRegisterSale={() => { }}
-            onHarvest={() => { }}
-            onViewTraceability={(batch) => openModal('traceability', batch)}
-            onDeleteField={deleteField}
-          />
+          <CultivationView />
         } />
 
         <Route path="animal" element={
-          <AnimalCard
-            animals={animals}
-            animalBatches={animalBatches}
-            onAddAnimal={(a) => addAnimal({ ...a, id: Date.now().toString() })}
-            onAddProduction={addProduction}
-            onUpdateAnimal={updateAnimal}
-            onApplyBatchAction={applyBatchAction}
-            onAddAnimalBatch={addAnimalBatch}
-            onScheduleTask={(title, type, date) => addTask({ id: Date.now().toString(), title, type, date, completed: false, status: 'pending' })}
-          />
+          <AnimalCard />
         } />
 
         <Route path="stocks" element={
           <ProtectedRoute requireAdmin>
-            <StockManager
-              stocks={stocks}
-              onUpdateStock={(id, delta) => updateStock(id, { quantity: (stocks.find(s => s.id === id)?.quantity || 0) + delta })}
-              onAddStock={(item) => addStock({ ...item, id: Date.now().toString() })}
-              onEditStock={(id, updates) => updateStock(id, updates)}
-              onDeleteStock={deleteStock}
-              onOpenGuide={() => openModal('guide')}
-            />
+            <StockManager />
           </ProtectedRoute>
         } />
 
         <Route path="machines" element={
-          <MachineManager
-            machines={machines}
-            stocks={stocks}
-            onUpdateHours={(id, hours) => updateMachine(id, { engineHours: hours })}
-            onAddLog={(id, log) => {
-              const machine = machines.find(m => m.id === id);
-              if (!machine) return;
-              const logId = Date.now().toString();
-
-              updateMachine(id, { logs: [...(machine.logs || []), { ...log, id: logId } as any] });
-
-              if (log.type === 'fuel' && log.quantity) {
-                const fuelItem = stocks.find(s => s.category === 'Combustível' || s.name.toLowerCase().includes('gasóleo'));
-                if (fuelItem) {
-                  updateStock(fuelItem.id, { quantity: fuelItem.quantity - log.quantity });
-                  addNotification({
-                    id: `notif-fuel-${logId}`, title: 'Stock: Saída de Combustível',
-                    message: `${log.quantity}L de ${fuelItem.name} consumidos por ${machine.name}.`,
-                    type: 'info', timestamp: new Date().toISOString(), read: false
-                  });
-                }
-              }
-
-              if (log.cost > 0) {
-                addTransaction({
-                  id: `tx-maint-${logId}`, date: log.date, type: 'expense', amount: log.cost,
-                  category: 'Manutenção', description: `Manutenção: ${machine.name} - ${log.description}`
-                });
-              }
-            }}
-            onUpdateMachine={updateMachine}
-            onAddMachine={(m) => addMachine({ ...m, id: Date.now().toString(), logs: [] } as any)}
-          />
+          <MachineManager />
         } />
 
         <Route path="finance" element={
           <ProtectedRoute requireAdmin>
-            <FinanceManager
-              transactions={transactions}
-              stocks={stocks}
-              onAddTransaction={(tx) => addTransaction({ ...tx, id: Date.now().toString() })}
-            />
+            <FinanceManager />
           </ProtectedRoute>
         } />
 

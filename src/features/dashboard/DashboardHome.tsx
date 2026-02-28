@@ -8,6 +8,7 @@ import {
    MoreHorizontal, CloudSun, X, Thermometer, SprayCan, ChevronRight,
    PawPrint, Leaf, Search, MessageSquare, Zap, Battery, Target, TrendingUp, Clock, CheckCircle, Loader2, Network
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import {
    WeatherForecast, DetailedForecast, Task, Field, Machine,
@@ -26,67 +27,99 @@ import MorningBriefingModal from './MorningBriefingModal';
 import CalendarModal from '../../components/CalendarModal';
 import CheckInModal from '../team/CheckInModal';
 import CollaborativeNetworkModal from './CollaborativeNetworkModal';
+import { DashboardModals } from './components/DashboardModals';
+import { WeatherHero } from './components/WeatherHero';
+import { QuickActions } from './components/QuickActions';
+import { KpiGrid } from './components/KpiGrid';
 import { calculateCarbonFootprint } from '../../utils/carbonCalculator';
 import { useStore } from '../../store/useStore';
 
-interface DashboardHomeProps {
-   userName: string;
-   weather: WeatherForecast[];
-   hourlyForecast: DetailedForecast[];
-   tasks: Task[];
-   fields: Field[];
-   machines: Machine[];
-   stocks: StockItem[];
-   users: UserProfile[];
-   currentUser: UserProfile;
-   animals: Animal[];
-   onAddTask: (title: string, type: 'task' | 'harvest', date?: string, relatedFieldId?: string, relatedStockId?: string, plannedQuantity?: number, assignedTo?: string) => void;
-   onUpdateTask: (id: string, updates: Partial<Task>) => void;
-   onDeleteTask: (id: string) => void;
-   onWeatherClick: () => void;
-   onOpenSettings: () => void;
-   onOpenNotifications: () => void;
-   onUpdateMachineHours: (id: string, hours: number) => void;
-   onAddMachineLog: (machineId: string, log: Omit<MaintenanceLog, 'id'>) => void;
-   onNavigate: (tab: string) => void;
-   activeSession: any;
-   onStartSession: (fieldId: string, manual: boolean) => void;
-   onEndSession: () => void;
-   feedItems: FeedItem[];
-   hasUnreadFeed: boolean;
-   alertCount: number;
-   syncStatus: 'idle' | 'syncing' | 'error' | 'offline';
-   lastSyncTime: string | null;
-}
+interface DashboardHomeProps { }
 
-const DashboardHome: React.FC<DashboardHomeProps> = ({
-   userName,
-   weather = [],
-   hourlyForecast = [],
-   tasks = [],
-   fields = [],
-   machines = [],
-   stocks = [],
-   animals = [],
-   users = [],
-   currentUser,
-   onAddTask,
-   onUpdateTask,
-   onDeleteTask,
-   onOpenSettings,
-   onOpenNotifications,
-   onNavigate,
-   alertCount,
-   feedItems = [],
-   hasUnreadFeed = false,
-   syncStatus = 'idle',
-   lastSyncTime = null,
-   activeSession,
-   onStartSession,
-   onEndSession
-}) => {
+const DashboardHome: React.FC<DashboardHomeProps> = () => {
    const setChildModalOpen = useStore(state => state.setChildModalOpen);
    const openModal = useStore(state => state.openModal);
+   const weather = useStore(state => state.weatherData) || [];
+   const hourlyForecast = useStore(state => state.detailedForecast) || [];
+   const tasks = useStore(state => state.tasks) || [];
+   const fields = useStore(state => state.fields) || [];
+   const machines = useStore(state => state.machines) || [];
+   const stocks = useStore(state => state.stocks) || [];
+   const animals = useStore(state => state.animals) || [];
+   const users = useStore(state => state.users) || [];
+   const currentUserId = useStore(state => state.currentUserId);
+   const feedItems = useStore(state => state.feedItems) || [];
+   const hasUnreadFeed = useStore(state => state.hasUnreadFeed) || false;
+   const syncStatus = useStore(state => state.syncStatus) || 'idle';
+   const lastSyncTime = useStore(state => state.lastSyncTime) || null;
+   const activeSession = useStore(state => state.activeSession) || null;
+   const startSession = useStore(state => state.startSession);
+   const endSession = useStore(state => state.endSession);
+
+   const addTask = useStore(state => state.addTask);
+   const updateTask = useStore(state => state.updateTask);
+   const deleteTask = useStore(state => state.deleteTask);
+   const updateMachine = useStore(state => state.updateMachine);
+   const addTransaction = useStore(state => state.addTransaction);
+
+   const navigate = useNavigate();
+
+   const currentUser = useMemo(() => {
+      if (!users) return { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
+      return users.find(u => u && u.id === currentUserId) || { id: 'guest', name: 'Convidado', role: 'operator', avatar: 'C' } as UserProfile;
+   }, [users, currentUserId]);
+   const userName = currentUser.name;
+
+   const alertCount = useMemo(() => {
+      let count = 0;
+      if (weather.length > 0 && (weather[0].condition === 'rain' || weather[0].condition === 'storm')) count++;
+      count += animals.filter(a => a.status === 'sick').length;
+      count += fields.filter(f => f.humidity < 30 || f.healthScore < 70).length;
+      count += stocks.filter(s => s.quantity <= s.minStock).length;
+      return count;
+   }, [weather, animals, fields, stocks]);
+
+   const onNavigate = useCallback((tab: string) => {
+      if (tab === 'team') openModal('teamManager');
+      else if (tab === 'feed') openModal('fieldFeed');
+      else navigate(`/${tab}`);
+   }, [navigate, openModal]);
+
+   const onOpenSettings = () => openModal('settings');
+   const onOpenNotifications = () => openModal('notificationCenter');
+   const onWeatherClick = () => openModal('notifications');
+
+   const onAddTask = useCallback((title: string, priority: string, date?: string, assignee?: string) => {
+      addTask({ id: Date.now().toString(), title, priority, type: 'task', date, assignedTo: assignee, status: 'pending', completed: false } as any);
+   }, [addTask]);
+
+   const onUpdateMachineHours = useCallback((id: string, hours: number) => {
+      updateMachine(id, { engineHours: hours });
+   }, [updateMachine]);
+
+   const onAddMachineLog = useCallback((id: string, log: any) => {
+      const machine = machines.find(m => m.id === id);
+      if (!machine) return;
+      const stressIncrease = log.workIntensity === 'heavy' ? 15 : log.workIntensity === 'standard' ? 5 : 0;
+      const newStress = Math.min((machine.stressLevel || 0) + stressIncrease, 100);
+      const logId = Date.now().toString();
+
+      updateMachine(id, {
+         logs: [...(machine.logs || []), { ...log, id: logId }],
+         stressLevel: newStress
+      });
+
+      if (log.cost > 0) {
+         addTransaction({
+            id: `tx-maint-${logId}`,
+            date: log.date,
+            type: 'expense',
+            amount: log.cost,
+            category: 'Manutenção',
+            description: `Manutenção: ${machine.name} - ${log.description}`
+         });
+      }
+   }, [machines, updateMachine, addTransaction]);
    const [scrolled, setScrolled] = useState(false); // New state for scroll
 
    // Pull to Refresh State (Framer Motion Native Gestures)
@@ -499,96 +532,18 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
             </motion.div>
 
             {/* 2. WEATHER HERO: 2026 IMMERSIVE GRADIENT CARD */}
-            {currentWeather && (
-               <motion.div
-                  animate={{ opacity: 1, y: 0 }}
-                  initial={{ opacity: 0, y: 30 }}
-                  transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.15 }}
-                  style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-                  onClick={() => setIsWeatherModalOpen(true)}
-                  onMouseMove={onMouseMove}
-                  onMouseLeave={onMouseLeave}
-                  className="mx-3 rounded-[2rem] h-36 sm:h-48 group cursor-pointer relative overflow-hidden shadow-2xl active:scale-[0.985] transition-transform duration-300"
-               >
-                  {/* Dynamic gradient background */}
-                  <div className={clsx(
-                     "absolute inset-0 transition-all duration-1000",
-                     activeTheme === 'sunny' && 'bg-gradient-to-br from-amber-400 via-orange-400 to-red-400',
-                     activeTheme === 'rain' && 'bg-gradient-to-br from-slate-600 via-blue-700 to-indigo-800',
-                     activeTheme === 'night' && 'bg-gradient-to-br from-indigo-950 via-violet-900 to-slate-900',
-                     activeTheme === 'default' && 'bg-gradient-to-br from-emerald-700 via-teal-600 to-cyan-700'
-                  )} />
-                  {/* Glare shimmer */}
-                  <motion.div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/20 to-white/0 pointer-events-none" style={{ x: glareX, y: glareY }} />
-                  {/* Noise texture for depth */}
-                  <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.5\'/%3E%3C/svg%3E")' }} />
-
-                  <div className="relative h-full flex flex-col justify-between p-3 sm:p-7" style={{ transform: 'translateZ(20px)' }}>
-                     {/* Top row */}
-                     <div className="flex justify-between items-start">
-                        <div className="flex flex-col gap-1">
-                           <div className="flex items-center gap-1.5 bg-black/20 backdrop-blur-sm px-3 py-1 rounded-full w-fit">
-                              <MapPin size={10} className="text-white/80" />
-                              <span className="text-[10px] font-black uppercase tracking-widest text-white/90">Laundos, PT</span>
-                           </div>
-                           <div className="hidden sm:flex items-center gap-1.5 ml-1">
-                              <div className="w-1.5 h-1.5 rounded-full bg-white/60 animate-pulse" />
-                              <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-white/50">Tempo Real</span>
-                           </div>
-                        </div>
-                        <div className="opacity-90 group-hover:scale-110 transition-transform duration-500 drop-shadow-2xl" style={{ transform: 'translateZ(40px)' }}>
-                           {getWeatherIcon(currentWeather.condition, 50)}
-                        </div>
-                     </div>
-
-                     {/* Bottom row */}
-                     <div className="flex items-end justify-between">
-                        <div>
-                           <div className="flex items-start">
-                              <span className="text-4xl sm:text-8xl font-black tracking-tighter leading-none text-white drop-shadow-md">{currentWeather.temp}</span>
-                              <span className="text-xl sm:text-3xl font-light text-white/60 mt-1 sm:mt-2">°C</span>
-                           </div>
-                           <span className="text-[10px] font-black uppercase tracking-widest text-white/60 mt-0.5 block">
-                              {currentWeather.condition === 'sunny' ? '☀️ Céu Limpo' : currentWeather.condition === 'rain' ? '🌧 Chuva' : currentWeather.condition === 'storm' ? '⛈ Tempestade' : '⛅ Parcial'}
-                           </span>
-                        </div>
-                        <div className="hidden sm:flex gap-3">
-                           <div className="flex flex-col items-center gap-1">
-                              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform">
-                                 <Wind size={16} className="text-white" />
-                              </div>
-                              <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.windSpeed}km/h</span>
-                           </div>
-                           <div className="flex flex-col items-center gap-1">
-                              <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: '50ms' }}>
-                                 <Droplets size={16} className="text-cyan-200" />
-                              </div>
-                              <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.humidity}%</span>
-                           </div>
-                           {currentWeather.temp !== undefined && (
-                              <div className="flex flex-col items-center gap-1">
-                                 <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: '100ms' }}>
-                                    <Thermometer size={16} className="text-orange-200" />
-                                 </div>
-                                 <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">Toque</span>
-                              </div>
-                           )}
-                        </div>
-                        {/* Mobile: compact wind+humidity inline */}
-                        <div className="flex sm:hidden gap-2">
-                           <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                              <Wind size={10} className="text-white/80" />
-                              <span className="text-[9px] font-black text-white/70">{currentWeather.windSpeed}km/h</span>
-                           </div>
-                           <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
-                              <Droplets size={10} className="text-cyan-200" />
-                              <span className="text-[9px] font-black text-white/70">{currentWeather.humidity}%</span>
-                           </div>
-                        </div>
-                     </div>
-                  </div>
-               </motion.div>
-            )}
+            <WeatherHero
+               currentWeather={currentWeather}
+               activeTheme={activeTheme}
+               rotateX={rotateX}
+               rotateY={rotateY}
+               glareX={glareX}
+               glareY={glareY}
+               onMouseMove={onMouseMove}
+               onMouseLeave={onMouseLeave}
+               setIsWeatherModalOpen={setIsWeatherModalOpen}
+               getWeatherIcon={getWeatherIcon}
+            />
 
             {/* 2b. Alert pill */}
             {alertCount > 0 && (
@@ -622,517 +577,64 @@ const DashboardHome: React.FC<DashboardHomeProps> = ({
                />
             </div>
 
-            {/* 3. QUICK ACTIONS */}
-            <motion.div variants={itemVariants} className="px-3 mt-1">
-               <div className="grid grid-cols-4 gap-2">
-
-                  {/* Check-in — Emerald */}
-                  <button
-                     onClick={() => setIsCheckInOpen(true)}
-                     className={clsx(
-                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 overflow-hidden group active:scale-95 border",
-                        activeSession
-                           ? 'bg-emerald-500/30 border-emerald-500/60 text-emerald-600 dark:text-emerald-300 shadow-lg shadow-emerald-500/20'
-                           : 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-500/20'
-                     )}
-                  >
-                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all', activeSession ? 'bg-emerald-500 shadow-lg shadow-emerald-500/30' : 'bg-emerald-200 dark:bg-emerald-500/25 group-hover:bg-emerald-300 dark:group-hover:bg-emerald-500/35')}>
-                        <MapPin size={19} className={activeSession ? 'text-white animate-bounce' : 'text-emerald-700 dark:text-emerald-300'} />
-                     </div>
-                     <span>{activeSession ? 'Ativo' : 'Check-in'}</span>
-                     {activeSession && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-400 animate-ping" />}
-                  </button>
-
-                  {/* Cotações — Amber */}
-                  <button
-                     onClick={() => setIsMarketModalOpen(true)}
-                     className="relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/20 active:scale-95 group"
-                  >
-                     <div className="p-2 sm:p-2.5 rounded-2xl bg-amber-200 dark:bg-amber-500/25 group-hover:bg-amber-300 dark:group-hover:bg-amber-500/35 transition-all">
-                        <TrendingUp size={19} className="text-amber-700 dark:text-amber-300" />
-                     </div>
-                     Cotações
-                  </button>
-
-                  {/* Feed — Rose */}
-                  <button
-                     onClick={() => onNavigate('feed')}
-                     className={clsx(
-                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 border active:scale-95 group",
-                        hasUnreadFeed
-                           ? 'bg-rose-500/20 border-rose-500/50 text-rose-600 dark:text-rose-400 shadow-lg shadow-rose-500/10'
-                           : 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20'
-                     )}
-                  >
-                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all relative', hasUnreadFeed ? 'bg-rose-500 shadow-lg shadow-rose-500/30' : 'bg-rose-200 dark:bg-rose-500/25 group-hover:bg-rose-300 dark:group-hover:bg-rose-500/35')}>
-                        <MessageSquare size={19} className={hasUnreadFeed ? 'text-white' : 'text-rose-700 dark:text-rose-300'} />
-                        {hasUnreadFeed && <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-white rounded-full border-2 border-rose-500 animate-ping" />}
-                     </div>
-                     Feed
-                  </button>
-
-                  {/* Tarefas — Indigo */}
-                  <button
-                     onClick={() => setIsCalendarOpen(true)}
-                     className={clsx(
-                        "relative py-2 sm:py-4 rounded-[1.75rem] font-black text-[9px] sm:text-[10px] uppercase tracking-wider transition-all duration-300 flex flex-col items-center justify-center gap-1.5 sm:gap-2.5 border active:scale-95 group",
-                        (myPendingTaskCount > 0 || tasksToReviewCount > 0)
-                           ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-600 dark:text-indigo-400 shadow-lg shadow-indigo-500/10'
-                           : 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-200 dark:border-indigo-500/20 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20'
-                     )}
-                  >
-                     <div className={clsx('p-2 sm:p-2.5 rounded-2xl transition-all relative', (myPendingTaskCount > 0 || tasksToReviewCount > 0) ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-indigo-200 dark:bg-indigo-500/25 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-500/35')}>
-                        <Calendar size={19} className={(myPendingTaskCount > 0 || tasksToReviewCount > 0) ? 'text-white' : 'text-indigo-700 dark:text-indigo-300'} />
-                        {(myPendingTaskCount > 0 || tasksToReviewCount > 0) && (
-                           <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] bg-red-500 rounded-full text-[9px] flex items-center justify-center font-black text-white border border-indigo-500/50">
-                              {myPendingTaskCount + tasksToReviewCount}
-                           </span>
-                        )}
-                     </div>
-                     Tarefas
-                  </button>
-               </div>
-            </motion.div>
-
-            {/* COLLABORATIVE NETWORK PILL */}
-            <motion.div variants={itemVariants} className="px-3 mt-3 sm:mt-4">
-               <button
-                  onClick={() => setIsCollaborativeModalOpen(true)}
-                  className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-800 text-white rounded-[1.5rem] sm:rounded-[1.75rem] py-2.5 sm:py-4 px-4 sm:px-5 flex items-center justify-between shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/40 active:scale-[0.98] transition-all group"
-               >
-                  <div className="flex items-center gap-2.5 sm:gap-3.5">
-                     <div className="bg-white/20 p-2 sm:p-2.5 rounded-xl sm:rounded-2xl group-hover:scale-110 transition-transform flex items-center justify-center">
-                        <Network className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                     </div>
-                     <div className="text-left flex flex-col justify-center">
-                        <div className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-indigo-100">Cooperativas</div>
-                        <div className="text-xs sm:text-base font-bold mt-0.5 sm:mt-1 leading-none">Rede Colaborativa</div>
-                     </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/70 group-hover:translate-x-1 hover:text-white transition-all" />
-               </button>
-            </motion.div>
-
-            {/* 4. KPI CARDS */}
-            <motion.div variants={itemVariants} className="px-3 mt-6">
-               <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-white/30 mb-2.5 ml-1">Estado da Quinta</h3>
-               <div className="grid grid-cols-3 gap-2">
-
-                  {/* Water */}
-                  <div
-                     onClick={() => setIsWaterModalOpen(true)}
-                     className="bg-white dark:bg-white/5 border border-cyan-200 dark:border-cyan-500/20 hover:border-cyan-400 dark:hover:border-cyan-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-cyan-500/10 relative overflow-hidden"
-                  >
-                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-cyan-500/10" />
-                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-cyan-100 dark:bg-cyan-500/15 flex items-center justify-center group-hover:bg-cyan-200 dark:group-hover:bg-cyan-500/25 transition-colors">
-                        <Droplets size={16} className="text-cyan-600 dark:text-cyan-400" />
-                     </div>
-                     <div>
-                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{waterConsumption}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">m³</span></span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">Água</span>
-                     </div>
-                  </div>
-
-                  {/* Energy */}
-                  <div
-                     onClick={() => setIsEnergyModalOpen(true)}
-                     className="bg-white dark:bg-white/5 border border-amber-200 dark:border-amber-500/20 hover:border-amber-400 dark:hover:border-amber-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-amber-500/10 relative overflow-hidden"
-                  >
-                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-amber-500/10" />
-                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-amber-100 dark:bg-amber-500/15 flex items-center justify-center group-hover:bg-amber-200 dark:group-hover:bg-amber-500/25 transition-colors">
-                        <Zap size={16} className="text-amber-600 dark:text-amber-400" />
-                     </div>
-                     <div>
-                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{solarEnergy}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">kW</span></span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">Solar</span>
-                     </div>
-                  </div>
-
-                  {/* Carbon */}
-                  <div
-                     onClick={() => onNavigate('carbon')}
-                     className="bg-white dark:bg-white/5 border border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-400 dark:hover:border-emerald-500/40 rounded-[1.5rem] p-2.5 sm:p-4 flex flex-col gap-2 sm:gap-3 cursor-pointer group active:scale-95 transition-all shadow-sm hover:shadow-emerald-500/10 relative overflow-hidden"
-                  >
-                     <div className="absolute -bottom-3 -right-3 w-14 h-14 rounded-full bg-emerald-500/10" />
-                     <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl sm:rounded-2xl bg-emerald-100 dark:bg-emerald-500/15 flex items-center justify-center group-hover:bg-emerald-200 dark:group-hover:bg-emerald-500/25 transition-colors">
-                        <Leaf size={16} className="text-emerald-600 dark:text-emerald-400" />
-                     </div>
-                     <div>
-                        <span className="block text-base sm:text-xl font-black text-gray-900 dark:text-white leading-none tracking-tight">{Math.abs(carbonMetrics.netBalance)}<span className="text-[10px] font-bold text-gray-400 dark:text-white/40 ml-0.5">t</span></span>
-                        <span className="text-[7px] sm:text-[8px] font-bold text-gray-400 dark:text-white/30 uppercase tracking-widest mt-0.5 block">CO₂</span>
-                     </div>
-                  </div>
-
-               </div>
-            </motion.div>
-
-
-
-            {/* --- WEATHER MODAL --- */}
-            <Dialog isOpen={isWeatherModalOpen} onClose={() => setIsWeatherModalOpen(false)}>
-               <DialogContent className="max-w-sm p-0 h-[80vh] flex flex-col">
-                  {/* Header */}
-                  <div className="flex justify-between items-center px-6 pt-6 pb-4">
-                     <div>
-                        <h3 className="text-xl font-black dark:text-white">Meteorologia</h3>
-                        <p className="text-xs font-bold text-gray-400 uppercase">Suporte à Decisão</p>
-                     </div>
-                     <DialogClose onClose={() => setIsWeatherModalOpen(false)} />
-                  </div>
-
-                  {/* Tab Selector */}
-                  <div className="px-6 mb-4">
-                     <Tabs>
-                        <TabsList>
-                           <TabsTrigger
-                              active={weatherTab === 'forecast'}
-                              onClick={() => setWeatherTab('forecast')}
-                           >
-                              Previsão
-                           </TabsTrigger>
-                           <TabsTrigger
-                              active={weatherTab === 'spraying'}
-                              onClick={() => setWeatherTab('spraying')}
-                              className={weatherTab === 'spraying' ? 'text-blue-500' : ''}
-                           >
-                              <SprayCan size={14} className="mr-1" /> Pulverização
-                           </TabsTrigger>
-                        </TabsList>
-                     </Tabs>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar">
-
-                     {/* TAB: FORECAST */}
-                     {weatherTab === 'forecast' && (
-                        <div className="space-y-3">
-                           {weather.map((day, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-neutral-800/50 rounded-2xl border border-gray-100 dark:border-neutral-800">
-                                 <div className="flex items-center gap-4">
-                                    <div className="flex flex-col">
-                                       <span className="font-bold text-gray-900 dark:text-white text-sm">{day.day}</span>
-                                       <span className="text-[10px] text-gray-400 font-bold uppercase">{day.description || 'Parcial'}</span>
-                                    </div>
-                                    {getWeatherIcon(day.condition, 24)}
-                                 </div>
-                                 <div className="flex items-center gap-4">
-                                    <div className="text-right">
-                                       <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
-                                          <Wind size={10} /> {day.windSpeed} km/h
-                                       </div>
-                                       <div className="flex items-center gap-1 justify-end text-[10px] text-gray-400 font-bold">
-                                          <Droplets size={10} /> {day.humidity}%
-                                       </div>
-                                    </div>
-                                    <span className="font-black text-xl dark:text-white w-8 text-right">{day.temp}°</span>
-                                 </div>
-                              </div>
-                           ))}
-                        </div>
-                     )}
-
-                     {/* TAB: SPRAYING */}
-                     {weatherTab === 'spraying' && (
-                        <div className="space-y-4">
-                           <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                              <p className="text-xs text-blue-700 dark:text-blue-300 font-medium leading-relaxed">
-                                 <span className="font-bold">Nota:</span> Janela ideal: Vento &lt; 10km/h, Temp &lt; 25°C, Sem chuva.
-                              </p>
-                           </div>
-
-                           <div className="space-y-3">
-                              {sprayingConditions.length === 0 ? (
-                                 <div className="text-center py-8 opacity-50">
-                                    <p className="text-sm font-bold text-gray-400">Sem dados horários disponíveis.</p>
-                                 </div>
-                              ) : (
-                                 sprayingConditions.map((slot, idx) => (
-                                    <div key={idx} className="flex items-center gap-3 p-4 bg-white dark:bg-neutral-800/50 rounded-2xl relative overflow-hidden border border-gray-100 dark:border-neutral-800">
-                                       {/* Status Indicator Strip */}
-                                       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${slot.status === 'good' ? 'bg-green-500' :
-                                          slot.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                                          }`}></div>
-
-                                       <div className="flex flex-col items-center min-w-[50px]">
-                                          <span className="text-lg font-black text-gray-900 dark:text-white">{slot.time}</span>
-                                       </div>
-
-                                       <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 mb-1">
-                                             <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${slot.status === 'good' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                                slot.status === 'warning' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                                                }`}>
-                                                {slot.status === 'good' ? 'Recomendado' : slot.status === 'warning' ? 'Atenção' : 'Não Recomendado'}
-                                             </span>
-                                          </div>
-                                          <p className="text-xs text-gray-500 dark:text-gray-400 truncate font-medium">{slot.reason}</p>
-                                       </div>
-
-                                       <div className="text-right">
-                                          <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
-                                             <Wind size={10} /> {slot.windSpeed}km/h
-                                          </div>
-                                          <div className="flex items-center gap-1 justify-end text-[10px] font-bold text-gray-400">
-                                             <Thermometer size={10} /> {slot.temp}°
-                                          </div>
-                                       </div>
-                                    </div>
-                                 ))
-                              )}
-                           </div>
-                        </div>
-                     )}
-
-                  </div>
-               </DialogContent>
-            </Dialog>
-            {/* --- MARKET PRICES MODAL --- */}
-            {/* --- MARKET PRICES MODAL --- */}
-            <Dialog isOpen={isMarketModalOpen} onClose={() => setIsMarketModalOpen(false)}>
-               <DialogContent className="max-w-sm p-0 h-[85vh] flex flex-col overflow-hidden">
-                  <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />
-               </DialogContent>
-            </Dialog>
-
-            {/* --- WATER CONSUMPTION MODAL --- */}
-            <Dialog isOpen={isWaterModalOpen} onClose={() => setIsWaterModalOpen(false)}>
-               <DialogContent className="max-w-sm p-0 flex flex-col overflow-hidden">
-                  {/* Header */}
-                  <div className="p-6 pb-2">
-                     <div className="flex justify-between items-start mb-4">
-                        <div>
-                           <div className="flex items-center gap-2 mb-1">
-                              <h3 className="text-xl font-black dark:text-white">Consumo Hídrico</h3>
-                              {waterConsumptionByCrop[0]?.isExample && (
-                                 <span className="text-[10px] font-black bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-full uppercase tracking-tighter">Exemplo</span>
-                              )}
-                           </div>
-                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Análise por Cultivo</p>
-                        </div>
-                        <DialogClose onClose={() => setIsWaterModalOpen(false)} />
-                     </div>
-
-                     <div className="bg-cyan-50 dark:bg-cyan-900/10 p-4 rounded-3xl border border-cyan-100 dark:border-cyan-900/30 mb-6">
-                        <div className="flex justify-between items-end">
-                           <div>
-                              <span className="text-3xl font-black text-cyan-600 dark:text-cyan-400 tracking-tighter leading-none">
-                                 {waterConsumption}m³
-                              </span>
-                              <span className="text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest block mt-1">Total Diário Estimado</span>
-                           </div>
-                           <Droplets size={32} className="text-cyan-500/20" />
-                        </div>
-                     </div>
-                  </div>
-
-                  {/* List Content */}
-                  <div className="flex-1 overflow-y-auto px-6 pb-8 custom-scrollbar space-y-3">
-                     {waterConsumptionByCrop.map((item, idx) => {
-                        const maxConsumption = Math.max(...waterConsumptionByCrop.map(i => i.consumption));
-                        const percentage = (item.consumption / maxConsumption) * 100;
-
-                        return (
-                           <div key={idx} className="bg-white dark:bg-neutral-800/40 p-4 rounded-3xl border border-gray-100 dark:border-neutral-800 shadow-sm">
-                              <div className="flex justify-between items-start mb-3">
-                                 <div>
-                                    <h4 className="font-black text-gray-900 dark:text-white text-sm uppercase tracking-tight">{item.crop}</h4>
-                                    <span className="text-[10px] font-bold text-gray-400">{item.area} Hectares</span>
-                                 </div>
-                                 <div className="text-right">
-                                    <span className="block font-black text-gray-900 dark:text-white leading-none">{item.consumption}m³</span>
-                                    <span className="text-[9px] font-bold text-gray-400 tracking-tighter uppercase mt-1 block">p/ dia</span>
-                                 </div>
-                              </div>
-
-                              {/* Small Progress Bar */}
-                              <div className="h-1.5 w-full bg-gray-100 dark:bg-neutral-800 rounded-full overflow-hidden">
-                                 <div
-                                    className="h-full bg-cyan-500 rounded-full transition-all duration-1000"
-                                    style={{ width: `${percentage}%` }}
-                                 />
-                              </div>
-                           </div>
-                        );
-                     })}
-                  </div>
-
-                  {/* Footer Advice */}
-                  <div className="p-6 bg-gray-50 dark:bg-neutral-900/50 border-t border-gray-100 dark:border-neutral-800">
-                     <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium text-center italic">
-                        "Estes valores são estimativas baseadas nos coeficientes de evapotranspiração médios para a sua região."
-                     </p>
-                  </div>
-               </DialogContent>
-            </Dialog>
-
-
-            {/* --- ENERGY MONITORING MODAL --- */}
-            <Dialog isOpen={isEnergyModalOpen} onClose={() => setIsEnergyModalOpen(false)}>
-               <DialogContent className="max-w-sm md:max-w-2xl p-0 h-[85vh] md:h-auto md:max-h-[90vh] flex flex-col overflow-hidden">
-                  {/* Header */}
-                  <div className="p-6 md:p-8 pb-2 md:pb-4">
-                     <div className="flex justify-between items-start mb-4 md:mb-6">
-                        <div>
-                           <h3 className="text-xl md:text-2xl font-black dark:text-white">Autoconsumo Solar</h3>
-                           <p className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">Otimização Energética</p>
-                        </div>
-                        <DialogClose onClose={() => setIsEnergyModalOpen(false)} />
-                     </div>
-
-                     <div className="bg-amber-50 dark:bg-amber-900/10 p-5 md:p-8 rounded-3xl border border-amber-100 dark:border-amber-900/30 mb-6 relative overflow-hidden group">
-                        <div className="relative z-10 flex justify-between items-end">
-                           <div>
-                              <span className="text-4xl md:text-6xl font-black text-amber-600 dark:text-amber-400 tracking-tighter leading-none block">
-                                 {solarEnergy}kW
-                              </span>
-                              <span className="text-[10px] md:text-xs font-bold text-amber-500/80 uppercase tracking-widest block mt-1 md:mt-2 flex items-center gap-1">
-                                 <Sun size={12} className="animate-spin-slow" /> Produção Atual
-                              </span>
-                           </div>
-                           <div className="flex flex-col items-end">
-                              <span className="text-xs md:text-sm font-black text-amber-600/60 uppercase">Eficiência</span>
-                              <span className="text-lg md:text-2xl font-black text-amber-600">94%</span>
-                           </div>
-                        </div>
-                        <Zap size={100} className="absolute -right-4 -bottom-4 text-amber-500/10 -rotate-12 transition-transform group-hover:scale-110 duration-700 md:w-40 md:h-40" />
-                     </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 overflow-y-auto px-6 md:px-8 pb-8 custom-scrollbar space-y-8 md:space-y-12">
-
-                     {/* 1. Production Forecast Chart (Simple CSS) */}
-                     <section>
-                        <div className="flex items-center justify-between mb-4 md:mb-6">
-                           <h4 className="text-[10px] md:text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
-                              <Clock size={14} /> Previsão 12h
-                           </h4>
-                        </div>
-                        <div className="flex items-end justify-between h-24 md:h-40 gap-1 md:gap-2 px-1">
-                           {solarForecast.map((item, idx) => {
-                              const maxProd = Math.max(...solarForecast.map(f => f.production));
-                              const height = (item.production / maxProd) * 100;
-                              const isCurrent = idx === 0;
-
-                              return (
-                                 <div key={idx} className="flex-1 flex flex-col items-center gap-2 group">
-                                    <div className="w-full relative flex items-end justify-center h-full">
-                                       <div
-                                          className={`w-full rounded-t-lg transition-all duration-1000 ${isCurrent ? 'bg-amber-500' : 'bg-amber-200 dark:bg-amber-900/30 group-hover:bg-amber-300'}`}
-                                          style={{ height: `${height}%` }}
-                                       />
-                                    </div>
-                                    <span className={`text-[7px] md:text-[9px] font-bold ${isCurrent ? 'text-amber-600' : 'text-gray-400'}`}>
-                                       {item.hour.split(':')[0]}
-                                    </span>
-                                 </div>
-                              );
-                           })}
-                        </div>
-                     </section>
-
-                     {/* 2. Proactive Insights (Smart Recommendations) */}
-                     <section className="space-y-4 md:space-y-6">
-                        <div className="flex items-center justify-between">
-                           <h4 className="text-[10px] md:text-xs font-black uppercase text-gray-400 tracking-widest flex items-center gap-2">
-                              <Target size={14} /> Sugestões de Otimização
-                           </h4>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-                           {energyInsights.map((insight) => (
-                              <div
-                                 key={insight.id}
-                                 className={`p-4 md:p-6 rounded-3xl border animate-slide-up flex gap-4 items-start ${insight.priority === 'high'
-                                    ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-100 dark:border-emerald-900/30 shadow-sm shadow-emerald-500/10'
-                                    : 'bg-white dark:bg-neutral-800/40 border-gray-100 dark:border-neutral-800'
-                                    }`}
-                              >
-                                 <div className={`p-2 md:p-3 rounded-2xl ${insight.priority === 'high' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-gray-100 dark:bg-neutral-800'
-                                    }`}>
-                                    {insight.icon}
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                    <h5 className="font-black text-gray-900 dark:text-white text-xs md:text-sm uppercase tracking-tight mb-0.5">
-                                       {insight.title}
-                                    </h5>
-                                    <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium leading-relaxed">
-                                       {insight.description}
-                                    </p>
-                                 </div>
-                                 <button className="p-1.5 md:p-2 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-400 hover:text-agro-green transition-colors">
-                                    <ArrowRight size={16} />
-                                 </button>
-                              </div>
-                           ))}
-                        </div>
-                     </section>
-
-                     {/* 3. Potential Savings Card */}
-                     <div className="bg-indigo-600 rounded-3xl p-5 md:p-8 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
-                        <div className="relative z-10">
-                           <div className="flex items-center gap-2 mb-3">
-                              <Activity size={18} className="text-indigo-200" />
-                              <span className="text-[10px] md:text-xs font-black uppercase tracking-widest text-indigo-100">Impacto Mensal</span>
-                           </div>
-                           <h4 className="text-2xl md:text-4xl font-black mb-1 md:mb-2">Poupança de 240€</h4>
-                           <p className="text-[10px] md:text-sm font-medium text-indigo-100 leading-relaxed max-w-[80%]">
-                              Ao otimizar a rega para janelas solares, reduziu a dependência da rede em 35% este mês.
-                           </p>
-                        </div>
-                        <TrendingUp size={120} className="absolute -right-6 -bottom-6 text-white/10 -rotate-6 group-hover:rotate-0 transition-transform duration-700 md:w-48 md:h-48" />
-                     </div>
-                  </div>
-               </DialogContent>
-            </Dialog>
-
-            {/* --- CALENDAR MODAL --- */}
-            <CalendarModal
-               isOpen={isCalendarOpen}
-               onClose={() => setIsCalendarOpen(false)}
-               tasks={tasks}
-               fields={fields}
-               animals={animals}
-               users={users}
-               currentUser={currentUser}
-               onNavigate={onNavigate}
-               onAddTask={onAddTask}
-               onUpdateTask={onUpdateTask}
-               onDeleteTask={onDeleteTask}
-            />
-
-            {/* --- MORNING BRIEFING MODAL --- */}
-            <MorningBriefingModal
-               isOpen={isBriefingModalOpen}
-               onClose={() => setIsBriefingModalOpen(false)}
-               userName={userName}
-               machines={machines}
-               fields={fields}
-               users={users}
-               onNavigate={onNavigate}
-            />
-
-            {/* --- CHECK-IN MODAL --- */}
-            <CheckInModal
-               isOpen={isCheckInOpen}
-               onClose={() => setIsCheckInOpen(false)}
-               fields={fields}
+            <QuickActions
                activeSession={activeSession}
-               onStartSession={(fId, manual) => {
-                  onStartSession(fId, manual);
-                  setIsCheckInOpen(false);
-               }}
-               onEndSession={() => {
-                  onEndSession();
-                  setIsCheckInOpen(false);
-               }}
+               setIsCheckInOpen={setIsCheckInOpen}
+               setIsMarketModalOpen={setIsMarketModalOpen}
+               hasUnreadFeed={hasUnreadFeed}
+               onNavigate={onNavigate}
+               setIsCalendarOpen={setIsCalendarOpen}
+               myPendingTaskCount={myPendingTaskCount}
+               tasksToReviewCount={tasksToReviewCount}
+               setIsCollaborativeModalOpen={setIsCollaborativeModalOpen}
+               itemVariants={itemVariants}
             />
 
-            {/* --- COLLABORATIVE NETWORK MODAL --- */}
-            <CollaborativeNetworkModal
-               isOpen={isCollaborativeModalOpen}
-               onClose={() => setIsCollaborativeModalOpen(false)}
+            <KpiGrid
+               waterConsumption={waterConsumption}
+               solarEnergy={solarEnergy}
+               carbonMetrics={carbonMetrics}
+               setIsWaterModalOpen={setIsWaterModalOpen}
+               setIsEnergyModalOpen={setIsEnergyModalOpen}
+               onNavigate={onNavigate}
+               itemVariants={itemVariants}
+            />
+
+
+
+            {/* --- MODALS CONTROLLER --- */}
+            <DashboardModals
+               isWeatherModalOpen={isWeatherModalOpen}
+               setIsWeatherModalOpen={setIsWeatherModalOpen}
+               weatherTab={weatherTab}
+               setWeatherTab={setWeatherTab}
+               weather={weather}
+               sprayingConditions={sprayingConditions}
+               getWeatherIcon={getWeatherIcon}
+               isMarketModalOpen={isMarketModalOpen}
+               setIsMarketModalOpen={setIsMarketModalOpen}
+               MarketPricesComponent={() => <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />}
+               isWaterModalOpen={isWaterModalOpen}
+               setIsWaterModalOpen={setIsWaterModalOpen}
+               waterConsumptionByCrop={waterConsumptionByCrop}
+               waterConsumption={waterConsumption}
+               isBriefingModalOpen={isBriefingModalOpen}
+               setIsBriefingModalOpen={setIsBriefingModalOpen}
+               MorningBriefingComponent={() => <MorningBriefingModal isOpen={isBriefingModalOpen} onClose={() => setIsBriefingModalOpen(false)} userName={userName} machines={machines} fields={fields} users={users} onNavigate={onNavigate} />}
+               isEnergyModalOpen={isEnergyModalOpen}
+               setIsEnergyModalOpen={setIsEnergyModalOpen}
+               energyInsights={energyInsights}
+               solarForecast={solarForecast}
+               solarEnergy={solarEnergy}
+               isCalendarOpen={isCalendarOpen}
+               setIsCalendarOpen={setIsCalendarOpen}
+               CalendarComponent={() => <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} tasks={tasks} fields={fields} animals={animals} users={users} currentUser={currentUser} onNavigate={onNavigate} onAddTask={onAddTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
+               isCheckInOpen={isCheckInOpen}
+               setIsCheckInOpen={setIsCheckInOpen}
+               CheckInComponent={() => <CheckInModal isOpen={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} fields={fields} activeSession={activeSession} onStartSession={(fId, manual) => { startSession(fId, manual); setIsCheckInOpen(false); }} onEndSession={() => { endSession(); setIsCheckInOpen(false); }} />}
+               isCollaborativeModalOpen={isCollaborativeModalOpen}
+               setIsCollaborativeModalOpen={setIsCollaborativeModalOpen}
+               CollaborativeComponent={() => <CollaborativeNetworkModal isOpen={isCollaborativeModalOpen} onClose={() => setIsCollaborativeModalOpen(false)} />}
             />
 
             {/* --- FLOATING SESSION INDICATOR --- */}

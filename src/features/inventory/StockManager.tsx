@@ -10,15 +10,7 @@ import { MOCK_MARKET_DATA } from '../finance/MarketPrices';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 
-interface StockManagerProps {
-  stocks: StockItem[];
-  // Fix: onUpdateStock expects (id, delta), not newQuantity
-  onUpdateStock: (id: string, delta: number) => void;
-  onAddStock: (item: Omit<StockItem, 'id'>) => void;
-  onEditStock: (id: string, updates: Partial<StockItem>) => void;
-  onDeleteStock?: (id: string) => void;
-  onOpenGuide?: () => void;
-}
+interface StockManagerProps { }
 
 const MAX_CAPACITY = 1000;
 
@@ -555,7 +547,21 @@ const AutoOrderModal = ({ item, isOpen, onClose }: { item: StockItem | null, isO
   );
 };
 
-const StockManager = ({ stocks, onUpdateStock, onAddStock, onEditStock, onDeleteStock, onOpenGuide }: StockManagerProps) => {
+const StockManager: React.FC<StockManagerProps> = () => {
+  const stocks = useStore(state => state.stocks) || [];
+  const addStock = useStore(state => state.addStock);
+  const updateStock = useStore(state => state.updateStock);
+  const deleteStock = useStore(state => state.deleteStock);
+  const openModal = useStore(state => state.openModal);
+
+  const onUpdateStock = (id: string, delta: number) => {
+    const currentQty = stocks.find(s => s.id === id)?.quantity || 0;
+    updateStock(id, { quantity: currentQty + delta });
+  };
+  const onAddStock = (item: Omit<StockItem, 'id'>) => addStock({ ...item, id: Date.now().toString() } as any);
+  const onEditStock = updateStock;
+  const onDeleteStock = deleteStock;
+  const onOpenGuide = () => openModal('guide');
   const setChildModalOpen = useStore(state => state.setChildModalOpen);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);

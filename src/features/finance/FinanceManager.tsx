@@ -22,21 +22,16 @@ import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from '.
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/Tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../../components/ui/Table';
 
-interface FinanceManagerProps {
-  transactions: Transaction[];
-  stocks: StockItem[];
-  animals?: Animal[];
-  fields?: Field[];
-  onAddTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-}
+interface FinanceManagerProps { }
 
-const FinanceManager: React.FC<FinanceManagerProps> = ({
-  transactions,
-  stocks,
-  animals = [],
-  fields = [],
-  onAddTransaction
-}) => {
+const FinanceManager: React.FC<FinanceManagerProps> = () => {
+  const transactions = useStore(state => state.transactions) || [];
+  const stocks = useStore(state => state.stocks) || [];
+  const animals = useStore(state => state.animals) || [];
+  const fields = useStore(state => state.fields) || [];
+  const addTransaction = useStore(state => state.addTransaction);
+
+  const onAddTransaction = (transaction: Omit<Transaction, 'id'>) => addTransaction({ ...transaction, id: Date.now().toString() } as any);
   const setChildModalOpen = useStore(state => state.setChildModalOpen);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history'>('dashboard');
   const [isModalOpen, setIsModalOpen] = useState(false);

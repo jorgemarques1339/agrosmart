@@ -11,39 +11,52 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion } from 'framer-motion';
 
-interface CultivationViewProps {
-    fields: Field[];
-    stocks: StockItem[];
-    employees: Employee[];
-    harvests: ProductBatch[];
-    toggleIrrigation: (id: string, s: boolean) => void;
-    onAddLog: (fieldId: string, log: Omit<FieldLog, 'id'>, stockId?: string) => void;
-    onUseStock: (fieldId: string, stockId: string, quantity: number, date: string) => void;
-    onAddField: (field: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => void;
-    onRegisterSensor: (fieldId: string, sensor: Sensor) => void;
-    operatorName: string;
-    onRegisterSale: (saleData: { stockId: string, quantity: number, pricePerUnit: number, clientName: string, date: string, fieldId?: string }) => void;
-    onHarvest: (fieldId: string, data: { quantity: number; unit: string; batchId: string; date: string }) => void;
-    onViewTraceability: (batch: ProductBatch) => void;
-    onDeleteField: (id: string) => void;
-}
+interface CultivationViewProps { }
 
-const CultivationView: React.FC<CultivationViewProps> = ({
-    fields,
-    stocks,
-    employees,
-    harvests,
-    toggleIrrigation,
-    onAddLog,
-    onUseStock,
-    onAddField,
-    onRegisterSensor,
-    operatorName,
-    onRegisterSale,
-    onHarvest,
-    onViewTraceability,
-    onDeleteField
-}) => {
+const CultivationView: React.FC<CultivationViewProps> = () => {
+    const fields = useStore(state => state.fields) || [];
+    const stocks = useStore(state => state.stocks) || [];
+    const employees = useStore(state => state.users) as Employee[] || [];
+    const harvests = useStore(state => state.harvests) || [];
+
+    const toggleIrrigation = useStore(state => state.toggleIrrigation);
+    const addLogToField = useStore(state => state.addLogToField);
+    const updateStock = useStore(state => state.updateStock);
+    const addTransaction = useStore(state => state.addTransaction);
+    const addFieldStore = useStore(state => state.addField);
+    const deleteField = useStore(state => state.deleteField);
+    const openModal = useStore(state => state.openModal);
+
+    const currentUserId = useStore(state => state.currentUserId);
+    const users = useStore(state => state.users) || [];
+    const currentUser = employees.find(u => u && u.id === currentUserId) || { id: 'guest', name: 'Convidado' } as any;
+    const operatorName = currentUser.name;
+
+    const onAddLog = (fieldId: string, log: Omit<FieldLog, 'id'>) => {
+        addLogToField(fieldId, { ...log, id: Date.now().toString() } as FieldLog);
+    };
+
+    const onUseStock = (fieldId: string, stockId: string, quantity: number, date: string) => {
+        const stock = stocks.find(s => s.id === stockId);
+        if (!stock) return;
+        updateStock(stockId, { quantity: stock.quantity - quantity });
+        addTransaction({ id: Date.now().toString(), date, type: 'expense', amount: quantity * stock.pricePerUnit, category: 'Insumos', description: 'Uso em campo' });
+        addLogToField(fieldId, { id: Date.now().toString(), date, type: 'treatment', description: `Uso de ${quantity} ${stock.unit} de ${stock.name}` } as FieldLog);
+    };
+
+    const onAddField = (f: Pick<Field, 'name' | 'areaHa' | 'crop' | 'emoji'>) => {
+        const newField = {
+            yieldPerHa: 0, polygon: [], irrigationStatus: false, humidity: 50, temp: 20, healthScore: 100,
+            harvestWindow: 'Próxima Época', history: [], logs: [], sensors: [], ...f, id: Date.now().toString()
+        };
+        addFieldStore(newField as unknown as Field);
+    };
+
+    const onViewTraceability = (batch: ProductBatch) => openModal('traceability', batch);
+    const onDeleteField = deleteField;
+    const onRegisterSensor = (fieldId: string, sensor: Sensor) => { };
+    const onRegisterSale = (saleData: any) => { };
+    const onHarvest = (fieldId: string, data: any) => { };
     const setChildModalOpen = useStore(state => state.setChildModalOpen);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isNotebookOpen, setIsNotebookOpen] = useState(false);
