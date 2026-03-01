@@ -14,6 +14,7 @@ import { haptics } from '../../utils/haptics';
 import { useStore } from '../../store/useStore';
 import { nfcService } from '../../utils/nfc';
 import { motion } from 'framer-motion';
+import { Virtuoso } from 'react-virtuoso';
 
 // --- Sub-Component: Animal Profile (O Card Visual do Animal) ---
 const AnimalProfile = ({
@@ -1014,13 +1015,18 @@ const AnimalCard: React.FC<AnimalCardManagerProps> = ({
         </div>
 
         <div className="space-y-4">
-          {animalBatches.map(batch => (
-            <BatchCard
-              key={batch.id}
-              batch={batch}
-              onApplyAction={onApplyBatchAction || (() => { })}
-            />
-          ))}
+          <Virtuoso
+            style={{ height: '60vh' }}
+            data={animalBatches}
+            itemContent={(index: number, batch: AnimalBatch) => (
+              <div className="pb-4">
+                <BatchCard
+                  batch={batch}
+                  onApplyAction={onApplyBatchAction || (() => { })}
+                />
+              </div>
+            )}
+          />
 
           {animalBatches.length === 0 && (
             <div className="text-center py-20 opacity-50">

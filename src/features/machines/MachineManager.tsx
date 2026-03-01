@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import {
   Tractor, Wrench, Fuel, Calendar, Clock, AlertTriangle,
   CheckCircle2, Plus, X, Gauge, Truck, Activity, Droplets, Save,
@@ -615,37 +616,41 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
                       <h3 className="text-xs font-bold uppercase text-gray-400 mb-4 flex items-center gap-2">
                         <FileText size={14} /> Diário de Bordo
                       </h3>
-                      <div className="space-y-3">
-                        {detailMachine.logs?.slice().reverse().map(log => (
-                          <div key={log.id} className="bg-white dark:bg-neutral-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 flex gap-4">
-                            <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", log.type === 'fuel' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600')}>
-                              {log.type === 'fuel' ? <Fuel size={18} /> : <Wrench size={18} />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="text-[10px] font-mono font-bold text-gray-400">{log.date}</span>
-                                <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-white/10 px-2 rounded text-gray-500">{log.type}</span>
+                      <div className="h-[50vh]">
+                        <Virtuoso
+                          style={{ height: '100%' }}
+                          data={detailMachine.logs?.slice().reverse() || []}
+                          itemContent={(index, log) => (
+                            <div className="bg-white dark:bg-neutral-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-white/5 flex gap-4 mb-3">
+                              <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", log.type === 'fuel' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600')}>
+                                {log.type === 'fuel' ? <Fuel size={18} /> : <Wrench size={18} />}
                               </div>
-                              <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{log.description}</p>
-                              {log.mechanic && (
-                                <p className="text-[10px] font-bold text-agro-green uppercase mt-1">Mecânico: {log.mechanic}</p>
-                              )}
-                              <p className="text-xs text-gray-400 mt-1 font-mono">@{log.engineHoursAtLog}h • {log.cost > 0 ? `${log.cost}€` : 'S/ Custo'}</p>
-
-                              {log.attachments && log.attachments.length > 0 && (
-                                <div className="flex gap-2 mt-2">
-                                  {log.attachments.map((at, idx) => (
-                                    <div key={idx} className="w-12 h-12 bg-gray-100 dark:bg-white/5 rounded-lg flex items-center justify-center border border-gray-200 dark:border-white/10 overflow-hidden relative group/at">
-                                      <FileText size={16} className="text-gray-400" />
-                                      {/* Mock preview if it was an image */}
-                                      {at.startsWith('data:image') && <img src={at} className="absolute inset-0 w-full h-full object-cover" alt="Anexo" />}
-                                    </div>
-                                  ))}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex justify-between items-start mb-1">
+                                  <span className="text-[10px] font-mono font-bold text-gray-400">{log.date}</span>
+                                  <span className="text-[10px] font-bold uppercase bg-gray-100 dark:bg-white/10 px-2 rounded text-gray-500">{log.type}</span>
                                 </div>
-                              )}
+                                <p className="text-sm font-bold text-gray-900 dark:text-white leading-tight">{log.description}</p>
+                                {log.mechanic && (
+                                  <p className="text-[10px] font-bold text-agro-green uppercase mt-1">Mecânico: {log.mechanic}</p>
+                                )}
+                                <p className="text-xs text-gray-400 mt-1 font-mono">@{log.engineHoursAtLog}h • {log.cost > 0 ? `${log.cost}€` : 'S/ Custo'}</p>
+
+                                {log.attachments && log.attachments.length > 0 && (
+                                  <div className="flex gap-2 mt-2">
+                                    {log.attachments.map((at, idx) => (
+                                      <div key={idx} className="w-12 h-12 bg-gray-100 dark:bg-white/5 rounded-lg flex items-center justify-center border border-gray-200 dark:border-white/10 overflow-hidden relative group/at">
+                                        <FileText size={16} className="text-gray-400" />
+                                        {/* Mock preview if it was an image */}
+                                        {at.startsWith('data:image') && <img src={at} className="absolute inset-0 w-full h-full object-cover" alt="Anexo" />}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          )}
+                        />
                       </div>
                     </motion.div>
                   ) : (

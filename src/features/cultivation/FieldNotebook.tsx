@@ -10,6 +10,7 @@ import {
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Field, FieldLog, StockItem, Employee } from '../../types';
+import { Virtuoso } from 'react-virtuoso';
 
 interface FieldNotebookProps {
   isOpen: boolean;
@@ -325,56 +326,62 @@ const FieldNotebook: React.FC<FieldNotebookProps> = ({
                     <p className="text-sm font-bold text-gray-400">Sem registos neste período.</p>
                   </div>
                 ) : (
-                  filteredLogs.map((log, idx) => {
-                    const opType = OPERATION_TYPES.find(t => t.id === log.type) || { label: 'Outro', bg: 'bg-gray-100', color: 'text-gray-600', icon: Search };
-                    const Icon = opType.icon;
+                  <Virtuoso
+                    style={{ height: '60vh' }}
+                    data={filteredLogs}
+                    itemContent={(idx: number, log: any) => {
+                      const opType = OPERATION_TYPES.find(t => t.id === log.type) || { label: 'Outro', bg: 'bg-gray-100', color: 'text-gray-600', icon: Search };
+                      const Icon = opType.icon;
 
-                    return (
-                      <div key={idx} className="bg-white dark:bg-neutral-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-neutral-700 flex gap-4 items-start">
-                        <div className={`p-3 rounded-2xl shrink-0 ${opType.bg} ${opType.color}`}>
-                          <Icon size={20} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-gray-900 dark:text-white text-sm">{log.productName || log.description}</h4>
-                            <span className="text-[10px] font-mono font-bold bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded text-gray-500">{log.date}</span>
+                      return (
+                        <div className="pb-3">
+                          <div className="bg-white dark:bg-neutral-800 p-4 rounded-3xl shadow-sm border border-gray-100 dark:border-neutral-700 flex gap-4 items-start">
+                            <div className={`p-3 rounded-2xl shrink-0 ${opType.bg} ${opType.color}`}>
+                              <Icon size={20} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-start">
+                                <h4 className="font-bold text-gray-900 dark:text-white text-sm">{log.productName || log.description}</h4>
+                                <span className="text-[10px] font-mono font-bold bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded text-gray-500">{log.date}</span>
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{log.fieldName} • {opType.label}</p>
+
+                              {/* Technical Chips */}
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {log.cost !== undefined && log.cost > 0 && (
+                                  <span className="text-[9px] font-bold uppercase bg-gray-100 dark:bg-neutral-700 text-gray-500 px-2 py-0.5 rounded">
+                                    {log.cost.toFixed(2)}€
+                                  </span>
+                                )}
+
+                                {log.type === 'labor' && log.hoursWorked && (
+                                  <span className="text-[9px] font-bold uppercase bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-0.5 rounded flex items-center gap-1">
+                                    <Clock size={10} /> {log.hoursWorked}h
+                                  </span>
+                                )}
+
+                                {log.apv && (
+                                  <span className="text-[9px] font-bold uppercase border border-gray-200 dark:border-neutral-600 px-2 py-0.5 rounded text-gray-500">
+                                    APV: {log.apv}
+                                  </span>
+                                )}
+                                {log.quantity && (
+                                  <span className="text-[9px] font-bold uppercase bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-0.5 rounded">
+                                    {log.quantity} {log.unit}
+                                  </span>
+                                )}
+                                {log.safetyDays && log.safetyDays > 0 && (
+                                  <span className="text-[9px] font-bold uppercase bg-red-50 dark:bg-red-900/20 text-red-600 px-2 py-0.5 rounded flex items-center gap-1">
+                                    <ShieldAlert size={10} /> IS: {log.safetyDays} Dias
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{log.fieldName} • {opType.label}</p>
-
-                          {/* Chips Técnicos */}
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {log.cost !== undefined && log.cost > 0 && (
-                              <span className="text-[9px] font-bold uppercase bg-gray-100 dark:bg-neutral-700 text-gray-500 px-2 py-0.5 rounded">
-                                {log.cost.toFixed(2)}€
-                              </span>
-                            )}
-
-                            {log.type === 'labor' && log.hoursWorked && (
-                              <span className="text-[9px] font-bold uppercase bg-purple-50 dark:bg-purple-900/20 text-purple-600 px-2 py-0.5 rounded flex items-center gap-1">
-                                <Clock size={10} /> {log.hoursWorked}h
-                              </span>
-                            )}
-
-                            {log.apv && (
-                              <span className="text-[9px] font-bold uppercase border border-gray-200 dark:border-neutral-600 px-2 py-0.5 rounded text-gray-500">
-                                APV: {log.apv}
-                              </span>
-                            )}
-                            {log.quantity && (
-                              <span className="text-[9px] font-bold uppercase bg-blue-50 dark:bg-blue-900/20 text-blue-600 px-2 py-0.5 rounded">
-                                {log.quantity} {log.unit}
-                              </span>
-                            )}
-                            {log.safetyDays && log.safetyDays > 0 && (
-                              <span className="text-[9px] font-bold uppercase bg-red-50 dark:bg-red-900/20 text-red-600 px-2 py-0.5 rounded flex items-center gap-1">
-                                <ShieldAlert size={10} /> IS: {log.safetyDays} Dias
-                              </span>
-                            )}
-                          </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    }}
+                  />
                 )}
               </div>
             </div>

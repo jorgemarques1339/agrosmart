@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { Virtuoso, TableVirtuoso } from 'react-virtuoso';
 import {
   Plus, X, TrendingUp, TrendingDown,
   ArrowUpRight, ArrowDownRight,
@@ -525,77 +526,87 @@ const FinanceManager: React.FC<FinanceManagerProps> = () => {
           ) : (
             <>
               {/* Mobile/Tablet List View */}
-              <div className="md:hidden space-y-2">
-                {[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
-                  <div key={tx.id} className="bg-white dark:bg-neutral-900 px-3 py-3 rounded-[1.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center gap-3 active:scale-[0.98] transition-transform">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'income'
-                      ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                      : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                      }`}>
-                      {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-                    </div>
+              <div className="md:hidden h-[60vh] md:h-[auto]">
+                <Virtuoso
+                  style={{ height: '100%' }}
+                  data={[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
+                  itemContent={(index, tx) => (
+                    <div className="bg-white dark:bg-neutral-900 px-3 py-3 rounded-[1.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm flex items-center gap-3 active:scale-[0.98] transition-transform mb-2">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${tx.type === 'income'
+                        ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                        : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        }`}>
+                        {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                      </div>
 
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-gray-900 dark:text-white text-xs truncate">{tx.description}</h4>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[9px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-md">
-                          {tx.category}
-                        </span>
-                        <span className="text-[9px] text-gray-400 font-mono">{tx.date}</span>
-                        {tx.relatedCrop && (
-                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-md">🌱 {tx.relatedCrop}</span>
-                        )}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-gray-900 dark:text-white text-xs truncate">{tx.description}</h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[9px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-1.5 py-0.5 rounded-md">
+                            {tx.category}
+                          </span>
+                          <span className="text-[9px] text-gray-400 font-mono">{tx.date}</span>
+                          {tx.relatedCrop && (
+                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-md">🌱 {tx.relatedCrop}</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={`text-right font-black text-xs shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-gray-800 dark:text-white'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
                       </div>
                     </div>
-
-                    <div className={`text-right font-black text-xs shrink-0 ${tx.type === 'income' ? 'text-green-600' : 'text-gray-800 dark:text-white'}`}>
-                      {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                    </div>
-                  </div>
-                ))}
+                  )}
+                />
               </div>
 
               {/* Desktop Table View (Show on md screens and up) */}
-              <div className="hidden md:block bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
+              <div className="hidden md:block bg-white dark:bg-neutral-900 rounded-[2.5rem] border border-gray-100 dark:border-neutral-800 shadow-sm overflow-hidden h-[60vh]">
+                <TableVirtuoso
+                  style={{ height: '100%' }}
+                  data={[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())}
+                  components={{
+                    Table: (props) => <Table {...props} className="w-full caption-bottom text-sm" />,
+                    TableHead: React.forwardRef((props, ref) => <TableHeader {...props} ref={ref as any} />),
+                    TableRow: (props) => <TableRow {...props} />,
+                    TableBody: React.forwardRef((props, ref) => <TableBody {...props} ref={ref as any} />)
+                  }}
+                  fixedHeaderContent={() => (
+                    <TableRow className="bg-white dark:bg-neutral-900 hover:bg-white dark:hover:bg-neutral-900 border-b">
                       <TableHead>Tipo</TableHead>
                       <TableHead>Data</TableHead>
                       <TableHead>Descrição</TableHead>
                       <TableHead>Categoria</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((tx) => (
-                      <TableRow key={tx.id}>
-                        <TableCell>
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'income'
-                            ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                            : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                            }`}>
-                            {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-xs font-mono font-bold text-gray-500">{tx.date}</span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm font-bold text-gray-900 dark:text-white">{tx.description}</span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded-full">
-                            {tx.category}
-                          </span>
-                        </TableCell>
-                        <TableCell className={`text-right font-black text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
-                          {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                  )}
+                  itemContent={(index, tx) => (
+                    <>
+                      <TableCell>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tx.type === 'income'
+                          ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                          : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                          }`}>
+                          {tx.type === 'income' ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs font-mono font-bold text-gray-500">{tx.date}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">{tx.description}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 dark:bg-neutral-800 px-3 py-1 rounded-full">
+                          {tx.category}
+                        </span>
+                      </TableCell>
+                      <TableCell className={`text-right font-black text-sm ${tx.type === 'income' ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                      </TableCell>
+                    </>
+                  )}
+                />
               </div>
             </>
           )}

@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { FeedItem, UserProfile } from '../types';
 import { useStore } from '../store/useStore';
 import { haptics } from '../utils/haptics';
+import { Virtuoso } from 'react-virtuoso';
 
 interface FieldFeedProps {
     onClose: () => void;
@@ -287,153 +288,159 @@ const FieldFeed: React.FC<FieldFeedProps> = ({ onClose }) => {
                             </div>
 
                             {/* Feed List */}
-                            <div className="space-y-4">
+                            <div className="flex-1 min-h-[50vh]">
                                 {feedItems.length === 0 ? (
                                     <div className="text-center py-20 opacity-30">
                                         <MessageSquare size={48} className="mx-auto mb-2" />
                                         <p className="font-bold uppercase tracking-widest text-xs">Sem atualizações ainda</p>
                                     </div>
                                 ) : (
-                                    feedItems.map((item) => (
-                                        <motion.div
-                                            layout
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            key={item.id}
-                                            className={clsx(
-                                                "bg-white dark:bg-neutral-900 rounded-[2rem] p-5 shadow-sm border transition-all",
-                                                item.type === 'alert' ? "border-red-500/30" : "border-gray-100 dark:border-white/5"
-                                            )}
-                                        >
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex gap-3">
-                                                    <div className="relative">
-                                                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold dark:text-black">
-                                                            {item.userAvatar}
-                                                        </div>
-                                                        {item.type === 'alert' && (
-                                                            <div className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full animate-pulse shadow-lg">
-                                                                <AlertTriangle size={8} />
+                                    <Virtuoso
+                                        useWindowScroll
+                                        data={feedItems}
+                                        itemContent={(index: number, item: FeedItem) => (
+                                            <div className="pb-4">
+                                                <motion.div
+                                                    layout
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className={clsx(
+                                                        "bg-white dark:bg-neutral-900 rounded-[2rem] p-5 shadow-sm border transition-all h-full",
+                                                        item.type === 'alert' ? "border-red-500/30" : "border-gray-100 dark:border-white/5"
+                                                    )}
+                                                >
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div className="flex gap-3">
+                                                            <div className="relative">
+                                                                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-lg font-bold dark:text-black">
+                                                                    {item.userAvatar}
+                                                                </div>
+                                                                {item.type === 'alert' && (
+                                                                    <div className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full animate-pulse shadow-lg">
+                                                                        <AlertTriangle size={8} />
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-black text-gray-900 dark:text-white text-sm leading-none">{item.userName}</h4>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <MapPin size={10} className="text-indigo-500" />
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                                {item.location[0].toFixed(3)}, {item.location[1].toFixed(3)}
-                                                            </span>
-                                                            <span className="w-1 h-1 rounded-full bg-gray-300"></span>
-                                                            <Clock size={10} className="text-gray-400" />
-                                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                                {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button className="p-2 text-gray-300 hover:text-gray-500">
-                                                    <MoreHorizontal size={20} />
-                                                </button>
-                                            </div>
-
-                                            <div className="pl-1 text-gray-700 dark:text-gray-200 font-bold text-sm leading-relaxed mb-4">
-                                                {item.content}
-                                            </div>
-
-                                            {/* Media Content (Mock) */}
-                                            {item.type === 'photo' && (
-                                                <div className="rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-white/5 bg-gray-100 dark:bg-neutral-800 aspect-video flex items-center justify-center">
-                                                    <ImageIcon size={32} className="text-gray-300 opacity-50" />
-                                                    <img
-                                                        src="https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1498&auto=format&fit=crop"
-                                                        className="w-full h-full object-cover opacity-80"
-                                                        alt="Update"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {item.type === 'voice' && (
-                                                <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-2xl flex items-center gap-4 mb-4 border border-indigo-100 dark:border-indigo-900/20">
-                                                    <button className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform">
-                                                        <Play size={20} fill="currentColor" />
-                                                    </button>
-                                                    <div className="flex-1 space-y-2">
-                                                        <div className="flex justify-between items-end">
-                                                            <div className="flex gap-0.5 items-end h-6">
-                                                                {[0.4, 0.7, 0.5, 0.9, 0.6, 0.3, 0.8, 0.5, 0.4, 0.6, 0.9, 0.7, 0.5, 0.8, 0.4].map((h, i) => (
-                                                                    <motion.div
-                                                                        key={i}
-                                                                        initial={{ height: "20%" }}
-                                                                        animate={{ height: `${h * 100}%` }}
-                                                                        transition={{ duration: 1, repeat: Infinity, repeatType: 'reverse', delay: i * 0.1 }}
-                                                                        className="w-1 bg-indigo-400 rounded-full"
-                                                                    />
-                                                                ))}
+                                                            <div>
+                                                                <h4 className="font-black text-gray-900 dark:text-white text-sm leading-none">{item.userName}</h4>
+                                                                <div className="flex items-center gap-2 mt-1">
+                                                                    <MapPin size={10} className="text-indigo-500" />
+                                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                                                        {item.location[0].toFixed(3)}, {item.location[1].toFixed(3)}
+                                                                    </span>
+                                                                    <span className="w-1 h-1 rounded-full bg-gray-300"></span>
+                                                                    <Clock size={10} className="text-gray-400" />
+                                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                                                                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                            <span className="text-[10px] font-black text-indigo-400 font-mono tracking-tighter">00:14 / 00:14</span>
                                                         </div>
-                                                        <div className="h-1 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden">
-                                                            <div className="w-full h-full bg-indigo-600 rounded-full" />
-                                                        </div>
+                                                        <button className="p-2 text-gray-300 hover:text-gray-500">
+                                                            <MoreHorizontal size={20} />
+                                                        </button>
                                                     </div>
-                                                </div>
-                                            )}
 
-                                            {item.type === 'video' && (
-                                                <div className="relative rounded-[1.5rem] overflow-hidden mb-4 border border-gray-100 dark:border-white/5 bg-black group/video shadow-2xl">
-                                                    <video
-                                                        src={item.mediaUrl || "https://assets.mixkit.co/videos/preview/mixkit-sprinklers-watering-a-green-lawn-1358-large.mp4"}
-                                                        className="w-full aspect-video object-cover opacity-90"
-                                                        muted
-                                                        playsInline
-                                                        loop
-                                                        autoPlay
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-                                                        <div className="flex items-center gap-3 w-full">
-                                                            <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center active:scale-90 transition-transform">
-                                                                <Play size={18} fill="currentColor" />
+                                                    <div className="pl-1 text-gray-700 dark:text-gray-200 font-bold text-sm leading-relaxed mb-4">
+                                                        {item.content}
+                                                    </div>
+
+                                                    {/* Media Content (Mock) */}
+                                                    {item.type === 'photo' && (
+                                                        <div className="rounded-2xl overflow-hidden mb-4 border border-gray-100 dark:border-white/5 bg-gray-100 dark:bg-neutral-800 aspect-video flex items-center justify-center">
+                                                            <ImageIcon size={32} className="text-gray-300 opacity-50" />
+                                                            <img
+                                                                src="https://images.unsplash.com/photo-1592982537447-7440770cbfc9?q=80&w=1498&auto=format&fit=crop"
+                                                                className="w-full h-full object-cover opacity-80"
+                                                                loading="lazy"
+                                                                alt="Update"
+                                                            />
+                                                        </div>
+                                                    )}
+
+                                                    {item.type === 'voice' && (
+                                                        <div className="bg-indigo-50 dark:bg-indigo-900/10 p-4 rounded-2xl flex items-center gap-4 mb-4 border border-indigo-100 dark:border-indigo-900/20">
+                                                            <button className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20 active:scale-95 transition-transform">
+                                                                <Play size={20} fill="currentColor" />
                                                             </button>
-                                                            <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
-                                                                <motion.div
-                                                                    animate={{ x: [0, 100, 0] }}
-                                                                    transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                                                                    className="w-1/4 h-full bg-agro-green"
-                                                                />
+                                                            <div className="flex-1 space-y-2">
+                                                                <div className="flex justify-between items-end">
+                                                                    <div className="flex gap-0.5 items-end h-6">
+                                                                        {[0.4, 0.7, 0.5, 0.9, 0.6, 0.3, 0.8, 0.5, 0.4, 0.6, 0.9, 0.7, 0.5, 0.8, 0.4].map((h, i) => (
+                                                                            <motion.div
+                                                                                key={i}
+                                                                                initial={{ height: "20%" }}
+                                                                                animate={{ height: `${h * 100}%` }}
+                                                                                transition={{ duration: 1, repeat: Infinity, repeatType: 'reverse', delay: i * 0.1 }}
+                                                                                className="w-1 bg-indigo-400 rounded-full"
+                                                                            />
+                                                                        ))}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black text-indigo-400 font-mono tracking-tighter">00:14 / 00:14</span>
+                                                                </div>
+                                                                <div className="h-1 bg-indigo-200 dark:bg-indigo-800 rounded-full overflow-hidden">
+                                                                    <div className="w-full h-full bg-indigo-600 rounded-full" />
+                                                                </div>
                                                             </div>
-                                                            <Volume2 size={18} className="text-white opacity-80" />
                                                         </div>
-                                                    </div>
-                                                    <div className="absolute top-4 left-4 flex gap-2">
-                                                        <span className="px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase rounded-md flex items-center gap-1 shadow-lg">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
-                                                        </span>
-                                                        <span className="px-2 py-1 bg-black/40 backdrop-blur-md text-white text-[8px] font-black uppercase rounded-md shadow-lg border border-white/10">
-                                                            HD 1080P
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            )}
+                                                    )}
 
-                                            {/* Interaction Bar */}
-                                            <div className="flex justify-between items-center text-gray-400 px-1">
-                                                <div className="flex gap-4">
-                                                    <button className="flex items-center gap-1.5 hover:text-red-500 transition-colors">
-                                                        <Heart size={18} />
-                                                        <span className="text-xs font-bold">12</span>
-                                                    </button>
-                                                    <button className="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
-                                                        <MessageCircle size={18} />
-                                                        <span className="text-xs font-bold">4</span>
-                                                    </button>
-                                                </div>
-                                                <button className="hover:text-agro-green transition-colors">
-                                                    <Navigation size={18} />
-                                                </button>
+                                                    {item.type === 'video' && (
+                                                        <div className="relative rounded-[1.5rem] overflow-hidden mb-4 border border-gray-100 dark:border-white/5 bg-black group/video shadow-2xl">
+                                                            <video
+                                                                src={item.mediaUrl || "https://assets.mixkit.co/videos/preview/mixkit-sprinklers-watering-a-green-lawn-1358-large.mp4"}
+                                                                className="w-full aspect-video object-cover opacity-90"
+                                                                muted
+                                                                playsInline
+                                                                loop
+                                                                autoPlay
+                                                            />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
+                                                                <div className="flex items-center gap-3 w-full">
+                                                                    <button className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md text-white flex items-center justify-center active:scale-90 transition-transform">
+                                                                        <Play size={18} fill="currentColor" />
+                                                                    </button>
+                                                                    <div className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
+                                                                        <motion.div
+                                                                            animate={{ x: [0, 100, 0] }}
+                                                                            transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
+                                                                            className="w-1/4 h-full bg-agro-green"
+                                                                        />
+                                                                    </div>
+                                                                    <Volume2 size={18} className="text-white opacity-80" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="absolute top-4 left-4 flex gap-2">
+                                                                <span className="px-2 py-1 bg-red-600 text-white text-[8px] font-black uppercase rounded-md flex items-center gap-1 shadow-lg">
+                                                                    <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> LIVE
+                                                                </span>
+                                                                <span className="px-2 py-1 bg-black/40 backdrop-blur-md text-white text-[8px] font-black uppercase rounded-md shadow-lg border border-white/10">
+                                                                    HD 1080P
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Interaction Bar */}
+                                                    <div className="flex justify-between items-center text-gray-400 px-1">
+                                                        <div className="flex gap-4">
+                                                            <button className="flex items-center gap-1.5 hover:text-red-500 transition-colors">
+                                                                <Heart size={18} />
+                                                                <span className="text-xs font-bold">12</span>
+                                                            </button>
+                                                            <button className="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
+                                                                <MessageCircle size={18} />
+                                                                <span className="text-xs font-bold">4</span>
+                                                            </button>
+                                                        </div>
+                                                        <button className="hover:text-agro-green transition-colors">
+                                                            <Navigation size={18} />
+                                                        </button>
+                                                    </div>
+                                                </motion.div>
                                             </div>
-                                        </motion.div>
-                                    ))
+                                        )}
+                                    />
                                 )}
                             </div>
                         </motion.div>

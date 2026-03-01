@@ -10,6 +10,7 @@ import { useStore } from '../../store/useStore';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion } from 'framer-motion';
+import { Virtuoso } from 'react-virtuoso';
 
 interface CultivationViewProps { }
 
@@ -276,49 +277,55 @@ const CultivationView: React.FC<CultivationViewProps> = () => {
                             </button>
                         </div>
 
-                        <div className="space-y-4">
-                            {harvests.slice().reverse().map((batch) => (
-                                <div key={batch.batchId} className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-start gap-4">
-                                    <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm shrink-0">
-                                        <QrCode size={24} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start gap-2 mb-2">
-                                            <div className="min-w-0">
-                                                <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
-                                                <p className="text-[10px] text-gray-400 font-mono italic truncate">{batch.batchId}</p>
+                        <div className="space-y-4 h-[60vh]">
+                            <Virtuoso
+                                style={{ height: '100%' }}
+                                data={harvests.slice().reverse()}
+                                itemContent={(index, batch) => (
+                                    <div className="pb-4">
+                                        <div className="bg-gray-50 dark:bg-neutral-800 p-4 rounded-[1.5rem] border border-gray-100 dark:border-neutral-700 shadow-sm flex items-start gap-4">
+                                            <div className="p-3 bg-white dark:bg-neutral-700 rounded-2xl text-yellow-500 shadow-sm shrink-0">
+                                                <QrCode size={24} />
                                             </div>
-                                            <div className="flex gap-2 shrink-0">
-                                                <button
-                                                    onClick={() => {
-                                                        setShowHistoryModal(false);
-                                                        onViewTraceability(batch);
-                                                    }}
-                                                    className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
-                                                    title="Passaporte"
-                                                >
-                                                    <QrCode size={18} />
-                                                </button>
-                                                <button
-                                                    onClick={() => generateHarvestJournalPDF(batch)}
-                                                    className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-blue-500 shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
-                                                    title="Histórico PDF"
-                                                >
-                                                    <FileText size={18} />
-                                                </button>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-start gap-2 mb-2">
+                                                    <div className="min-w-0">
+                                                        <h4 className="font-bold text-gray-900 dark:text-white text-sm truncate">{batch.crop}</h4>
+                                                        <p className="text-[10px] text-gray-400 font-mono italic truncate">{batch.batchId}</p>
+                                                    </div>
+                                                    <div className="flex gap-2 shrink-0">
+                                                        <button
+                                                            onClick={() => {
+                                                                setShowHistoryModal(false);
+                                                                onViewTraceability(batch);
+                                                            }}
+                                                            className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-agro-green shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
+                                                            title="Passaporte"
+                                                        >
+                                                            <QrCode size={18} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => generateHarvestJournalPDF(batch)}
+                                                            className="p-2.5 bg-white dark:bg-neutral-700 rounded-xl text-gray-400 hover:text-blue-500 shadow-sm border border-gray-100 dark:border-neutral-600 transition-all active:scale-95"
+                                                            title="Histórico PDF"
+                                                        >
+                                                            <FileText size={18} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    <span className="text-[10px] font-bold bg-green-100/50 text-green-700 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200/50 dark:border-green-800/20 flex items-center gap-1.5 leading-none h-6">
+                                                        <Package size={12} /> {batch.quantity} {batch.unit}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold bg-gray-200/50 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-lg border border-gray-300/30 dark:border-white/10 flex items-center gap-1.5 leading-none h-6">
+                                                        <Calendar size={12} /> {new Date(batch.harvestDate).toLocaleDateString()}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            <span className="text-[10px] font-bold bg-green-100/50 text-green-700 dark:bg-green-900/20 dark:text-green-400 px-2 py-0.5 rounded-lg border border-green-200/50 dark:border-green-800/20 flex items-center gap-1.5 leading-none h-6">
-                                                <Package size={12} /> {batch.quantity} {batch.unit}
-                                            </span>
-                                            <span className="text-[10px] font-bold bg-gray-200/50 dark:bg-neutral-600 text-gray-500 dark:text-gray-300 px-2 py-0.5 rounded-lg border border-gray-300/30 dark:border-white/10 flex items-center gap-1.5 leading-none h-6">
-                                                <Calendar size={12} /> {new Date(batch.harvestDate).toLocaleDateString()}
-                                            </span>
-                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                )}
+                            />
                         </div>
                     </div>
                 </div>

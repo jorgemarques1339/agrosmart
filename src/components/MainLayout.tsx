@@ -11,12 +11,12 @@ import { BottomNavigation } from './BottomNavigation';
 import { GlobalModals } from './GlobalModals';
 
 // Services & Global UI
-import VoiceAssistant from './VoiceAssistant';
-import InstallPrompt from './InstallPrompt';
-import LoneWorkerMonitor from '../features/team/LoneWorkerMonitor';
-import GeofencingService from './GeofencingService';
-import { ConflictDiscoveryModal } from './ConflictDiscoveryModal';
-import { AutoPilotService } from '../features/machines/AutoPilotService';
+const VoiceAssistant = React.lazy(() => import('./VoiceAssistant'));
+const InstallPrompt = React.lazy(() => import('./InstallPrompt'));
+const LoneWorkerMonitor = React.lazy(() => import('../features/team/LoneWorkerMonitor'));
+const GeofencingService = React.lazy(() => import('./GeofencingService'));
+const ConflictDiscoveryModal = React.lazy(() => import('./ConflictDiscoveryModal').then(module => ({ default: module.ConflictDiscoveryModal })));
+const AutoPilotService = React.lazy(() => import('../features/machines/AutoPilotService').then(module => ({ default: module.AutoPilotService })));
 import AppSkeleton from './AppSkeleton';
 
 export const MainLayout = () => {
@@ -51,11 +51,13 @@ export const MainLayout = () => {
             <GlobalModals />
 
             {/* Background Services & Prompts */}
-            <AutoPilotService />
-            <InstallPrompt />
-            <LoneWorkerMonitor />
-            <GeofencingService />
-            <ConflictDiscoveryModal />
+            <React.Suspense fallback={null}>
+                <AutoPilotService />
+                <InstallPrompt />
+                <LoneWorkerMonitor />
+                <GeofencingService />
+                <ConflictDiscoveryModal />
+            </React.Suspense>
         </div>
     );
 };

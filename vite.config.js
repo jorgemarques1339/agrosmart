@@ -60,6 +60,9 @@ export default defineConfig({
             if (id.includes('supabase')) return 'vendor-supabase';
             if (id.includes('jspdf') || id.includes('lucide-react')) return 'vendor-utils';
             if (id.includes('maplibre') || id.includes('deck.gl')) return 'vendor-maps';
+            if (id.includes('@tensorflow') || id.includes('onnx')) return 'vendor-ml';
+            if (id.includes('framer-motion')) return 'vendor-framer';
+            if (id.includes('recharts')) return 'vendor-charts';
             return 'vendor';
           }
         }

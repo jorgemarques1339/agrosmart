@@ -7,6 +7,7 @@ import {
     Trash2, User, FileText, Loader2, AlertTriangle, ArrowLeft
 } from 'lucide-react';
 import { Task, Field, Animal, UserProfile } from '../types';
+import { Virtuoso } from 'react-virtuoso';
 import clsx from 'clsx';
 import { haptics } from '../utils/haptics';
 
@@ -148,149 +149,153 @@ const DayEventsSheet: React.FC<{
 
                 {/* Event list */}
                 <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
-                    {events.map(event => {
-                        const style = EVENT_STYLES[event.type];
-                        const isConfirming = confirmDeleteId === event.id;
-                        return (
-                            <div key={event.id} className="relative">
-                                {/* Delete Action Background */}
-                                {(!event.isAnimalEvent && currentUser.role === 'admin') && (
-                                    <div className="absolute inset-y-0 right-0 w-24 bg-red-500 rounded-3xl flex items-center justify-end px-5 shadow-inner opacity-80 pointer-events-none">
-                                        <Trash2 className="text-white" size={20} />
-                                    </div>
-                                )}
-
-                                <motion.div
-                                    drag={(!event.isAnimalEvent && currentUser.role === 'admin') ? "x" : false}
-                                    dragConstraints={{ left: 0, right: 0 }}
-                                    dragElastic={{ left: 0.8, right: 0.1 }}
-                                    whileDrag={{ scale: 1.02, zIndex: 20, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
-                                    onDragEnd={(_e, info) => {
-                                        if (!event.isAnimalEvent && currentUser.role === 'admin' && info.offset.x < -90) {
-                                            haptics.heavy();
-                                            onDeleteEvent(event.id);
-                                        }
-                                    }}
-                                    className={clsx(
-                                        'flex items-start gap-3 p-4 rounded-3xl border-2 transition-colors relative z-10',
-                                        style.bg, style.border,
-                                        event.completed && 'opacity-55',
-                                        (!event.isAnimalEvent && currentUser.role === 'admin') && "cursor-grab active:cursor-grabbing"
-                                    )}
-                                >
-                                    {/* Opaque Base to hide delete background */}
-                                    <div className="absolute inset-0 bg-white dark:bg-neutral-950 rounded-3xl -z-10" />
-
-                                    {/* Left accent */}
-                                    <div className={clsx('w-1 self-stretch rounded-full shrink-0 mt-0.5', style.dot)} />
-
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                                            <span className={clsx('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide', style.badge)}>
-                                                {style.label}
-                                            </span>
-                                            {event.isAnimalEvent && (
-                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-500 uppercase tracking-wide">Animal</span>
-                                            )}
-                                            {event.completed && (
-                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">✓ Concluído</span>
-                                            )}
-                                            {event.status === 'review' && (
-                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 uppercase tracking-wide animate-pulse">A aguardar aprovação</span>
-                                            )}
+                    <Virtuoso
+                        style={{ height: '100%' }}
+                        data={events}
+                        itemContent={(index, event) => {
+                            const style = EVENT_STYLES[event.type];
+                            const isConfirming = confirmDeleteId === event.id;
+                            return (
+                                <div className="pb-4 relative">
+                                    {/* Delete Action Background */}
+                                    {(!event.isAnimalEvent && currentUser.role === 'admin') && (
+                                        <div className="absolute inset-y-0 right-0 w-24 bg-red-500 rounded-3xl flex items-center justify-end px-5 shadow-inner opacity-80 pointer-events-none">
+                                            <Trash2 className="text-white" size={20} />
                                         </div>
-                                        <p className={clsx('text-sm font-bold leading-snug', style.text, event.completed && 'line-through')}>
-                                            {event.title}
-                                        </p>
+                                    )}
 
-                                        {/* Proof Image Preview */}
-                                        {event.proofImage && (
-                                            <div className="mt-3 relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                                                <img src={event.proofImage} alt="Prova" className="w-full h-full object-cover" />
-                                                <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 border border-white/10">
-                                                    <User size={10} className="text-white" />
-                                                    <span className="text-[9px] font-black text-white uppercase tracking-widest">Prova de Execução</span>
+                                    <motion.div
+                                        drag={(!event.isAnimalEvent && currentUser.role === 'admin') ? "x" : false}
+                                        dragConstraints={{ left: 0, right: 0 }}
+                                        dragElastic={{ left: 0.8, right: 0.1 }}
+                                        whileDrag={{ scale: 1.02, zIndex: 20, boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}
+                                        onDragEnd={(_e, info) => {
+                                            if (!event.isAnimalEvent && currentUser.role === 'admin' && info.offset.x < -90) {
+                                                haptics.heavy();
+                                                onDeleteEvent(event.id);
+                                            }
+                                        }}
+                                        className={clsx(
+                                            'flex items-start gap-3 p-4 rounded-3xl border-2 transition-colors relative z-10',
+                                            style.bg, style.border,
+                                            event.completed && 'opacity-55',
+                                            (!event.isAnimalEvent && currentUser.role === 'admin') && "cursor-grab active:cursor-grabbing"
+                                        )}
+                                    >
+                                        {/* Opaque Base to hide delete background */}
+                                        <div className="absolute inset-0 bg-white dark:bg-neutral-950 rounded-3xl -z-10" />
+
+                                        {/* Left accent */}
+                                        <div className={clsx('w-1 self-stretch rounded-full shrink-0 mt-0.5', style.dot)} />
+
+                                        {/* Content */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                <span className={clsx('text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wide', style.badge)}>
+                                                    {style.label}
+                                                </span>
+                                                {event.isAnimalEvent && (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-gray-100 dark:bg-neutral-800 text-gray-500 uppercase tracking-wide">Animal</span>
+                                                )}
+                                                {event.completed && (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">✓ Concluído</span>
+                                                )}
+                                                {event.status === 'review' && (
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 uppercase tracking-wide animate-pulse">A aguardar aprovação</span>
+                                                )}
+                                            </div>
+                                            <p className={clsx('text-sm font-bold leading-snug', style.text, event.completed && 'line-through')}>
+                                                {event.title}
+                                            </p>
+
+                                            {/* Proof Image Preview */}
+                                            {event.proofImage && (
+                                                <div className="mt-3 relative w-full aspect-video rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                                                    <img src={event.proofImage} alt="Prova" className="w-full h-full object-cover" />
+                                                    <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 border border-white/10">
+                                                        <User size={10} className="text-white" />
+                                                        <span className="text-[9px] font-black text-white uppercase tracking-widest">Prova de Execução</span>
+                                                    </div>
                                                 </div>
+                                            )}
+
+                                            {/* Action Buttons based on Role & Status */}
+                                            <div className="mt-3 flex gap-2">
+                                                {/* Worker side Actions */}
+                                                {currentUser.id === event.assignedTo && !event.completed && event.status !== 'review' && (
+                                                    <>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            ref={fileInputRef}
+                                                            onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (file) handlePhotoSubmit(event.id, file);
+                                                            }}
+                                                        />
+                                                        <button
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            disabled={processingTaskId === event.id}
+                                                            className="flex-1 py-2.5 bg-agro-green text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-agro-green/20"
+                                                        >
+                                                            {processingTaskId === event.id ? (
+                                                                <Loader2 size={12} className="animate-spin" />
+                                                            ) : (
+                                                                <Plus size={12} />
+                                                            )}
+                                                            Concluir com Foto
+                                                        </button>
+                                                    </>
+                                                )}
+
+                                                {/* Admin side Actions */}
+                                                {currentUser.role === 'admin' && event.status === 'review' && (
+                                                    <div className="flex gap-2 w-full">
+                                                        <button
+                                                            onClick={() => onUpdateEvent(event.id, { status: 'done', completed: true, updatedAt: new Date().toISOString() })}
+                                                            className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
+                                                        >
+                                                            Aprovar
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onUpdateEvent(event.id, { status: 'pending', proofImage: undefined, updatedAt: new Date().toISOString() })}
+                                                            className="flex-1 py-2.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
+                                                        >
+                                                            Rejeitar
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* [NEW] Task Assignee Avatar */}
+                                        {event.assignedTo && (
+                                            <div className="shrink-0 flex items-center justify-center">
+                                                {(() => {
+                                                    const user = users.find(u => u.id === event.assignedTo);
+                                                    return (
+                                                        <div className="w-8 h-8 rounded-full bg-white dark:bg-neutral-800 border border-gray-100 dark:border-white/10 flex items-center justify-center shadow-sm relative overflow-hidden group">
+                                                            {user?.avatar && user.avatar.length > 2 ? (
+                                                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <span className="text-[10px] font-black text-gray-500">{user?.name?.charAt(0) || '?'}</span>
+                                                            )}
+                                                            {/* Tooltip hint on hover (conceptual) */}
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <User size={10} className="text-white" />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         )}
 
-                                        {/* Action Buttons based on Role & Status */}
-                                        <div className="mt-3 flex gap-2">
-                                            {/* Worker side Actions */}
-                                            {currentUser.id === event.assignedTo && !event.completed && event.status !== 'review' && (
-                                                <>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        ref={fileInputRef}
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) handlePhotoSubmit(event.id, file);
-                                                        }}
-                                                    />
-                                                    <button
-                                                        onClick={() => fileInputRef.current?.click()}
-                                                        disabled={processingTaskId === event.id}
-                                                        className="flex-1 py-2.5 bg-agro-green text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-agro-green/20"
-                                                    >
-                                                        {processingTaskId === event.id ? (
-                                                            <Loader2 size={12} className="animate-spin" />
-                                                        ) : (
-                                                            <Plus size={12} />
-                                                        )}
-                                                        Concluir com Foto
-                                                    </button>
-                                                </>
-                                            )}
-
-                                            {/* Admin side Actions */}
-                                            {currentUser.role === 'admin' && event.status === 'review' && (
-                                                <div className="flex gap-2 w-full">
-                                                    <button
-                                                        onClick={() => onUpdateEvent(event.id, { status: 'done', completed: true, updatedAt: new Date().toISOString() })}
-                                                        className="flex-1 py-2.5 bg-emerald-500 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-emerald-500/20"
-                                                    >
-                                                        Aprovar
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onUpdateEvent(event.id, { status: 'pending', proofImage: undefined, updatedAt: new Date().toISOString() })}
-                                                        className="flex-1 py-2.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all"
-                                                    >
-                                                        Rejeitar
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* [NEW] Task Assignee Avatar */}
-                                    {event.assignedTo && (
-                                        <div className="shrink-0 flex items-center justify-center">
-                                            {(() => {
-                                                const user = users.find(u => u.id === event.assignedTo);
-                                                return (
-                                                    <div className="w-8 h-8 rounded-full bg-white dark:bg-neutral-800 border border-gray-100 dark:border-white/10 flex items-center justify-center shadow-sm relative overflow-hidden group">
-                                                        {user?.avatar && user.avatar.length > 2 ? (
-                                                            <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-                                                        ) : (
-                                                            <span className="text-[10px] font-black text-gray-500">{user?.name?.charAt(0) || '?'}</span>
-                                                        )}
-                                                        {/* Tooltip hint on hover (conceptual) */}
-                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                            <User size={10} className="text-white" />
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()}
-                                        </div>
-                                    )}
-
-                                </motion.div>
-                            </div>
-                        );
-                    })}
+                                    </motion.div>
+                                </div>
+                            );
+                        }}
+                    />
                 </div>
 
                 {/* Safe area bottom */}

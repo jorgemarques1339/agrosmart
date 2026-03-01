@@ -22,12 +22,13 @@ import { Dialog, DialogHeader, DialogTitle, DialogClose, DialogContent } from '.
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/Tabs';
 
 import MarketPrices from '../finance/MarketPrices';
-import FarmCopilot from './FarmCopilot';
-import MorningBriefingModal from './MorningBriefingModal';
-import CalendarModal from '../../components/CalendarModal';
-import CheckInModal from '../team/CheckInModal';
-import CollaborativeNetworkModal from './CollaborativeNetworkModal';
-import { DashboardModals } from './components/DashboardModals';
+// Lazy Loaded Modals and Subcomponents
+const FarmCopilot = React.lazy(() => import('./FarmCopilot'));
+const MorningBriefingModal = React.lazy(() => import('./MorningBriefingModal'));
+const CalendarModal = React.lazy(() => import('../../components/CalendarModal'));
+const CheckInModal = React.lazy(() => import('../team/CheckInModal'));
+const CollaborativeNetworkModal = React.lazy(() => import('./CollaborativeNetworkModal'));
+const DashboardModals = React.lazy(() => import('./components/DashboardModals').then(module => ({ default: module.DashboardModals })));
 import { WeatherHero } from './components/WeatherHero';
 import { QuickActions } from './components/QuickActions';
 import { KpiGrid } from './components/KpiGrid';
@@ -560,21 +561,23 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
 
             {/* --- FARM COPILOT (AI INSIGHTS) --- */}
             <div className="mt-3">
-               <FarmCopilot
-                  userName={userName}
-                  weather={weather}
-                  hourlyForecast={hourlyForecast}
-                  tasks={tasks}
-                  users={users}
-                  fields={fields}
-                  stocks={stocks}
-                  machines={machines}
-                  alertCount={alertCount}
-                  onNavigate={onNavigate}
-                  onOpenWeather={() => setIsWeatherModalOpen(true)}
-                  onOpenBriefing={() => setIsBriefingModalOpen(true)}
-                  activeTheme={activeTheme}
-               />
+               <React.Suspense fallback={<div className="h-48 w-full bg-white/5 animate-pulse rounded-2xl mx-3"></div>}>
+                  <FarmCopilot
+                     userName={userName}
+                     weather={weather}
+                     hourlyForecast={hourlyForecast}
+                     tasks={tasks}
+                     users={users}
+                     fields={fields}
+                     stocks={stocks}
+                     machines={machines}
+                     alertCount={alertCount}
+                     onNavigate={onNavigate}
+                     onOpenWeather={() => setIsWeatherModalOpen(true)}
+                     onOpenBriefing={() => setIsBriefingModalOpen(true)}
+                     activeTheme={activeTheme}
+                  />
+               </React.Suspense>
             </div>
 
             <QuickActions
@@ -603,39 +606,41 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
 
 
             {/* --- MODALS CONTROLLER --- */}
-            <DashboardModals
-               isWeatherModalOpen={isWeatherModalOpen}
-               setIsWeatherModalOpen={setIsWeatherModalOpen}
-               weatherTab={weatherTab}
-               setWeatherTab={setWeatherTab}
-               weather={weather}
-               sprayingConditions={sprayingConditions}
-               getWeatherIcon={getWeatherIcon}
-               isMarketModalOpen={isMarketModalOpen}
-               setIsMarketModalOpen={setIsMarketModalOpen}
-               MarketPricesComponent={() => <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />}
-               isWaterModalOpen={isWaterModalOpen}
-               setIsWaterModalOpen={setIsWaterModalOpen}
-               waterConsumptionByCrop={waterConsumptionByCrop}
-               waterConsumption={waterConsumption}
-               isBriefingModalOpen={isBriefingModalOpen}
-               setIsBriefingModalOpen={setIsBriefingModalOpen}
-               MorningBriefingComponent={() => <MorningBriefingModal isOpen={isBriefingModalOpen} onClose={() => setIsBriefingModalOpen(false)} userName={userName} machines={machines} fields={fields} users={users} onNavigate={onNavigate} />}
-               isEnergyModalOpen={isEnergyModalOpen}
-               setIsEnergyModalOpen={setIsEnergyModalOpen}
-               energyInsights={energyInsights}
-               solarForecast={solarForecast}
-               solarEnergy={solarEnergy}
-               isCalendarOpen={isCalendarOpen}
-               setIsCalendarOpen={setIsCalendarOpen}
-               CalendarComponent={() => <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} tasks={tasks} fields={fields} animals={animals} users={users} currentUser={currentUser} onNavigate={onNavigate} onAddTask={onAddTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
-               isCheckInOpen={isCheckInOpen}
-               setIsCheckInOpen={setIsCheckInOpen}
-               CheckInComponent={() => <CheckInModal isOpen={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} fields={fields} activeSession={activeSession} onStartSession={(fId, manual) => { startSession(fId, manual); setIsCheckInOpen(false); }} onEndSession={() => { endSession(); setIsCheckInOpen(false); }} />}
-               isCollaborativeModalOpen={isCollaborativeModalOpen}
-               setIsCollaborativeModalOpen={setIsCollaborativeModalOpen}
-               CollaborativeComponent={() => <CollaborativeNetworkModal isOpen={isCollaborativeModalOpen} onClose={() => setIsCollaborativeModalOpen(false)} />}
-            />
+            <React.Suspense fallback={null}>
+               <DashboardModals
+                  isWeatherModalOpen={isWeatherModalOpen}
+                  setIsWeatherModalOpen={setIsWeatherModalOpen}
+                  weatherTab={weatherTab}
+                  setWeatherTab={setWeatherTab}
+                  weather={weather}
+                  sprayingConditions={sprayingConditions}
+                  getWeatherIcon={getWeatherIcon}
+                  isMarketModalOpen={isMarketModalOpen}
+                  setIsMarketModalOpen={setIsMarketModalOpen}
+                  MarketPricesComponent={() => <MarketPrices onClose={() => setIsMarketModalOpen(false)} stocks={stocks} />}
+                  isWaterModalOpen={isWaterModalOpen}
+                  setIsWaterModalOpen={setIsWaterModalOpen}
+                  waterConsumptionByCrop={waterConsumptionByCrop}
+                  waterConsumption={waterConsumption}
+                  isBriefingModalOpen={isBriefingModalOpen}
+                  setIsBriefingModalOpen={setIsBriefingModalOpen}
+                  MorningBriefingComponent={() => <MorningBriefingModal isOpen={isBriefingModalOpen} onClose={() => setIsBriefingModalOpen(false)} userName={userName} machines={machines} fields={fields} users={users} onNavigate={onNavigate} />}
+                  isEnergyModalOpen={isEnergyModalOpen}
+                  setIsEnergyModalOpen={setIsEnergyModalOpen}
+                  energyInsights={energyInsights}
+                  solarForecast={solarForecast}
+                  solarEnergy={solarEnergy}
+                  isCalendarOpen={isCalendarOpen}
+                  setIsCalendarOpen={setIsCalendarOpen}
+                  CalendarComponent={() => <CalendarModal isOpen={isCalendarOpen} onClose={() => setIsCalendarOpen(false)} tasks={tasks} fields={fields} animals={animals} users={users} currentUser={currentUser} onNavigate={onNavigate} onAddTask={onAddTask} onUpdateTask={updateTask} onDeleteTask={deleteTask} />}
+                  isCheckInOpen={isCheckInOpen}
+                  setIsCheckInOpen={setIsCheckInOpen}
+                  CheckInComponent={() => <CheckInModal isOpen={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} fields={fields} activeSession={activeSession} onStartSession={(fId, manual) => { startSession(fId, manual); setIsCheckInOpen(false); }} onEndSession={() => { endSession(); setIsCheckInOpen(false); }} />}
+                  isCollaborativeModalOpen={isCollaborativeModalOpen}
+                  setIsCollaborativeModalOpen={setIsCollaborativeModalOpen}
+                  CollaborativeComponent={() => <CollaborativeNetworkModal isOpen={isCollaborativeModalOpen} onClose={() => setIsCollaborativeModalOpen(false)} />}
+               />
+            </React.Suspense>
 
             {/* --- FLOATING SESSION INDICATOR --- */}
             <AnimatePresence>
