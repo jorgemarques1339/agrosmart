@@ -114,7 +114,7 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Generic Notification Click
+  // Generic / Smart Notification Click
   if (event.action === 'dismiss') return;
 
   const urlToOpen = notifData.url || '/';
@@ -123,7 +123,7 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url.includes(urlToOpen) && 'focus' in client) {
           return client.focus();
         }
       }
@@ -136,34 +136,103 @@ self.addEventListener('notificationclick', (event) => {
 
 // Local Geofence Notification
 self.addEventListener('message', (event) => {
-  if (!event.data || event.data.type !== 'GEOFENCE_ENTRY') return;
+  if (!event.data) return;
 
-  const { field } = event.data;
-  if (!field) return;
+  // --- 1. GEOFENCE HANDLING ---
+  if (event.data.type === 'GEOFENCE_ENTRY') {
+    const { field } = event.data;
+    if (!field) return;
 
-  console.log('[SW] Geofence entry detected for field:', field.name);
+    console.log('[SW] Geofence entry detected for field:', field.name);
 
-  const options = {
-    body: `Bem-vindo a ${field.name}. Quer iniciar o check-in agora?`,
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
-    image: field.image || undefined,
-    tag: 'geofence-checkin-' + field.id,
-    renotify: false,
-    requireInteraction: true,
-    silent: false,
-    vibrate: [100, 50, 200, 50, 100],
-    data: {
-      fieldId: field.id,
-      url: '/'
-    },
-    actions: [
-      { action: 'checkin', title: '✅ Iniciar Check-in' },
-      { action: 'dismiss', title: '✕ Ignorar' }
-    ]
-  };
+    const options = {
+      body: `Bem-vindo a ${field.name}. Quer iniciar o check-in agora?`,
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      image: field.image || undefined,
+      tag: 'geofence-checkin-' + field.id,
+      renotify: false,
+      requireInteraction: true,
+      silent: false,
+      vibrate: [100, 50, 200, 50, 100],
+      data: {
+        fieldId: field.id,
+        url: '/'
+      },
+      actions: [
+        { action: 'checkin', title: '✅ Iniciar Check-in' },
+        { action: 'dismiss', title: '✕ Ignorar' }
+      ]
+    };
 
-  event.waitUntil(
-    self.registration.showNotification(`📍 ${field.name}`, options)
-  );
+    event.waitUntil(
+      self.registration.showNotification(`📍 ${field.name}`, options)
+    );
+    return;
+  }
+
+  // --- 2. SMART PUSH HANDLING ---
+  if (event.data.type === 'DRONE_ALERT') {
+    const payload = event.data.payload || {};
+    console.log('[SW] Receiving Drone Smart Push', payload);
+
+    const options = {
+      body: payload.body || 'A bateria do drone está a esgotar-se. A aterragem ocorrerá numa zona segura.',
+      icon: '/pwa-192x192.png', // Assuming icon path exists
+      badge: '/pwa-192x192.png',
+      tag: 'smart-drone-alert',
+      requireInteraction: true,
+      vibrate: [500, 200, 500],
+      data: { url: '/mission-control' },
+      actions: [
+        { action: 'open', title: 'Ver Telemetria' },
+        { action: 'dismiss', title: 'OK' }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(payload.title || '⚠️ Alerta de Voo', options)
+    );
+    return;
+  }
+
+  if (event.data.type === 'PEST_ALERT') {
+    const payload = event.data.payload || {};
+    console.log('[SW] Receiving Pest Smart Push', payload);
+
+    const options = {
+      body: payload.body || 'Foi detetado um foco severo da Mosca da Azeitona nos arredores. Recomenda-se tratamento.',
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: 'smart-pest-alert',
+      requireInteraction: true,
+      vibrate: [300, 100, 300, 100, 300],
+      data: { url: '/cultivation/pests' },
+      actions: [
+        { action: 'open', title: 'Abrir Radar' },
+        { action: 'dismiss', title: 'Ignorar' }
+      ]
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(payload.title || '🦟 Alerta de Praga', options)
+    );
+    return;
+  }
+});
+
+// ── PERIODIC BACKGROUND SYNC & WAKEUP ────────────────────────────────────
+
+self.addEventListener('periodicsync', (event) => {
+  console.log('[SW] Periodic Sync event fired:', event.tag);
+  if (event.tag === 'agrosmart-health-check') {
+    // Keep-alive ping logic
+    event.waitUntil(
+      (async () => {
+        // Here we could fetch cloud updates if we had a dedicated API endpoint
+        // For now, it simply wakes the ServiceWorker process, satisfying the OS
+        console.log('[SW] Background Health Check completed.');
+      })()
+    );
+  }
 });

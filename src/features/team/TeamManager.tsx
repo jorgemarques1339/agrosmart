@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { UserProfile } from '../../types';
+import { MicroLabel } from '../../components/ui/MicroLabel';
 import { haptics } from '../../utils/haptics';
 
 interface TeamManagerProps {
@@ -113,7 +114,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
 
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Nome Completo</label>
+                  <MicroLabel as="label" className="text-gray-400 ml-2">Nome Completo</MicroLabel>
                   <input
                     type="text"
                     value={newName}
@@ -124,7 +125,7 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Perfil de Acesso (Role)</label>
+                  <MicroLabel as="label" className="text-gray-400 ml-2">Perfil de Acesso (Role)</MicroLabel>
                   <div className="grid grid-cols-2 gap-2">
                     {(Object.keys(roleConfig) as Array<keyof typeof roleConfig>).map(role => {
                       const config = roleConfig[role];
@@ -158,9 +159,9 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
 
           {/* Members List */}
           <div className="space-y-4">
-            <h4 className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2 flex items-center gap-2">
+            <MicroLabel as="h4" className="text-gray-400 ml-2 flex items-center gap-2">
               <Activity size={12} className="text-emerald-500" /> Membros da Equipa ({users.length})
-            </h4>
+            </MicroLabel>
 
             <div className="grid gap-3">
               {users.map(user => {
@@ -191,9 +192,9 @@ const TeamManager: React.FC<TeamManagerProps> = ({ users, currentUser, onAddUser
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         <div className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
-                        <span className="text-[10px] font-black uppercase text-gray-400 tracking-tighter">
+                        <MicroLabel className="text-gray-400 tracking-tighter">
                           {config.label}
-                        </span>
+                        </MicroLabel>
                       </div>
                     </div>
 

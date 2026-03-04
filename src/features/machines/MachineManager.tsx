@@ -11,6 +11,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
 import { Machine, MaintenanceLog, StockItem, ISOBUSData } from '../../types';
+import { MicroLabel } from '../../components/ui/MicroLabel';
 import { calculateMaintenanceRisk } from '../../utils/machineUtils';
 import ISOBUSBridge from './ISOBUSBridge';
 import { haptics } from '../../utils/haptics';
@@ -126,7 +127,7 @@ const MachineCopilot = ({ machines, onSelect }: { machines: Machine[], onSelect:
     <div className="px-2 md:px-6 mb-8 animate-fade-in-up">
       <div className="flex items-center gap-2 px-1 mb-3">
         <Sparkles size={14} className="text-purple-400 animate-pulse" />
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Machine Maintenance Copilot</h3>
+        <MicroLabel as="h3" className="text-gray-500 dark:text-gray-400">Machine Maintenance Copilot</MicroLabel>
         <div className="h-[1px] flex-1 bg-gradient-to-r from-purple-500/20 to-transparent ml-2"></div>
       </div>
 
@@ -295,7 +296,7 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
             <CheckCircle2 size={24} />
           </div>
           <div>
-            <h4 className="text-[10px] font-black uppercase text-emerald-600 tracking-widest">Sistemas Operacionais</h4>
+            <MicroLabel as="h4" className="text-emerald-600">Sistemas Operacionais</MicroLabel>
             <p className="text-xs font-bold text-gray-500 dark:text-gray-400">Nenhuma anomalia detetada pela IA.</p>
           </div>
         </div>
@@ -304,9 +305,9 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
 
     return (
       <div className="space-y-3">
-        <h4 className="text-[10px] font-black uppercase text-purple-500 tracking-widest flex items-center gap-2 px-1">
+        <MicroLabel as="h4" className="text-purple-500 flex items-center gap-2 px-1">
           <Brain size={14} /> Alertas de Sobrevivência (Preditivos)
-        </h4>
+        </MicroLabel>
         <div className="grid gap-2">
           {health.alerts.map(alert => (
             <div
@@ -328,7 +329,7 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
               </div>
               <div className="flex-1">
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-[10px] font-black uppercase tracking-tighter truncate opacity-70">SISTEMA: {alert.system}</span>
+                  <MicroLabel className="tracking-tighter truncate opacity-70">SISTEMA: {alert.system}</MicroLabel>
                   <span className="text-[10px] font-black bg-white/20 px-2 py-0.5 rounded-full">{alert.probability}% Prob. Falha</span>
                 </div>
                 <p className="text-sm font-black text-gray-900 dark:text-white leading-tight">{alert.message}</p>
@@ -583,20 +584,22 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
 
                 {/* Tab Navigation */}
                 <div className="mt-6 flex border-b border-white/10 relative z-10">
-                  <button
+                  <MicroLabel
+                    as="button"
                     onClick={() => { haptics.light(); setActiveDetailTab('info'); }}
-                    className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all", activeDetailTab === 'info' ? "text-agro-green border-b-2 border-agro-green" : "text-gray-500 opacity-60")}
+                    className={clsx("flex-1 py-3 transition-all", activeDetailTab === 'info' ? "text-agro-green border-b-2 border-agro-green" : "text-gray-500 opacity-60")}
                   >
                     Informação & Logs
-                  </button>
-                  <button
+                  </MicroLabel>
+                  <MicroLabel
+                    as="button"
                     onClick={() => { haptics.light(); setActiveDetailTab('isobus'); }}
-                    className={clsx("flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all", activeDetailTab === 'isobus' ? "text-purple-400 border-b-2 border-purple-400" : "text-gray-500 opacity-60")}
+                    className={clsx("flex-1 py-3 transition-all", activeDetailTab === 'isobus' ? "text-purple-400 border-b-2 border-purple-400" : "text-gray-500 opacity-60")}
                   >
                     <div className="flex items-center justify-center gap-2">
                       <Cpu size={12} /> ISO-BUS
                     </div>
-                  </button>
+                  </MicroLabel>
                 </div>
               </div>
 
@@ -735,7 +738,7 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
                   {logType === 'fuel' && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-2">
-                        <label className="text-[10px] font-black uppercase text-gray-400">Quantidade a Abastecer</label>
+                        <MicroLabel as="label" className="text-gray-400">Quantidade a Abastecer</MicroLabel>
                         <span className={clsx("text-[10px] font-bold uppercase", isFuelInsufficient ? "text-red-500" : "text-emerald-500")}>
                           Disponível em Stock: {fuelStockAvailable}L
                         </span>
@@ -767,7 +770,7 @@ const MachineManager: React.FC<MachineManagerProps> = () => {
 
                   {logType === 'other' && (
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black uppercase text-gray-400 ml-2">Intensidade do Stress (AI Data)</label>
+                      <MicroLabel as="label" className="text-gray-400 ml-2">Intensidade do Stress (AI Data)</MicroLabel>
                       <div className="grid grid-cols-3 gap-2">
                         {['light', 'standard', 'heavy'].map((lvl) => (
                           <button

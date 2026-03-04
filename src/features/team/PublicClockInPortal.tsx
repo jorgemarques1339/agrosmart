@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, User, Phone, CheckCircle2, ShieldCheck, Sprout, PauseCircle, PlayCircle, LogOut } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { MicroLabel } from '../../components/ui/MicroLabel';
 import { haptics } from '../../utils/haptics';
 
 interface TempSession {
@@ -312,7 +313,7 @@ export const PublicClockInPortal: React.FC = () => {
 
                     <form onSubmit={handleClockIn} className="flex-1 flex flex-col justify-center px-8 pb-12 space-y-6">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 ml-1">Nome Completo</label>
+                            <MicroLabel as="label" className="text-emerald-500/60 ml-1">Nome Completo</MicroLabel>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <User size={18} className="text-white/20 group-focus-within:text-emerald-400 transition-colors" />
@@ -329,7 +330,7 @@ export const PublicClockInPortal: React.FC = () => {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 ml-1">Telemóvel</label>
+                            <MicroLabel as="label" className="text-emerald-500/60 ml-1">Telemóvel</MicroLabel>
                             <div className="relative group">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Phone size={18} className="text-white/20 group-focus-within:text-emerald-400 transition-colors" />
@@ -347,9 +348,9 @@ export const PublicClockInPortal: React.FC = () => {
 
                         {/* Cultivo Selector */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-emerald-500/60 ml-1">
+                            <MicroLabel as="label" className="text-emerald-500/60 ml-1">
                                 Cultivo / Campo de Trabalho
-                            </label>
+                            </MicroLabel>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                     <Sprout size={18} className="text-white/20" />

@@ -33,7 +33,16 @@ import { WeatherHero } from './components/WeatherHero';
 import { QuickActions } from './components/QuickActions';
 import { KpiGrid } from './components/KpiGrid';
 import { calculateCarbonFootprint } from '../../utils/carbonCalculator';
+import {
+   calculateSprayingConditions,
+   calculateWaterConsumption,
+   calculateSolarEnergy,
+   calculateSolarForecast,
+   calculateWaterConsumptionByCrop
+} from '../../utils/agronomyCalculations';
 import { useStore } from '../../store/useStore';
+import { geofenceService } from '../../services/geofenceService';
+import { notificationService } from '../../services/notificationService';
 
 interface DashboardHomeProps { }
 
@@ -165,6 +174,17 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
       isDragging.current = false;
    }, [isRefreshing, y]);
 
+   // Estado para Geofencing GPS Activo
+   const [isTrackingActive, setIsTrackingActive] = useState(geofenceService.getIsActive());
+
+   const toggleCopilotTracking = useCallback(() => {
+      if (isTrackingActive) {
+         geofenceService.stopTracking(setIsTrackingActive);
+      } else {
+         geofenceService.startTracking(fields, setIsTrackingActive);
+      }
+   }, [isTrackingActive, fields]);
+
    // Estado para o Modal de Tempo
    const [isWeatherModalOpen, setIsWeatherModalOpen] = useState(false);
    const [weatherTab, setWeatherTab] = useState<'forecast' | 'spraying'>('forecast');
@@ -288,31 +308,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
    };
 
    // Lógica de Pulverização (Baseada nas próximas horas)
-   const sprayingConditions = useMemo(() => {
-      return hourlyForecast.slice(0, 5).map(hour => {
-         const date = new Date(hour.dt * 1000);
-         const time = date.getHours() + ":00";
-
-         let status: 'good' | 'warning' | 'bad' = 'good';
-         let reason = 'Ideal';
-
-         if (hour.rainProb > 50) {
-            status = 'bad';
-            reason = 'Chuva';
-         } else if (hour.windSpeed > 15) {
-            status = 'bad';
-            reason = 'Vento Forte';
-         } else if (hour.temp > 28) {
-            status = 'warning';
-            reason = 'Calor';
-         } else if (hour.windSpeed > 10) {
-            status = 'warning';
-            reason = 'Vento Mod.';
-         }
-
-         return { time, status, reason, ...hour };
-      });
-   }, [hourlyForecast]);
+   const sprayingConditions = useMemo(() => calculateSprayingConditions(hourlyForecast), [hourlyForecast]);
 
    // Carbon Metrics Calculation
    const carbonMetrics = useMemo(() => {
@@ -334,37 +330,11 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
       }
    }, [machines, fields]);
 
-   const waterConsumption = useMemo(() => {
-      // Mock calculation: average consumption per hectare
-      const totalArea = fields.reduce((acc, f) => acc + f.areaHa, 0);
-      return Math.round(totalArea * 4.5); // m3 per day estimate
-   }, [fields]);
+   const waterConsumption = useMemo(() => calculateWaterConsumption(fields), [fields]);
 
-   const solarEnergy = useMemo(() => {
-      if (!currentWeather) return 0;
-      const condition = currentWeather.condition;
-      const production = condition === 'sunny' ? 12.4 : condition === 'cloudy' ? 5.8 : 1.2;
-      return production;
-   }, [currentWeather]);
+   const solarEnergy = useMemo(() => calculateSolarEnergy(currentWeather), [currentWeather]);
 
-   const solarForecast = useMemo(() => {
-      const now = new Date();
-      const currentHour = now.getHours();
-
-      return Array.from({ length: 12 }).map((_, i) => {
-         const hour = (currentHour + i) % 24;
-         // Solar peak around 13:00 - 15:00
-         let factor = 0;
-         if (hour >= 7 && hour <= 19) {
-            factor = Math.sin((hour - 7) * Math.PI / 12);
-         }
-
-         const baseProduction = currentWeather?.condition === 'sunny' ? 15 : currentWeather?.condition === 'cloudy' ? 8 : 2;
-         const production = Number((baseProduction * factor).toFixed(1));
-
-         return { hour: `${hour}:00`, production };
-      });
-   }, [currentWeather]);
+   const solarForecast = useMemo(() => calculateSolarForecast(currentWeather), [currentWeather]);
 
    // ── Tasks assigned to the current user that are still pending ─────────────
    const myPendingTaskCount = useMemo(() =>
@@ -413,33 +383,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
       return insights;
    }, [solarEnergy]);
 
-   const waterConsumptionByCrop = useMemo(() => {
-      const breakdown: Record<string, { area: number, consumption: number }> = {};
-
-      fields.forEach(f => {
-         if (!breakdown[f.crop]) {
-            breakdown[f.crop] = { area: 0, consumption: 0 };
-         }
-         breakdown[f.crop].area += f.areaHa;
-         breakdown[f.crop].consumption += f.areaHa * 4.5;
-      });
-
-      // If no fields, provide example data
-      if (fields.length === 0) {
-         return [
-            { crop: 'Vinha', area: 12.5, consumption: 56.2, isExample: true },
-            { crop: 'Olival', area: 8.2, consumption: 36.9, isExample: true },
-            { crop: 'Milho', area: 5.0, consumption: 22.5, isExample: true }
-         ];
-      }
-
-      return Object.entries(breakdown).map(([crop, data]) => ({
-         crop,
-         area: data.area,
-         consumption: Number((Number(data.consumption) || 0).toFixed(1)),
-         isExample: false
-      })).sort((a, b) => b.consumption - a.consumption);
-   }, [fields]);
+   const waterConsumptionByCrop = useMemo(() => calculateWaterConsumptionByCrop(fields), [fields]);
 
 
    const containerVariants = {
@@ -517,9 +461,13 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
                      <button onClick={() => openModal('omniSearch')} className="p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all" title="Pesquisar">
                         <Search size={16} strokeWidth={2.5} />
                      </button>
-                     <button onClick={onOpenSettings} className="relative p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 transition-all" title={`Sync: ${syncStatus}`}>
-                        <Cloud size={16} className={clsx(syncStatus === 'syncing' && 'text-indigo-500 animate-pulse')} />
-                        {syncStatus === 'offline' && <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-gray-400" />}
+                     <button onClick={toggleCopilotTracking} className={clsx(
+                        "relative p-2 rounded-xl transition-all",
+                        isTrackingActive
+                           ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/30"
+                           : "bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white"
+                     )} title="Modo Terreno (Geofencing GPS)">
+                        <MapPin size={16} strokeWidth={2.5} className={clsx(isTrackingActive ? 'animate-pulse' : '')} />
                      </button>
                      <button onClick={onOpenNotifications} className="relative p-2 rounded-xl bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-600 dark:text-white/70 hover:text-gray-900 dark:hover:text-white transition-all" title="Alertas">
                         <Bell size={16} strokeWidth={2.5} />
@@ -603,7 +551,30 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
                itemVariants={itemVariants}
             />
 
-
+            {/* --- SYSTEM DEBUG / SIMULATIONS --- */}
+            <motion.div variants={itemVariants} className="px-3 sm:px-6">
+               <div className="bg-white/50 dark:bg-black/20 p-4 rounded-3xl border border-gray-200/50 dark:border-white/10 flex flex-col gap-3">
+                  <div className="flex items-center gap-2">
+                     <Zap size={16} className="text-yellow-500" />
+                     <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest">Simuladores de Fundo (Debug)</h3>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                     <button
+                        onClick={() => notificationService.sendSmartPush('DRONE_ALERT', { title: 'Drone D-90 Aterrar', body: 'A bateria atinge nível crítico em 3 min.' })}
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold border border-indigo-100 dark:border-indigo-800 transition-all hover:scale-105 active:scale-95"
+                     >
+                        <Target size={14} /> Simular Drone
+                     </button>
+                     <button
+                        onClick={() => notificationService.sendSmartPush('PEST_ALERT', { title: 'Deteção de Praga', body: 'Mosca da azeitona confirmada a 5km Norte.' })}
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-xl text-xs font-bold border border-red-100 dark:border-red-800 transition-all hover:scale-105 active:scale-95"
+                     >
+                        <Network size={14} /> Simular Mosca
+                     </button>
+                  </div>
+                  <p className="text-[10px] text-gray-500 dark:text-white/40 font-medium">Após clicar, podes minimizar/bloquear o ecrã para testar o fluxo de PWA Nativo.</p>
+               </div>
+            </motion.div>
 
             {/* --- MODALS CONTROLLER --- */}
             <React.Suspense fallback={null}>

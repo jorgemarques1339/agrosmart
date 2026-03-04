@@ -3,6 +3,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Fuel, Gauge, Activity, ArrowDown } from 'lucide-react';
 import { ISOBUSData } from '../../types';
+import { MicroLabel } from '../../components/ui/MicroLabel';
 import clsx from 'clsx';
 
 interface MachineCockpitProps {
@@ -122,28 +123,28 @@ const MachineCockpit: React.FC<MachineCockpitProps> = ({ data }) => {
                 {/* Digital HUD Elements */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 px-2">
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
-                        <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Velocidade</p>
+                        <MicroLabel as="p" className="text-gray-500 mb-1">Velocidade</MicroLabel>
                         <p className="text-3xl font-black font-mono text-white leading-none">
                             {(data.groundSpeed || 0).toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">km/h</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
-                        <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Carga Motor</p>
+                        <MicroLabel as="p" className="text-gray-500 mb-1">Carga Motor</MicroLabel>
                         <p className="text-3xl font-black font-mono text-white leading-none">
                             {(data.engineLoad || 0).toFixed(0)}<span className="text-xs ml-1 opacity-50 italic">%</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
-                        <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Fuel Rate</p>
+                        <MicroLabel as="p" className="text-gray-500 mb-1">Fuel Rate</MicroLabel>
                         <p className="text-3xl font-black font-mono text-white leading-none">
                             {(data.fuelRate || 0).toFixed(1)}<span className="text-xs ml-1 opacity-50 italic">L/h</span>
                         </p>
                     </div>
 
                     <div className="bg-white/5 border border-white/5 p-4 rounded-2xl flex flex-col items-center">
-                        <p className="text-[10px] font-black uppercase text-gray-500 tracking-widest mb-1">Pressão Hidr.</p>
+                        <MicroLabel as="p" className="text-gray-500 mb-1">Pressão Hidr.</MicroLabel>
                         <p className="text-3xl font-black font-mono text-white leading-none">
                             {data.hydraulicPressure || 0}<span className="text-xs ml-1 opacity-50 italic">Bar</span>
                         </p>
@@ -154,7 +155,7 @@ const MachineCockpit: React.FC<MachineCockpitProps> = ({ data }) => {
                 <div className="flex items-center justify-between px-4 py-2 bg-white/5 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2">
                         <Activity size={14} className="text-emerald-400" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Ligação ISO-11783 Estável</span>
+                        <MicroLabel className="text-emerald-400">Ligação ISO-11783 Estável</MicroLabel>
                     </div>
                     <p className="text-[10px] font-mono font-bold text-gray-500 uppercase">
                         PGN: 0xFEF1 (EBC1) • CAN-ID: 18F0E131
