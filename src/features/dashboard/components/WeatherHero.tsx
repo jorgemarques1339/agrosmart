@@ -12,7 +12,7 @@ export interface WeatherHeroProps {
     glareY: any;
     onMouseMove: (e: any) => void;
     onMouseLeave: () => void;
-    setIsWeatherModalOpen: (open: boolean) => void;
+    onOpenWeather: (tab: 'forecast' | 'spraying') => void;
     getWeatherIcon: (condition: string, size: number) => React.ReactNode;
 }
 
@@ -25,7 +25,7 @@ export const WeatherHero: React.FC<WeatherHeroProps> = ({
     glareY,
     onMouseMove,
     onMouseLeave,
-    setIsWeatherModalOpen,
+    onOpenWeather,
     getWeatherIcon
 }) => {
     if (!currentWeather) return null;
@@ -36,7 +36,7 @@ export const WeatherHero: React.FC<WeatherHeroProps> = ({
             initial={{ opacity: 0, y: 30 }}
             transition={{ type: 'spring', stiffness: 280, damping: 22, delay: 0.15 }}
             style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-            onClick={() => setIsWeatherModalOpen(true)}
+            onClick={() => onOpenWeather('forecast')}
             onMouseMove={onMouseMove}
             onMouseLeave={onMouseLeave}
             className="mx-3 rounded-[2rem] h-36 sm:h-48 group cursor-pointer relative overflow-hidden shadow-2xl active:scale-[0.985] transition-transform duration-300"
@@ -84,14 +84,20 @@ export const WeatherHero: React.FC<WeatherHeroProps> = ({
                         </span>
                     </div>
                     <div className="hidden sm:flex gap-3">
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform">
+                        <div
+                            className="flex flex-col items-center gap-1 cursor-pointer group/metric"
+                            onClick={(e) => { e.stopPropagation(); onOpenWeather('spraying'); }}
+                        >
+                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover/metric:-translate-y-1 transition-transform">
                                 <Wind size={16} className="text-white" />
                             </div>
                             <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.windSpeed}km/h</span>
                         </div>
-                        <div className="flex flex-col items-center gap-1">
-                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover:-translate-y-1 transition-transform" style={{ transitionDelay: '50ms' }}>
+                        <div
+                            className="flex flex-col items-center gap-1 cursor-pointer group/metric"
+                            onClick={(e) => { e.stopPropagation(); onOpenWeather('spraying'); }}
+                        >
+                            <div className="w-10 h-10 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20 group-hover/metric:-translate-y-1 transition-transform" style={{ transitionDelay: '50ms' }}>
                                 <Droplets size={16} className="text-cyan-200" />
                             </div>
                             <span className="text-[9px] font-black text-white/60 uppercase tracking-tight">{currentWeather.humidity}%</span>
@@ -107,11 +113,17 @@ export const WeatherHero: React.FC<WeatherHeroProps> = ({
                     </div>
                     {/* Mobile: compact wind+humidity inline */}
                     <div className="flex sm:hidden gap-2">
-                        <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                        <div
+                            className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); onOpenWeather('spraying'); }}
+                        >
                             <Wind size={10} className="text-white/80" />
                             <span className="text-[9px] font-black text-white/70">{currentWeather.windSpeed}km/h</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full">
+                        <div
+                            className="flex items-center gap-1 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-full cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); onOpenWeather('spraying'); }}
+                        >
                             <Droplets size={10} className="text-cyan-200" />
                             <span className="text-[9px] font-black text-white/70">{currentWeather.humidity}%</span>
                         </div>

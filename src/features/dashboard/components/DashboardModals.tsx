@@ -129,8 +129,12 @@ export const DashboardModals: React.FC<DashboardModalsProps> = ({
 
                                 <div className="space-y-3">
                                     {sprayingConditions.length === 0 ? (
-                                        <div className="text-center py-8 opacity-50">
-                                            <p className="text-sm font-bold text-gray-400">Sem dados horários disponíveis.</p>
+                                        <div className="text-center py-12 px-6 bg-gray-50 dark:bg-neutral-900/50 rounded-[2rem] border border-dashed border-gray-200 dark:border-neutral-800">
+                                            <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center mx-auto mb-4">
+                                                <Clock size={20} className="text-gray-400" />
+                                            </div>
+                                            <p className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-1">Sem Dados Disponíveis</p>
+                                            <p className="text-[10px] text-gray-500 font-medium">Lamentamos, mas não foi possível obter a previsão horária para as próximas 24h.</p>
                                         </div>
                                     ) : (
                                         sprayingConditions.map((slot, idx) => (

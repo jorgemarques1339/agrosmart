@@ -212,6 +212,12 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
       return () => setChildModalOpen(false);
    }, [isWeatherModalOpen, isMarketModalOpen, isWaterModalOpen, isBriefingModalOpen, isEnergyModalOpen, isCalendarOpen, isCheckInOpen, isCollaborativeModalOpen, setChildModalOpen]);
 
+   const handleOpenWeatherTab = useCallback((tab: 'forecast' | 'spraying') => {
+      setWeatherTab(tab);
+      setIsWeatherModalOpen(true);
+      haptics.medium();
+   }, []);
+
    // Handle scroll for top bar
    React.useEffect(() => {
       const handleScroll = () => {
@@ -490,7 +496,7 @@ const DashboardHome: React.FC<DashboardHomeProps> = () => {
                glareY={glareY}
                onMouseMove={onMouseMove}
                onMouseLeave={onMouseLeave}
-               setIsWeatherModalOpen={setIsWeatherModalOpen}
+               onOpenWeather={handleOpenWeatherTab}
                getWeatherIcon={getWeatherIcon}
             />
 

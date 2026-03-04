@@ -2,7 +2,8 @@ import { db } from '../services/db';
 import { syncManager } from '../services/SyncManager';
 import {
     Field, StockItem, Animal, Machine, Transaction, Task,
-    UserProfile, Notification, AnimalBatch, FeedItem, ProductBatch
+    UserProfile, Notification, AnimalBatch, FeedItem, ProductBatch,
+    WeatherForecast, DetailedForecast
 } from '../types';
 
 export const hydrateStore = async (set: any, get: any) => {
@@ -110,6 +111,32 @@ export const hydrateStore = async (set: any, get: any) => {
     if (exampleMachine && exampleMachine.isobusData) {
         delete exampleMachine.isobusData;
         await db.machines.update(exampleMachine.id, { isobusData: undefined });
+    }
+
+    // [AUTO-PATCH] Ensure Weather Data exists for demo (Spraying/Forecast)
+    const currentWeatherData = get().weatherData;
+    if (currentWeatherData.length === 0) {
+        const mockWeather: WeatherForecast[] = [
+            { day: 'Hoje', temp: 24, condition: 'sunny', windSpeed: 8, humidity: 45 },
+            { day: 'Amanhã', temp: 22, condition: 'cloudy', windSpeed: 12, humidity: 50 },
+            { day: 'Sexta', temp: 19, condition: 'rain', windSpeed: 20, humidity: 85 },
+            { day: 'Sábado', temp: 21, condition: 'sunny', windSpeed: 10, humidity: 55 },
+            { day: 'Domingo', temp: 23, condition: 'sunny', windSpeed: 5, humidity: 40 },
+        ];
+        set({ weatherData: mockWeather });
+    }
+
+    const currentDetailed = get().detailedForecast;
+    if (currentDetailed.length === 0) {
+        const now = Math.floor(Date.now() / 1000);
+        const mockDetailed: DetailedForecast[] = Array.from({ length: 24 }).map((_, i) => ({
+            dt: now + i * 3600,
+            temp: 20 + Math.sin(i / 4) * 5,
+            windSpeed: 5 + Math.random() * 10,
+            humidity: 40 + Math.random() * 20,
+            rainProb: Math.random() > 0.8 ? 30 : 5
+        }));
+        set({ detailedForecast: mockDetailed });
     }
 
     // --- CLOUD-FIRST INITIALIZATION ---
